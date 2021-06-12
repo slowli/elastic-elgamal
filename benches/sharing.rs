@@ -9,15 +9,6 @@ use rand_core::SeedableRng;
 
 use elgamal_with_sharing::{Edwards, Group, Keypair, ProofOfPossession, Ristretto};
 
-fn get_bench_name(group_name: &str) -> String {
-    let backend = if cfg!(feature = "curve25519-dalek/simd_backend") {
-        "simd_"
-    } else {
-        ""
-    };
-    format!("{}{}", backend, group_name)
-}
-
 fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
     let (poly_secrets, poly): (Vec<_>, Vec<_>) = (0..degree)
@@ -133,11 +124,11 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
 }
 
 fn bench_edwards(criterion: &mut Criterion) {
-    bench_group::<Edwards>(&mut criterion.benchmark_group(get_bench_name("edwards")));
+    bench_group::<Edwards>(&mut criterion.benchmark_group("edwards"));
 }
 
 fn bench_ristretto(criterion: &mut Criterion) {
-    bench_group::<Ristretto>(&mut criterion.benchmark_group(get_bench_name("ristretto")));
+    bench_group::<Ristretto>(&mut criterion.benchmark_group("ristretto"));
 }
 
 criterion_group!(benches, bench_edwards, bench_ristretto);

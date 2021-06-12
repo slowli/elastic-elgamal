@@ -11,15 +11,6 @@ use elgamal_with_sharing::{
 };
 use merlin::Transcript;
 
-fn get_bench_name(group_name: &str) -> String {
-    let backend = if cfg!(feature = "curve25519-dalek/simd_backend") {
-        "simd_"
-    } else {
-        ""
-    };
-    format!("{}{}", backend, group_name)
-}
-
 fn bench_encrypt<G: Group>(b: &mut Bencher) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
@@ -172,11 +163,11 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
 }
 
 fn bench_edwards(criterion: &mut Criterion) {
-    bench_group::<Edwards>(&mut criterion.benchmark_group(get_bench_name("edwards")));
+    bench_group::<Edwards>(&mut criterion.benchmark_group("edwards"));
 }
 
 fn bench_ristretto(criterion: &mut Criterion) {
-    bench_group::<Ristretto>(&mut criterion.benchmark_group(get_bench_name("ristretto")));
+    bench_group::<Ristretto>(&mut criterion.benchmark_group("ristretto"));
 }
 
 fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
@@ -217,11 +208,11 @@ fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
 }
 
 fn bench_edwards_helpers(criterion: &mut Criterion) {
-    bench_helpers::<Edwards>(&mut criterion.benchmark_group(get_bench_name("edwards")));
+    bench_helpers::<Edwards>(&mut criterion.benchmark_group("edwards"));
 }
 
 fn bench_ristretto_helpers(criterion: &mut Criterion) {
-    bench_helpers::<Ristretto>(&mut criterion.benchmark_group(get_bench_name("ristretto")));
+    bench_helpers::<Ristretto>(&mut criterion.benchmark_group("ristretto"));
 }
 
 criterion_group!(
