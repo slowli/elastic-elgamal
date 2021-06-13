@@ -1,20 +1,13 @@
+//! Basic tests.
+
 use rand::{thread_rng, Rng};
-use subtle::ConstantTimeEq;
 
-use std::{collections::HashMap, fmt};
+use std::collections::HashMap;
 
+use crate::assert_ct_eq;
 use elgamal_with_sharing::{
     EncryptedChoice, Encryption, Group, Keypair, LogEqualityProof, RingProof,
 };
-
-fn assert_ct_eq<T: ConstantTimeEq + fmt::Debug>(x: &T, y: &T) {
-    assert!(
-        bool::from(x.ct_eq(y)),
-        "Values are not equal: {:?}, {:?}",
-        x,
-        y
-    );
-}
 
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = thread_rng();

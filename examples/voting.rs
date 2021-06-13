@@ -163,7 +163,7 @@ fn main() {
 
         let variant_tally =
             DecryptionShare::combine(TALLIER_PARAMS, variant_totals, decryption_shares).unwrap();
-        let variant_tally = lookup_table.get(variant_tally).unwrap();
+        let variant_tally = lookup_table.get(&variant_tally).unwrap();
         println!("Variant #{} decrypted tally: {}", i + 1, variant_tally);
         assert_eq!(variant_tally, expected);
         println!("The decrypted number is as expected!");

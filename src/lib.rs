@@ -173,6 +173,7 @@ impl<G: Group> DecryptionLookupTable<G> {
         let zero = G::Scalar::from(0);
         let lookup_table = values
             .into_iter()
+            .filter(|&value| value != 0)
             .map(|i| {
                 let point = G::vartime_double_scalar_mul_basepoint(
                     zero,
@@ -193,12 +194,18 @@ impl<G: Group> DecryptionLookupTable<G> {
         }
     }
 
-    pub fn get(&self, decrypted_point: G::Point) -> Option<u64> {
-        let mut bytes = Vec::with_capacity(G::POINT_SIZE);
-        G::serialize_point(&decrypted_point, &mut bytes);
-        let mut initial_bytes = [0_u8; 8];
-        initial_bytes.copy_from_slice(&bytes[..8]);
-        self.inner.get(&initial_bytes).cloned()
+    pub fn get(&self, decrypted_point: &G::Point) -> Option<u64> {
+        if G::is_identity(decrypted_point) {
+            // The identity point may have a special serialization (e.g., in SEC standard),
+            // so we check it separately.
+            Some(0)
+        } else {
+            let mut bytes = Vec::with_capacity(G::POINT_SIZE);
+            G::serialize_point(decrypted_point, &mut bytes);
+            let mut initial_bytes = [0_u8; 8];
+            initial_bytes.copy_from_slice(&bytes[..8]);
+            self.inner.get(&initial_bytes).copied()
+        }
     }
 }
 

@@ -135,7 +135,7 @@ mod tests {
         let lookup_table = DecryptionLookupTable::<Ristretto>::new(0..=1);
         for (i, &variant) in encrypted_choice.variants_unchecked().iter().enumerate() {
             let decryption = keypair.secret().decrypt(variant);
-            assert_eq!(lookup_table.get(decryption).unwrap(), (i == 3) as u64);
+            assert_eq!(lookup_table.get(&decryption).unwrap(), (i == 3) as u64);
         }
     }
 
