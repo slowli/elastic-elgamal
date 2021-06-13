@@ -11,11 +11,8 @@ use elgamal_with_sharing::{Edwards, Group, Keypair, ProofOfPossession, Ristretto
 
 fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
-    let (poly_secrets, poly): (Vec<_>, Vec<_>) = (0..degree)
-        .map(|_| {
-            let keypair = Keypair::<G>::generate(&mut rng);
-            (keypair.secret().clone(), keypair.public())
-        })
+    let (poly, poly_secrets): (Vec<_>, Vec<_>) = (0..degree)
+        .map(|_| Keypair::<G>::generate(&mut rng).into_tuple())
         .unzip();
 
     b.iter(|| {
@@ -30,11 +27,8 @@ fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
 
 fn bench_proof_of_possession_verification<G: Group>(b: &mut Bencher, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
-    let (poly_secrets, poly): (Vec<_>, Vec<_>) = (0..degree)
-        .map(|_| {
-            let keypair = Keypair::<G>::generate(&mut rng);
-            (keypair.secret().clone(), keypair.public())
-        })
+    let (poly, poly_secrets): (Vec<_>, Vec<_>) = (0..degree)
+        .map(|_| Keypair::<G>::generate(&mut rng).into_tuple())
         .unzip();
 
     b.iter_batched(

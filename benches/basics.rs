@@ -89,7 +89,7 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher, number_of_variants: usiz
 
 fn bench_ring<G: Group>(b: &mut Bencher, chosen_values: Option<[usize; 5]>) {
     let mut rng = ChaChaRng::from_seed([120; 32]);
-    let receiver = Keypair::<G>::generate(&mut rng).public();
+    let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
     let chosen_values = chosen_values.unwrap_or_else(|| {
         let mut values = [0; 5];
         values.iter_mut().for_each(|v| *v = rng.gen_range(0, 4));
@@ -99,13 +99,13 @@ fn bench_ring<G: Group>(b: &mut Bencher, chosen_values: Option<[usize; 5]>) {
 
     let admissible_values = [
         G::Point::identity(),
-        G::BASE_POINT,
-        G::BASE_POINT + G::BASE_POINT,
-        G::BASE_POINT + G::BASE_POINT + G::BASE_POINT,
+        G::base_point(),
+        G::base_point() + G::base_point(),
+        G::base_point() + G::base_point() + G::base_point(),
     ];
     b.iter(|| {
         let mut transcript = Transcript::new(b"bench_ring");
-        let mut builder = RingProofBuilder::new(receiver, &mut transcript, &mut rng);
+        let mut builder = RingProofBuilder::new(&receiver, &mut transcript, &mut rng);
         for &value_index in &chosen_values {
             builder.add_value(&admissible_values, value_index);
         }
@@ -187,7 +187,7 @@ fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
         b.iter(|| {
             G::multiscalar_mul(
                 [response, challenge].iter(),
-                [G::BASE_POINT, point].iter().cloned(),
+                [G::base_point(), point].iter().cloned(),
             )
         })
     });

@@ -12,11 +12,7 @@ use crate::{Encryption, EncryptionWithLog};
 pub(crate) trait TranscriptForGroup {
     fn start_proof(&mut self, proof_label: &'static [u8]);
 
-    fn append_compressed_point<G: Group>(
-        &mut self,
-        label: &'static [u8],
-        point: &G::CompressedPoint,
-    );
+    fn append_point_bytes(&mut self, label: &'static [u8], point_bytes: &[u8]);
 
     fn append_point<G: Group>(&mut self, label: &'static [u8], point: &G::Point);
 
@@ -28,16 +24,14 @@ impl TranscriptForGroup for Transcript {
         self.append_message(b"dom-sep", proof_label);
     }
 
-    fn append_compressed_point<G: Group>(
-        &mut self,
-        label: &'static [u8],
-        point: &G::CompressedPoint,
-    ) {
-        self.append_message(label, &G::serialize_point(point));
+    fn append_point_bytes(&mut self, label: &'static [u8], point_bytes: &[u8]) {
+        self.append_message(label, point_bytes);
     }
 
     fn append_point<G: Group>(&mut self, label: &'static [u8], point: &G::Point) {
-        self.append_compressed_point::<G>(label, &G::compress(point));
+        let mut output = vec![0_u8; G::POINT_SIZE];
+        G::serialize_point(point, &mut output);
+        self.append_point_bytes(label, &output);
     }
 
     fn challenge_scalar<G: Group>(&mut self, label: &'static [u8]) -> G::Scalar {
@@ -73,7 +67,7 @@ impl<G: Group> ProofOfPossession<G> {
     {
         transcript.start_proof(b"multi_pop");
         for public_key in public_keys {
-            transcript.append_compressed_point::<G>(b"K", &public_key.compressed);
+            transcript.append_point_bytes(b"K", &public_key.bytes);
         }
 
         let mut random_scalars: Vec<_> = (0..secrets.len())
@@ -103,7 +97,7 @@ impl<G: Group> ProofOfPossession<G> {
 
         transcript.start_proof(b"multi_pop");
         for public_key in public_keys {
-            transcript.append_compressed_point::<G>(b"K", &public_key.compressed);
+            transcript.append_point_bytes(b"K", &public_key.bytes);
         }
 
         for (public_key, &response) in public_keys.iter().zip(&self.responses) {
@@ -172,7 +166,7 @@ pub const LOG_EQ_PROOF_SIZE: usize = 2 * SECRET_KEY_SIZE;
 
 impl<G: Group> LogEqualityProof<G> {
     pub(crate) fn new<R>(
-        log_base: PublicKey<G>,
+        log_base: &PublicKey<G>,
         powers: (G::Point, G::Point),
         secret: &G::Scalar,
         transcript: &mut Transcript,
@@ -182,7 +176,7 @@ impl<G: Group> LogEqualityProof<G> {
         R: CryptoRng + RngCore,
     {
         transcript.start_proof(b"log_eq");
-        transcript.append_compressed_point::<G>(b"K", &log_base.compressed);
+        transcript.append_point_bytes(b"K", &log_base.bytes);
         transcript.append_point::<G>(b"[x]G", &powers.0);
         transcript.append_point::<G>(b"[x]K", &powers.1);
 
@@ -217,7 +211,7 @@ impl<G: Group> LogEqualityProof<G> {
     /// Verifies this proof against a given encryption and its intended receiver.
     pub(crate) fn verify(
         &self,
-        log_base: PublicKey<G>,
+        log_base: &PublicKey<G>,
         powers: (G::Point, G::Point),
         transcript: &mut Transcript,
     ) -> bool {
@@ -230,7 +224,7 @@ impl<G: Group> LogEqualityProof<G> {
         );
 
         transcript.start_proof(b"log_eq");
-        transcript.append_compressed_point::<G>(b"K", &log_base.compressed);
+        transcript.append_point_bytes(b"K", &log_base.bytes);
         transcript.append_point::<G>(b"[x]G", &powers.0);
         transcript.append_point::<G>(b"[x]K", &powers.1);
         transcript.append_point::<G>(b"[r]G", &commitments.0);
@@ -272,7 +266,7 @@ struct Ring<'a, G: Group> {
 impl<'a, G: Group> Ring<'a, G> {
     fn new<R>(
         index: usize,
-        log_base: PublicKey<G>,
+        log_base: G::Point,
         encryption_with_log: EncryptionWithLog<G>,
         admissible_values: &'a [G::Point],
         value_index: usize,
@@ -295,8 +289,8 @@ impl<'a, G: Group> Ring<'a, G> {
         let blinded_value = encryption_with_log.encryption.blinded_point;
         debug_assert!(
             {
-                let expected_blinded_value = log_base.full * &encryption_with_log.discrete_log.0
-                    + admissible_values[value_index];
+                let expected_blinded_value =
+                    log_base * &encryption_with_log.discrete_log.0 + admissible_values[value_index];
                 expected_blinded_value.ct_eq(&blinded_value).unwrap_u8() == 1
             },
             "Specified encryption does not match the specified `value_index`"
@@ -313,7 +307,7 @@ impl<'a, G: Group> Ring<'a, G> {
         let random_scalar = SecretKey::<G>::generate(rng);
         let mut commitments = (
             G::scalar_mul_basepoint(&random_scalar.0),
-            log_base.full * &random_scalar.0,
+            log_base * &random_scalar.0,
         );
 
         // We create the entire response vector at once to prevent timing attack possibilities.
@@ -334,7 +328,7 @@ impl<'a, G: Group> Ring<'a, G> {
                 G::scalar_mul_basepoint(&response) - random_point * &challenge,
                 G::multiscalar_mul(
                     [response, -challenge].iter(),
-                    [log_base.full, dh_point].iter().cloned(),
+                    [log_base, dh_point].iter().cloned(),
                 ),
             );
         }
@@ -355,7 +349,7 @@ impl<'a, G: Group> Ring<'a, G> {
     /// Completes the ring by calculating the common challenge and closing all rings using it.
     fn aggregate<R>(
         rings: Vec<Self>,
-        log_base: PublicKey<G>,
+        log_base: G::Point,
         transcript: &mut Transcript,
         rng: &mut R,
     ) -> RingProof<G>
@@ -388,7 +382,7 @@ impl<'a, G: Group> Ring<'a, G> {
 
     fn finalize<R>(
         mut self,
-        log_base: PublicKey<G>,
+        log_base: G::Point,
         common_challenge: G::Scalar,
         rng: &mut R,
     ) -> Vec<G::Scalar>
@@ -408,7 +402,7 @@ impl<'a, G: Group> Ring<'a, G> {
                 G::scalar_mul_basepoint(&response) - self.encryption.random_point * &challenge,
                 G::multiscalar_mul(
                     [response, -challenge].iter(),
-                    [log_base.full, dh_point].iter().cloned(),
+                    [log_base, dh_point].iter().cloned(),
                 ),
             );
 
@@ -434,14 +428,14 @@ pub struct RingProof<G: Group> {
 }
 
 impl<G: Group> RingProof<G> {
-    fn initialize_transcript(transcript: &mut Transcript, receiver: PublicKey<G>) {
+    fn initialize_transcript(transcript: &mut Transcript, receiver: &PublicKey<G>) {
         transcript.start_proof(b"multi_ring_enc");
-        transcript.append_compressed_point::<G>(b"K", &receiver.compressed);
+        transcript.append_point_bytes(b"K", &receiver.bytes);
     }
 
     pub(crate) fn verify(
         &self,
-        receiver: PublicKey<G>,
+        receiver: &PublicKey<G>,
         admissible_values: &[&[G::Point]],
         encryptions: &[Encryption<G>],
         transcript: &mut Transcript,
@@ -462,7 +456,7 @@ impl<G: Group> RingProof<G> {
         let mut starting_response = 0;
         for (ring_index, (values, encryption)) in it {
             let mut challenge = self.common_challenge;
-            let mut commitments = (G::BASE_POINT, G::BASE_POINT);
+            let mut commitments = (G::base_point(), G::base_point());
 
             let mut ring_transcript = initial_ring_transcript.clone();
             ring_transcript.start_proof(b"ring_enc");
@@ -548,14 +542,14 @@ impl<G: Group> RingProof<G> {
 /// within admissible ones. This means that if a proof is constructed with interruptions between
 /// method calls, there is a chance for an adversary to perform a timing attack.
 pub struct RingProofBuilder<'a, G: Group, R> {
-    receiver: PublicKey<G>,
+    receiver: &'a PublicKey<G>,
     transcript: &'a mut Transcript,
     rings: Vec<Ring<'a, G>>,
     rng: &'a mut R,
 }
 
 impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
-    pub fn new(receiver: PublicKey<G>, transcript: &'a mut Transcript, rng: &'a mut R) -> Self {
+    pub fn new(receiver: &'a PublicKey<G>, transcript: &'a mut Transcript, rng: &'a mut R) -> Self {
         RingProof::<G>::initialize_transcript(transcript, receiver);
         Self {
             receiver,
@@ -574,7 +568,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
             EncryptionWithLog::new(admissible_values[value_index], self.receiver, self.rng);
         let ring = Ring::new(
             self.rings.len(),
-            self.receiver,
+            self.receiver.full,
             encryption_with_log.clone(),
             admissible_values,
             value_index,
@@ -586,7 +580,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
     }
 
     pub fn build(self) -> RingProof<G> {
-        Ring::aggregate(self.rings, self.receiver, self.transcript, self.rng)
+        Ring::aggregate(self.rings, self.receiver.full, self.transcript, self.rng)
     }
 }
 
@@ -611,7 +605,7 @@ mod tests {
         let (poly_secrets, poly): (Vec<_>, Vec<_>) = (0..5)
             .map(|_| {
                 let keypair = Keypair::generate(&mut rng);
-                (keypair.secret().clone(), keypair.public())
+                (keypair.secret().clone(), keypair.public().clone())
             })
             .unzip();
 
@@ -652,7 +646,7 @@ mod tests {
     fn single_ring_with_2_elements_works() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let admissible_values = [EdwardsPoint::identity(), Edwards::BASE_POINT];
+        let admissible_values = [EdwardsPoint::identity(), Edwards::base_point()];
 
         let value = EdwardsPoint::identity();
         let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
@@ -663,14 +657,14 @@ mod tests {
 
         let ring = Ring::new(
             0,
-            keypair.public(),
+            keypair.public().full,
             encryption_with_log,
             &admissible_values,
             0,
             &transcript,
             &mut rng,
         );
-        let proof = Ring::aggregate(vec![ring], keypair.public(), &mut transcript, &mut rng);
+        let proof = Ring::aggregate(vec![ring], keypair.public().full, &mut transcript, &mut rng);
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         assert!(proof.verify(
@@ -681,7 +675,7 @@ mod tests {
         ));
 
         // Check a proof for the encryption of 1.
-        let value = Edwards::BASE_POINT;
+        let value = Edwards::base_point();
         let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
         let encryption = encryption_with_log.encryption;
 
@@ -689,14 +683,14 @@ mod tests {
         RingProof::initialize_transcript(&mut transcript, keypair.public());
         let ring = Ring::new(
             0,
-            keypair.public(),
+            keypair.public().full,
             encryption_with_log,
             &admissible_values,
             1,
             &transcript,
             &mut rng,
         );
-        let proof = Ring::aggregate(vec![ring], keypair.public(), &mut transcript, &mut rng);
+        let proof = Ring::aggregate(vec![ring], keypair.public().full, &mut transcript, &mut rng);
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         assert!(proof.verify(
@@ -727,14 +721,15 @@ mod tests {
 
             let ring = Ring::new(
                 0,
-                keypair.public(),
+                keypair.public().full,
                 encryption_with_log,
                 &admissible_values,
                 val as usize,
                 &transcript,
                 &mut rng,
             );
-            let proof = Ring::aggregate(vec![ring], keypair.public(), &mut transcript, &mut rng);
+            let proof =
+                Ring::aggregate(vec![ring], keypair.public().full, &mut transcript, &mut rng);
 
             let mut transcript = Transcript::new(b"test_ring_encryption");
             assert!(proof.verify(
@@ -750,7 +745,7 @@ mod tests {
     fn multiple_rings_with_boolean_flags_work() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let admissible_values = [EdwardsPoint::identity(), Edwards::BASE_POINT];
+        let admissible_values = [EdwardsPoint::identity(), Edwards::base_point()];
 
         const RING_COUNT: usize = 5;
 
@@ -768,7 +763,7 @@ mod tests {
 
                     let ring = Ring::new(
                         ring_index,
-                        keypair.public(),
+                        keypair.public().full,
                         encryption_with_log,
                         &admissible_values,
                         val as usize,
@@ -780,7 +775,7 @@ mod tests {
                 })
                 .unzip();
 
-            let proof = Ring::aggregate(rings, keypair.public(), &mut transcript, &mut rng);
+            let proof = Ring::aggregate(rings, keypair.public().full, &mut transcript, &mut rng);
 
             let mut transcript = Transcript::new(b"test_ring_encryption");
             assert!(proof.verify(
@@ -833,7 +828,7 @@ mod tests {
 
                     let ring = Ring::new(
                         ring_index,
-                        keypair.public(),
+                        keypair.public().full,
                         encryption_with_log,
                         &admissible_values[ring_index],
                         val_index,
@@ -845,7 +840,7 @@ mod tests {
                 })
                 .unzip();
 
-            let proof = Ring::aggregate(rings, keypair.public(), &mut transcript, &mut rng);
+            let proof = Ring::aggregate(rings, keypair.public().full, &mut transcript, &mut rng);
             let admissible_values: Vec<_> = admissible_values
                 .iter()
                 .map(|values| values as &[_])
@@ -866,7 +861,7 @@ mod tests {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let mut transcript = Transcript::new(b"test_ring_encryption");
-        let admissible_values = [EdwardsPoint::identity(), Edwards::BASE_POINT];
+        let admissible_values = [EdwardsPoint::identity(), Edwards::base_point()];
 
         let mut builder = RingProofBuilder::new(keypair.public(), &mut transcript, &mut rng);
         let encryptions: Vec<_> = (0..5)

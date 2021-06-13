@@ -24,13 +24,13 @@ const TALLIER_PARAMS: Params = Params {
 fn dump_group_info<G: Group>(info: &PublicKeySet<G>) {
     println!(
         "Shared public key: {}",
-        hex::encode(info.shared_key().to_bytes())
+        hex::encode(info.shared_key().as_bytes())
     );
     for (i, key) in info.participant_keys().iter().enumerate() {
         println!(
             "Participant #{} key: {}",
             i + 1,
-            hex::encode(key.to_bytes())
+            hex::encode(key.as_bytes())
         );
     }
 }
@@ -148,13 +148,14 @@ fn main() {
                     "Share from tallier #{}: {:#?}",
                     j + 1,
                     HashMap::<_, _>::from_iter(vec![
-                        ("decryption", hex::encode(share)),
+                        ("decryption", hex::encode(&share)),
                         ("proof", hex::encode(&proof.to_bytes()[..])),
                     ])
                 );
 
+                let candidate_share = CandidateShare::from_bytes(&share).unwrap();
                 let share = key_set
-                    .verify_share(CandidateShare::from_bytes(share), variant_totals, j, &proof)
+                    .verify_share(candidate_share, variant_totals, j, &proof)
                     .unwrap();
                 (j, share)
             })

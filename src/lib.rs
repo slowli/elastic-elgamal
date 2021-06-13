@@ -28,13 +28,11 @@ pub struct Encryption<G: Group> {
     blinded_point: G::Point,
 }
 
-pub const ENCRYPTION_SIZE: usize = PUBLIC_KEY_SIZE * 2;
-
 impl<G: Group> Encryption<G> {
     /// Encrypts a value given as an EC point for the specified `receiver`.
     pub fn new<R: CryptoRng + RngCore>(
         value: G::Point,
-        receiver: PublicKey<G>,
+        receiver: &PublicKey<G>,
         rng: &mut R,
     ) -> Self {
         EncryptionWithLog::new(value, receiver, rng).encryption
@@ -49,17 +47,15 @@ impl<G: Group> Encryption<G> {
 
     /// Serializes this encryption as two compressed EC points (the random point,
     /// then the blinded value).
-    pub fn to_bytes(self) -> [u8; ENCRYPTION_SIZE] {
-        let mut bytes = [0_u8; ENCRYPTION_SIZE];
-        let point_bytes = G::serialize_point(&G::compress(&self.random_point));
-        bytes[..PUBLIC_KEY_SIZE].copy_from_slice(&point_bytes);
-        let point_bytes = G::serialize_point(&G::compress(&self.blinded_point));
-        bytes[PUBLIC_KEY_SIZE..].copy_from_slice(&point_bytes);
+    pub fn to_bytes(self) -> Vec<u8> {
+        let mut bytes = vec![0; 2 * G::POINT_SIZE];
+        G::serialize_point(&self.random_point, &mut bytes[..G::POINT_SIZE]);
+        G::serialize_point(&self.blinded_point, &mut bytes[G::POINT_SIZE..]);
         bytes
     }
 
     /// Encrypts zero value and provides a zero-knowledge proof of encryption correctness.
-    pub fn encrypt_zero<R>(receiver: PublicKey<G>, rng: &mut R) -> (Self, LogEqualityProof<G>)
+    pub fn encrypt_zero<R>(receiver: &PublicKey<G>, rng: &mut R) -> (Self, LogEqualityProof<G>)
     where
         R: CryptoRng + RngCore,
     {
@@ -83,7 +79,7 @@ impl<G: Group> Encryption<G> {
     }
 
     /// Verifies that this is an encryption of a zero value.
-    pub fn verify_zero(&self, receiver: PublicKey<G>, proof: &LogEqualityProof<G>) -> bool {
+    pub fn verify_zero(&self, receiver: &PublicKey<G>, proof: &LogEqualityProof<G>) -> bool {
         proof.verify(
             receiver,
             (self.random_point, self.blinded_point),
@@ -93,19 +89,23 @@ impl<G: Group> Encryption<G> {
 
     /// Encrypts a boolean value (0 or 1) and provides a zero-knowledge proof of encryption
     /// correctness.
-    pub fn encrypt_bool<R>(value: bool, receiver: PublicKey<G>, rng: &mut R) -> (Self, RingProof<G>)
+    pub fn encrypt_bool<R>(
+        value: bool,
+        receiver: &PublicKey<G>,
+        rng: &mut R,
+    ) -> (Self, RingProof<G>)
     where
         R: CryptoRng + RngCore,
     {
         let mut transcript = Transcript::new(b"bool_encryption");
-        let admissible_values = [G::Point::identity(), G::BASE_POINT];
-        let mut builder = RingProofBuilder::new(receiver, &mut transcript, rng);
+        let admissible_values = [G::Point::identity(), G::base_point()];
+        let mut builder = RingProofBuilder::new(&receiver, &mut transcript, rng);
         let encryption = builder.add_value(&admissible_values, value as usize);
         (encryption.unwrap(), builder.build())
     }
 
-    pub fn verify_bool(&self, receiver: PublicKey<G>, proof: &RingProof<G>) -> bool {
-        let admissible_values = [G::Point::identity(), G::BASE_POINT];
+    pub fn verify_bool(&self, receiver: &PublicKey<G>, proof: &RingProof<G>) -> bool {
+        let admissible_values = [G::Point::identity(), G::base_point()];
         proof.verify(
             receiver,
             &[&admissible_values],
@@ -178,9 +178,13 @@ impl<G: Group> DecryptionLookupTable<G> {
         let lookup_table = values
             .into_iter()
             .map(|i| {
-                let point =
-                    G::vartime_double_scalar_mul_basepoint(zero, G::BASE_POINT, G::Scalar::from(i));
-                let bytes = G::serialize_point(&G::compress(&point));
+                let point = G::vartime_double_scalar_mul_basepoint(
+                    zero,
+                    G::base_point(),
+                    G::Scalar::from(i),
+                );
+                let mut bytes = vec![0_u8; G::POINT_SIZE];
+                G::serialize_point(&point, &mut bytes);
                 let mut initial_bytes = [0_u8; 8];
                 initial_bytes.copy_from_slice(&bytes[..8]);
                 (initial_bytes, i)
@@ -194,9 +198,10 @@ impl<G: Group> DecryptionLookupTable<G> {
     }
 
     pub fn get(&self, decrypted_point: G::Point) -> Option<u64> {
-        let point = G::compress(&decrypted_point);
+        let mut bytes = vec![0_u8; G::POINT_SIZE];
+        G::serialize_point(&decrypted_point, &mut bytes);
         let mut initial_bytes = [0_u8; 8];
-        initial_bytes.copy_from_slice(&G::serialize_point(&point)[..8]);
+        initial_bytes.copy_from_slice(&bytes[..8]);
         self.inner.get(&initial_bytes).cloned()
     }
 }
@@ -210,7 +215,7 @@ pub struct EncryptionWithLog<G: Group> {
 impl<G: Group> EncryptionWithLog<G> {
     pub fn new<R: CryptoRng + RngCore>(
         value: G::Point,
-        receiver: PublicKey<G>,
+        receiver: &PublicKey<G>,
         rng: &mut R,
     ) -> Self {
         let random_scalar = SecretKey::<G>::generate(rng);
@@ -244,7 +249,7 @@ impl<G: Group> EncryptedChoice<G> {
     pub fn new<R>(
         number_of_variants: usize,
         choice: usize,
-        receiver: PublicKey<G>,
+        receiver: &PublicKey<G>,
         rng: &mut R,
     ) -> Self
     where
@@ -253,7 +258,7 @@ impl<G: Group> EncryptedChoice<G> {
         assert!(number_of_variants > 0);
         assert!(choice < number_of_variants);
 
-        let admissible_values = [G::Point::identity(), G::BASE_POINT];
+        let admissible_values = [G::Point::identity(), G::base_point()];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");
         let mut proof_builder = RingProofBuilder::new(receiver, &mut transcript, rng);
 
@@ -273,7 +278,7 @@ impl<G: Group> EncryptedChoice<G> {
             receiver,
             (
                 sum_encryption.random_point,
-                sum_encryption.blinded_point - G::BASE_POINT,
+                sum_encryption.blinded_point - G::base_point(),
             ),
             &sum_log.0,
             &mut Transcript::new(b"choice_encryption_sum"),
@@ -306,7 +311,7 @@ impl<G: Group> EncryptedChoice<G> {
         &self.sum_proof
     }
 
-    pub fn verify(&self, receiver: PublicKey<G>) -> Option<&[Encryption<G>]> {
+    pub fn verify(&self, receiver: &PublicKey<G>) -> Option<&[Encryption<G>]> {
         // Some sanity checks.
         if self.len() == 0 || self.range_proofs.total_rings_size() != 2 * self.variants.len() {
             return None;
@@ -319,7 +324,7 @@ impl<G: Group> EncryptedChoice<G> {
 
         let powers = (
             sum_encryption.random_point,
-            sum_encryption.blinded_point - G::BASE_POINT,
+            sum_encryption.blinded_point - G::base_point(),
         );
         if !self.sum_proof.verify(
             receiver,
@@ -329,7 +334,7 @@ impl<G: Group> EncryptedChoice<G> {
             return None;
         }
 
-        let admissible_values = [G::Point::identity(), G::BASE_POINT];
+        let admissible_values = [G::Point::identity(), G::base_point()];
         let admissible_values = vec![&admissible_values as &[_]; self.variants.len()];
         if self.range_proofs.verify(
             receiver,
@@ -437,7 +442,7 @@ mod tests {
             Encryption::encrypt_bool(true, keypair.public(), &mut rng);
         assert_eq!(
             keypair.secret().decrypt(other_encryption),
-            Edwards::BASE_POINT
+            Edwards::base_point()
         );
         assert!(other_encryption.verify_bool(keypair.public(), &other_proof));
 
@@ -449,7 +454,7 @@ mod tests {
         let combined_encryption = encryption + other_encryption;
         assert_eq!(
             keypair.secret().decrypt(combined_encryption),
-            Edwards::BASE_POINT
+            Edwards::base_point()
         );
         assert!(!combined_encryption.verify_bool(keypair.public(), &proof));
     }
@@ -486,7 +491,7 @@ mod tests {
         assert_eq!(choice.variants.len(), 5);
         for (i, &variant) in choice.variants.iter().enumerate() {
             let expected_plaintext = if i == 2 {
-                Edwards::BASE_POINT
+                Edwards::base_point()
             } else {
                 EdwardsPoint::identity()
             };

@@ -24,7 +24,7 @@ pub trait ScalarOps {
         + ops::Sub<Output = Self::Scalar>
         + ops::Mul<Output = Self::Scalar>
         + ConditionallySelectable
-        + ::std::fmt::Debug;
+        + fmt::Debug;
 
     /// Generates a random scalar based on the provided CSPRNG.
     fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar;
@@ -62,24 +62,16 @@ pub trait PointOps: ScalarOps {
         + ConditionallySelectable
         + ConstantTimeEq;
 
-    /// Compressed presentation of a `Point`.
-    type CompressedPoint: Copy + Eq + ::std::fmt::Debug;
+    const POINT_SIZE: usize;
 
-    /// Agreed-upon generator of the group aka basepoint.
-    const BASE_POINT: Self::Point;
-
-    /// Converts a point to the compressed presentation.
-    fn compress(point: &Self::Point) -> Self::CompressedPoint;
+    /// Returns the agreed-upon generator of the group aka basepoint.
+    fn base_point() -> Self::Point;
 
     /// Serializes a point into a byte buffer.
-    fn serialize_point(point: &Self::CompressedPoint) -> [u8; PUBLIC_KEY_SIZE];
+    fn serialize_point(point: &Self::Point, output: &mut [u8]);
 
     /// Deserializes a point from the byte buffer.
-    fn deserialize_point(bytes: [u8; PUBLIC_KEY_SIZE]) -> Self::CompressedPoint;
-
-    /// Decompresses the given compressed point into a full one. This operation may fail
-    /// if compression does not correspond to a point in this group.
-    fn decompress(compressed: &Self::CompressedPoint) -> Option<Self::Point>;
+    fn deserialize_point(input: &[u8]) -> Option<Self::Point>;
 }
 
 /// Prime-order group that can be used in ElGamal encryption and related applications.
@@ -98,7 +90,7 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
     /// Multiplies the provided scalar by `BASE_POINT`. This operation needs
     /// to be constant-time.
     fn scalar_mul_basepoint(k: &Self::Scalar) -> Self::Point {
-        Self::BASE_POINT * k
+        Self::base_point() * k
     }
 
     fn multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
@@ -120,7 +112,7 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
         k_point: Self::Point,
         r: Self::Scalar,
     ) -> Self::Point {
-        k_point * &k + Self::BASE_POINT * &r
+        k_point * &k + Self::base_point() * &r
     }
 
     fn vartime_multiscalar_mul<I, J>(scalars: I, points: J) -> Self::Point
@@ -136,6 +128,7 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
     }
 }
 
+// TODO: zeroize?
 #[derive(Debug)]
 pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
 
@@ -201,28 +194,24 @@ impl<'a, G: Group> ops::Mul<G::Scalar> for &'a SecretKey<G> {
 /// in most digital signature implementations) and its decompression into a group element.
 /// This increases the memory footprint, but speeds up arithmetic on the keys.
 pub struct PublicKey<G: Group> {
-    pub(crate) compressed: G::CompressedPoint,
+    pub(crate) bytes: Vec<u8>,
     pub(crate) full: G::Point,
 }
 
 impl<G: Group> Clone for PublicKey<G> {
     fn clone(&self) -> Self {
         PublicKey {
-            compressed: self.compressed,
+            bytes: self.bytes.clone(),
             full: self.full,
         }
     }
 }
 
-impl<G> fmt::Debug for PublicKey<G>
-where
-    G: Group,
-    <G as PointOps>::CompressedPoint: fmt::Debug,
-{
+impl<G: Group> fmt::Debug for PublicKey<G> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
             .debug_tuple("PublicKey")
-            .field(&self.compressed)
+            .field(&hex::encode(&self.bytes))
             .finish()
     }
 }
@@ -230,45 +219,42 @@ where
 impl<G> PartialEq for PublicKey<G>
 where
     G: Group,
-    <G as PointOps>::CompressedPoint: PartialEq,
 {
     fn eq(&self, other: &Self) -> bool {
-        self.compressed == other.compressed
+        self.bytes == other.bytes
     }
 }
 
-impl<G: Group> Copy for PublicKey<G> {}
-
 impl<G: Group> PublicKey<G> {
-    pub fn from_bytes(bytes: [u8; PUBLIC_KEY_SIZE]) -> Option<Self> {
-        let compressed = G::deserialize_point(bytes);
-        G::decompress(&compressed)
-            .filter(|point| !point.is_identity())
-            .map(|full| PublicKey { compressed, full })
-    }
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != G::POINT_SIZE {
+            return None;
+        }
 
-    pub(crate) fn new(full: G::Point, compressed: G::CompressedPoint) -> Self {
-        debug_assert!(G::compress(&full) == compressed);
-        PublicKey { compressed, full }
+        G::deserialize_point(bytes)
+            .filter(|point| !point.is_identity())
+            .map(|full| PublicKey {
+                bytes: bytes.to_vec(),
+                full,
+            })
     }
 
     pub(crate) fn from_point(full: G::Point) -> Self {
+        let mut point_bytes = vec![0_u8; G::POINT_SIZE];
+        G::serialize_point(&full, &mut point_bytes);
         PublicKey {
             full,
-            compressed: G::compress(&full),
+            bytes: point_bytes,
         }
     }
 
     pub fn from_secret(secret: &SecretKey<G>) -> Self {
-        let point = G::BASE_POINT * &secret.0;
-        PublicKey {
-            compressed: G::compress(&point),
-            full: point,
-        }
+        let point = G::base_point() * &secret.0;
+        Self::from_point(point)
     }
 
-    pub fn to_bytes(self) -> [u8; PUBLIC_KEY_SIZE] {
-        G::serialize_point(&self.compressed)
+    pub fn as_bytes(&self) -> &[u8] {
+        &self.bytes
     }
 }
 
@@ -277,10 +263,7 @@ impl<G: Group> ops::Add<Self> for PublicKey<G> {
 
     fn add(self, rhs: Self) -> Self {
         let point = self.full + rhs.full;
-        PublicKey {
-            compressed: G::compress(&point),
-            full: point,
-        }
+        Self::from_point(point)
     }
 }
 
@@ -289,10 +272,7 @@ impl<G: Group> ops::Mul<G::Scalar> for PublicKey<G> {
 
     fn mul(self, k: G::Scalar) -> Self {
         let point = self.full * &k;
-        PublicKey {
-            compressed: G::compress(&point),
-            full: point,
-        }
+        Self::from_point(point)
     }
 }
 
@@ -305,7 +285,7 @@ impl<G: Group> Clone for Keypair<G> {
     fn clone(&self) -> Self {
         Keypair {
             secret: self.secret.clone(),
-            public: self.public,
+            public: self.public.clone(),
         }
     }
 }
@@ -330,8 +310,8 @@ impl<G: Group> Keypair<G> {
         SecretKey::from_bytes(bytes).map(Self::from_secret)
     }
 
-    pub fn public(&self) -> PublicKey<G> {
-        self.public
+    pub fn public(&self) -> &PublicKey<G> {
+        &self.public
     }
 
     pub fn secret(&self) -> &SecretKey<G> {

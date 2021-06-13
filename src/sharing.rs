@@ -103,10 +103,10 @@ use subtle::ConstantTimeEq;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
+    slice,
 };
 
 use crate::{
-    group::PUBLIC_KEY_SIZE,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
     Encryption, Group, Keypair, PublicKey, SecretKey,
 };
@@ -260,7 +260,7 @@ impl<G: Group> PartialPublicKeySet<G> {
     pub fn add_participant(
         &mut self,
         index: usize,
-        polynomial: Vec<G::CompressedPoint>,
+        polynomial: Vec<G::Point>,
         proof_of_possession: &ProofOfPossession<G>,
     ) -> Result<(), Error> {
         assert!(index < self.params.shares);
@@ -271,9 +271,8 @@ impl<G: Group> PartialPublicKeySet<G> {
         }
 
         let mut public_keys = Vec::with_capacity(self.params.threshold);
-        for point in &polynomial {
-            let full_point = G::decompress(point).ok_or(Error::MalformedParticipantPolynomial)?;
-            let public_key = PublicKey::new(full_point, *point);
+        for point in polynomial {
+            let public_key = PublicKey::from_point(point);
             public_keys.push(public_key);
         }
 
@@ -338,8 +337,8 @@ impl<G: Group> PublicKeySet<G> {
         self.params
     }
 
-    pub fn shared_key(&self) -> PublicKey<G> {
-        self.shared_key
+    pub fn shared_key(&self) -> &PublicKey<G> {
+        &self.shared_key
     }
 
     pub fn participant_key(&self, index: usize) -> Option<PublicKey<G>> {
@@ -353,7 +352,7 @@ impl<G: Group> PublicKeySet<G> {
     fn commit(&self, transcript: &mut Transcript) {
         transcript.append_u64(b"n", self.params.shares as u64);
         transcript.append_u64(b"t", self.params.threshold as u64);
-        transcript.append_compressed_point::<G>(b"K", &self.shared_key.compressed);
+        transcript.append_point_bytes(b"K", &self.shared_key.bytes);
     }
 
     pub fn verify_participant(&self, index: usize, proof: &ProofOfPossession<G>) -> bool {
@@ -371,13 +370,13 @@ impl<G: Group> PublicKeySet<G> {
         proof: &LogEqualityProof<G>,
     ) -> Option<DecryptionShare<G>> {
         let key_share = self.participant_keys[index].full;
-        let dh_point = G::decompress(&candidate_share.dh_point)?;
+        let dh_point = candidate_share.inner.dh_point;
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.commit(&mut transcript);
         transcript.append_u64(b"i", index as u64);
 
         let is_valid = proof.verify(
-            PublicKey::from_point(encryption.random_point),
+            &PublicKey::from_point(encryption.random_point),
             (key_share, dh_point),
             &mut transcript,
         );
@@ -394,7 +393,7 @@ pub struct StartingParticipant<G: Group> {
     params: Params,
     index: usize,
     secrets: Vec<SecretKey<G>>,
-    public_points: Vec<G::CompressedPoint>,
+    public_points: Vec<G::Point>,
     proof_of_possession: ProofOfPossession<G>,
 }
 
@@ -405,7 +404,7 @@ impl<G: Group> StartingParticipant<G> {
     {
         assert!(index < params.shares);
 
-        let (public_points, secrets): (Vec<_>, Vec<_>) = (0..params.threshold)
+        let (public_keys, secrets): (Vec<_>, Vec<_>) = (0..params.threshold)
             .map(|_| {
                 let keypair = Keypair::<G>::generate(rng);
                 keypair.into_tuple()
@@ -418,21 +417,18 @@ impl<G: Group> StartingParticipant<G> {
         transcript.append_u64(b"i", index as u64);
 
         let proof_of_possession =
-            ProofOfPossession::new(&secrets, &public_points, &mut transcript, rng);
+            ProofOfPossession::new(&secrets, &public_keys, &mut transcript, rng);
 
         Self {
             params,
             index,
             secrets,
-            public_points: public_points
-                .into_iter()
-                .map(|key| key.compressed)
-                .collect(),
+            public_points: public_keys.into_iter().map(|key| key.full).collect(),
             proof_of_possession,
         }
     }
 
-    pub fn public_info(&self) -> (Vec<G::CompressedPoint>, ProofOfPossession<G>) {
+    pub fn public_info(&self) -> (Vec<G::Point>, ProofOfPossession<G>) {
         (self.public_points.clone(), self.proof_of_possession.clone())
     }
 
@@ -570,8 +566,8 @@ impl<G: Group> ActiveParticipant<G> {
         &self.secret_share
     }
 
-    pub fn public_key_share(&self) -> PublicKey<G> {
-        self.key_set.participant_keys[self.index]
+    pub fn public_key_share(&self) -> &PublicKey<G> {
+        &self.key_set.participant_keys[self.index]
     }
 
     pub fn proof_of_possession<R: CryptoRng + RngCore>(&self, rng: &mut R) -> ProofOfPossession<G> {
@@ -580,7 +576,7 @@ impl<G: Group> ActiveParticipant<G> {
         transcript.append_u64(b"i", self.index as u64);
         ProofOfPossession::new(
             &[self.secret_share.clone()],
-            &[self.public_key_share()],
+            slice::from_ref(self.public_key_share()),
             &mut transcript,
             rng,
         )
@@ -601,7 +597,7 @@ impl<G: Group> ActiveParticipant<G> {
         transcript.append_u64(b"i", self.index as u64);
 
         let proof = LogEqualityProof::new(
-            PublicKey::from_point(encryption.random_point),
+            &PublicKey::from_point(encryption.random_point),
             (our_public_key, dh_point),
             &self.secret_share.0,
             &mut transcript,
@@ -638,26 +634,27 @@ impl<G: Group> DecryptionShare<G> {
         Some(encryption.blinded_point - dh_point)
     }
 
-    pub fn to_candidate(&self) -> CandidateShare<G> {
-        CandidateShare {
-            dh_point: G::compress(&self.dh_point),
-        }
-    }
-
-    pub fn to_bytes(self) -> [u8; PUBLIC_KEY_SIZE] {
-        G::serialize_point(&G::compress(&self.dh_point))
+    pub fn to_bytes(self) -> Vec<u8> {
+        let mut bytes = vec![0_u8; G::POINT_SIZE];
+        G::serialize_point(&self.dh_point, &mut bytes);
+        bytes
     }
 }
 
 #[derive(Clone, Copy)]
 pub struct CandidateShare<G: Group> {
-    dh_point: G::CompressedPoint,
+    inner: DecryptionShare<G>,
 }
 
 impl<G: Group> CandidateShare<G> {
-    pub fn from_bytes(bytes: [u8; PUBLIC_KEY_SIZE]) -> Self {
-        Self {
-            dh_point: G::deserialize_point(bytes),
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() == G::POINT_SIZE {
+            let dh_point = G::deserialize_point(bytes)?;
+            Some(Self {
+                inner: DecryptionShare { dh_point },
+            })
+        } else {
+            None
         }
     }
 }
@@ -670,6 +667,12 @@ mod tests {
     use super::*;
     use crate::{DecryptionLookupTable, Edwards, EncryptedChoice};
 
+    impl<G: Group> DecryptionShare<G> {
+        fn to_candidate(self) -> CandidateShare<G> {
+            CandidateShare { inner: self }
+        }
+    }
+
     #[test]
     fn shared_1_of_2_key() {
         //! 1-of-N share schemes are a bit weird: all participants obtain the same secret
@@ -681,13 +684,13 @@ mod tests {
         let (alice_poly, alice_proof) = alice.public_info();
         assert_eq!(
             alice_poly,
-            vec![Edwards::scalar_mul_basepoint(&alice.secrets[0].0).compress()]
+            vec![Edwards::scalar_mul_basepoint(&alice.secrets[0].0)]
         );
         let bob: StartingParticipant<Edwards> = StartingParticipant::new(params, 1, &mut rng);
         let (bob_poly, bob_proof) = bob.public_info();
         assert_eq!(
             bob_poly,
-            vec![Edwards::scalar_mul_basepoint(&bob.secrets[0].0).compress()]
+            vec![Edwards::scalar_mul_basepoint(&bob.secrets[0].0)]
         );
 
         let mut group_info = PartialPublicKeySet::new(params);
@@ -720,7 +723,7 @@ mod tests {
         );
 
         let message = Edwards::scalar_mul_basepoint(&Scalar25519::from(5_u32));
-        let encryption = Encryption::new(message, group_info.shared_key, &mut rng);
+        let encryption = Encryption::new(message, &group_info.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         let alice_share = group_info
             .verify_share(alice_share.to_candidate(), encryption, 0, &proof)
@@ -805,7 +808,7 @@ mod tests {
         assert!(!key_set.verify_participant(1, &alice.proof_of_possession(&mut rng)));
 
         let message = Edwards::scalar_mul_basepoint(&Scalar25519::from(15_u32));
-        let encryption = Encryption::new(message, key_set.shared_key, &mut rng);
+        let encryption = Encryption::new(message, &key_set.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         assert!(key_set
             .verify_share(alice_share.to_candidate(), encryption, 0, &proof,)
@@ -925,7 +928,7 @@ mod tests {
         let rig: Rig<Edwards> = Rig::new(params, &mut rng);
         for _ in 0..20 {
             let value = Edwards::scalar_mul_basepoint(&Scalar25519::random(&mut rng));
-            let encrypted = Encryption::new(value, rig.info.shared_key, &mut rng);
+            let encrypted = Encryption::new(value, &rig.info.shared_key, &mut rng);
             let shares = rig.decryption_shares(encrypted, &mut rng);
             for _ in 0..5 {
                 let chosen_shares = shares
@@ -1013,7 +1016,7 @@ mod tests {
         let mut rng = thread_rng();
         let params = Params::new(10, 7);
         let rig = Rig::<Edwards>::new(params, &mut rng);
-        let shared_key = rig.info.shared_key;
+        let shared_key = &rig.info.shared_key;
 
         let mut expected_totals = [0; CHOICE_COUNT];
         let mut encrypted_totals = [Encryption::zero(); CHOICE_COUNT];

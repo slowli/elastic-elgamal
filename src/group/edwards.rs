@@ -6,7 +6,7 @@ use curve25519_dalek::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-use crate::group::{Group, PointOps, ScalarOps, PUBLIC_KEY_SIZE, SECRET_KEY_SIZE};
+use crate::group::{Group, PointOps, ScalarOps, SECRET_KEY_SIZE};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Edwards {}
@@ -41,24 +41,19 @@ impl ScalarOps for Edwards {
 
 impl PointOps for Edwards {
     type Point = EdwardsPoint;
-    type CompressedPoint = CompressedEdwardsY;
 
-    const BASE_POINT: EdwardsPoint = ED25519_BASEPOINT_POINT;
+    const POINT_SIZE: usize = 32;
 
-    fn compress(point: &Self::Point) -> Self::CompressedPoint {
-        point.compress()
+    fn base_point() -> Self::Point {
+        ED25519_BASEPOINT_POINT
     }
 
-    fn serialize_point(point: &Self::CompressedPoint) -> [u8; PUBLIC_KEY_SIZE] {
-        point.to_bytes()
+    fn serialize_point(point: &Self::Point, output: &mut [u8]) {
+        output.copy_from_slice(&point.compress().to_bytes())
     }
 
-    fn deserialize_point(bytes: [u8; 32]) -> Self::CompressedPoint {
-        CompressedEdwardsY::from_slice(&bytes)
-    }
-
-    fn decompress(compressed: &Self::CompressedPoint) -> Option<Self::Point> {
-        compressed
+    fn deserialize_point(input: &[u8]) -> Option<Self::Point> {
+        CompressedEdwardsY::from_slice(input)
             .decompress()
             .filter(EdwardsPoint::is_torsion_free)
     }
@@ -112,7 +107,7 @@ mod tests {
             point += EIGHT_TORSION[1];
             assert!(!point.is_torsion_free());
             let bytes = point.compress().to_bytes();
-            assert!(PublicKey::from_bytes(bytes).is_none());
+            assert!(PublicKey::from_bytes(&bytes).is_none());
         }
     }
 
@@ -122,7 +117,7 @@ mod tests {
         for point in &EIGHT_TORSION {
             assert_eq!(point * small_order, EdwardsPoint::identity());
             let bytes = point.compress().to_bytes();
-            assert!(PublicKey::from_bytes(bytes).is_none());
+            assert!(PublicKey::from_bytes(&bytes).is_none());
         }
     }
 }

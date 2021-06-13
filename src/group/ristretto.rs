@@ -6,7 +6,7 @@ use curve25519_dalek::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-use crate::group::{Group, PointOps, ScalarOps, PUBLIC_KEY_SIZE, SECRET_KEY_SIZE};
+use crate::group::{Group, PointOps, ScalarOps, SECRET_KEY_SIZE};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Ristretto {}
@@ -41,24 +41,19 @@ impl ScalarOps for Ristretto {
 
 impl PointOps for Ristretto {
     type Point = RistrettoPoint;
-    type CompressedPoint = CompressedRistretto;
 
-    const BASE_POINT: RistrettoPoint = RISTRETTO_BASEPOINT_POINT;
+    const POINT_SIZE: usize = 32;
 
-    fn compress(point: &Self::Point) -> Self::CompressedPoint {
-        point.compress()
+    fn base_point() -> Self::Point {
+        RISTRETTO_BASEPOINT_POINT
     }
 
-    fn serialize_point(compressed: &Self::CompressedPoint) -> [u8; PUBLIC_KEY_SIZE] {
-        compressed.to_bytes()
+    fn serialize_point(point: &Self::Point, output: &mut [u8]) {
+        output.copy_from_slice(&point.compress().to_bytes());
     }
 
-    fn deserialize_point(bytes: [u8; PUBLIC_KEY_SIZE]) -> Self::CompressedPoint {
-        CompressedRistretto(bytes)
-    }
-
-    fn decompress(compressed: &Self::CompressedPoint) -> Option<Self::Point> {
-        compressed.decompress()
+    fn deserialize_point(input: &[u8]) -> Option<Self::Point> {
+        CompressedRistretto::from_slice(input).decompress()
     }
 }
 
@@ -135,7 +130,7 @@ mod tests {
             let secret_key = SecretKey::generate(&mut thread_rng());
             let keypair = Keypair::from_secret(secret_key.clone());
             let ed_keypair = EdKeypair::from_bytes(keypair.to_bytes()).unwrap();
-            assert_ne!(keypair.public().to_bytes(), ed_keypair.public().to_bytes());
+            assert_ne!(keypair.public().as_bytes(), ed_keypair.public().as_bytes());
         }
     }
 }
