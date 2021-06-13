@@ -9,8 +9,10 @@ mod group;
 mod proofs;
 pub mod sharing;
 
-pub use crate::group::{Edwards, Group, Keypair, PublicKey, Ristretto, SecretKey};
-pub use crate::proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder};
+pub use crate::{
+    group::{Edwards, Generic, Group, Keypair, PublicKey, Ristretto, SecretKey},
+    proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder},
+};
 
 /// ElGamal ciphertext.
 ///

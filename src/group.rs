@@ -5,8 +5,9 @@ use subtle::{ConditionallySelectable, ConstantTimeEq};
 use std::{fmt, io, ops};
 
 mod edwards;
+mod generic;
 mod ristretto;
-pub use self::{edwards::Edwards, ristretto::Ristretto};
+pub use self::{edwards::Edwards, generic::Generic, ristretto::Ristretto};
 
 /// Helper trait for `Group` that describes operations on group scalars.
 pub trait ScalarOps {
@@ -63,7 +64,8 @@ pub trait PointOps: ScalarOps {
         + ops::Sub<Output = Self::Point>
         + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Point>
         + ConditionallySelectable
-        + ConstantTimeEq;
+        + ConstantTimeEq
+        + fmt::Debug;
 
     /// Byte size of serialized point.
     const POINT_SIZE: usize;
