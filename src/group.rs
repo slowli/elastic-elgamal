@@ -1,15 +1,12 @@
-use rand_core::{CryptoRng, RngCore};
+use rand_chacha::ChaChaRng;
+use rand_core::{CryptoRng, RngCore, SeedableRng};
 use subtle::{ConditionallySelectable, ConstantTimeEq};
 
-use std::{fmt, ops};
+use std::{fmt, io, ops};
 
 mod edwards;
 mod ristretto;
 pub use self::{edwards::Edwards, ristretto::Ristretto};
-
-pub const SECRET_KEY_SIZE: usize = 32;
-pub const PUBLIC_KEY_SIZE: usize = 32;
-pub const HASH_SIZE: usize = 64;
 
 /// Helper trait for `Group` that describes operations on group scalars.
 pub trait ScalarOps {
@@ -25,10 +22,19 @@ pub trait ScalarOps {
         + ConditionallySelectable
         + fmt::Debug;
 
+    const SCALAR_SIZE: usize;
+
     /// Generates a random scalar based on the provided CSPRNG.
     fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar;
 
-    fn scalar_from_random_bytes(bytes: [u8; 2 * SECRET_KEY_SIZE]) -> Self::Scalar;
+    fn scalar_from_random_bytes<R: io::Read>(mut source: R) -> Self::Scalar {
+        let mut rng_seed = <ChaChaRng as SeedableRng>::Seed::default();
+        source
+            .read_exact(&mut rng_seed)
+            .expect("cannot read random bytes from source");
+        let mut rng = ChaChaRng::from_seed(rng_seed);
+        Self::generate_scalar(&mut rng)
+    }
 
     /// Inverts the scalar. If the scalar is zero, the method should panic.
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
@@ -41,11 +47,11 @@ pub trait ScalarOps {
     }
 
     /// Serializes the scalar into a byte buffer.
-    fn serialize_scalar(scalar: &Self::Scalar) -> [u8; SECRET_KEY_SIZE];
+    fn serialize_scalar(scalar: &Self::Scalar, output: &mut Vec<u8>);
 
     /// Deserializes the scalar from the byte buffer. This method returns `None` if the buffer
     /// does not correspond to a representation of a valid scalar.
-    fn deserialize_scalar(bytes: [u8; SECRET_KEY_SIZE]) -> Option<Self::Scalar>;
+    fn deserialize_scalar(bytes: &[u8]) -> Option<Self::Scalar>;
 }
 
 /// Helper trait for `Group` that describes operations on group elements (i.e., EC points).
@@ -59,6 +65,7 @@ pub trait PointOps: ScalarOps {
         + ConditionallySelectable
         + ConstantTimeEq;
 
+    /// Byte size of serialized point.
     const POINT_SIZE: usize;
 
     /// Returns an identity point (aka point in infinity).
@@ -71,9 +78,10 @@ pub trait PointOps: ScalarOps {
     fn base_point() -> Self::Point;
 
     /// Serializes a point into a byte buffer.
-    fn serialize_point(point: &Self::Point, output: &mut [u8]);
+    fn serialize_point(point: &Self::Point, output: &mut Vec<u8>);
 
-    /// Deserializes a point from the byte buffer.
+    /// Deserializes a point from the byte buffer, which is guaranteed to have length
+    /// [`Self::BYTE_SIZE`].
     fn deserialize_point(input: &[u8]) -> Option<Self::Point>;
 }
 
@@ -150,12 +158,8 @@ impl<G: Group> SecretKey<G> {
         SecretKey(G::generate_scalar(rng))
     }
 
-    pub fn from_bytes(bytes: [u8; SECRET_KEY_SIZE]) -> Option<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         G::deserialize_scalar(bytes).map(SecretKey)
-    }
-
-    pub fn to_bytes(&self) -> [u8; SECRET_KEY_SIZE] {
-        G::serialize_scalar(&self.0)
     }
 }
 
@@ -243,7 +247,7 @@ impl<G: Group> PublicKey<G> {
     }
 
     pub(crate) fn from_point(full: G::Point) -> Self {
-        let mut point_bytes = vec![0_u8; G::POINT_SIZE];
+        let mut point_bytes = Vec::with_capacity(G::POINT_SIZE);
         G::serialize_point(&full, &mut point_bytes);
         PublicKey {
             full,
@@ -309,10 +313,6 @@ impl<G: Group> Keypair<G> {
         }
     }
 
-    pub fn from_bytes(bytes: [u8; SECRET_KEY_SIZE]) -> Option<Self> {
-        SecretKey::from_bytes(bytes).map(Self::from_secret)
-    }
-
     pub fn public(&self) -> &PublicKey<G> {
         &self.public
     }
@@ -323,10 +323,6 @@ impl<G: Group> Keypair<G> {
 
     pub fn into_tuple(self) -> (PublicKey<G>, SecretKey<G>) {
         (self.public, self.secret)
-    }
-
-    pub fn to_bytes(&self) -> [u8; SECRET_KEY_SIZE] {
-        self.secret.to_bytes()
     }
 }
 

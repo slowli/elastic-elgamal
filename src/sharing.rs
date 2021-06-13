@@ -634,7 +634,7 @@ impl<G: Group> DecryptionShare<G> {
     }
 
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = vec![0_u8; G::POINT_SIZE];
+        let mut bytes = Vec::with_capacity(G::POINT_SIZE);
         G::serialize_point(&self.dh_point, &mut bytes);
         bytes
     }
@@ -664,7 +664,7 @@ mod tests {
     use rand::{seq::IteratorRandom, thread_rng, Rng};
 
     use super::*;
-    use crate::{DecryptionLookupTable, Edwards, EncryptedChoice};
+    use crate::{group::ScalarOps, DecryptionLookupTable, Edwards, EncryptedChoice};
 
     impl<G: Group> DecryptionShare<G> {
         fn to_candidate(self) -> CandidateShare<G> {
@@ -926,7 +926,7 @@ mod tests {
         let mut rng = thread_rng();
         let rig: Rig<Edwards> = Rig::new(params, &mut rng);
         for _ in 0..20 {
-            let value = Edwards::scalar_mul_basepoint(&Scalar25519::random(&mut rng));
+            let value = Edwards::scalar_mul_basepoint(&Edwards::generate_scalar(&mut rng));
             let encrypted = Encryption::new(value, &rig.info.shared_key, &mut rng);
             let shares = rig.decryption_shares(encrypted, &mut rng);
             for _ in 0..5 {
@@ -1021,7 +1021,7 @@ mod tests {
         let mut encrypted_totals = [Encryption::zero(); CHOICE_COUNT];
 
         for _ in 0..VOTES {
-            let choice = rng.gen_range(0, CHOICE_COUNT);
+            let choice = rng.gen_range(0..CHOICE_COUNT);
             expected_totals[choice] += 1;
             let choice = EncryptedChoice::new(CHOICE_COUNT, choice, shared_key, &mut rng);
             assert!(choice.verify(shared_key).is_some());

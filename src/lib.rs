@@ -9,13 +9,8 @@ mod group;
 mod proofs;
 pub mod sharing;
 
-pub use crate::group::{
-    Edwards, Group, Keypair, PublicKey, Ristretto, SecretKey, HASH_SIZE, PUBLIC_KEY_SIZE,
-    SECRET_KEY_SIZE,
-};
-pub use crate::proofs::{
-    LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder, LOG_EQ_PROOF_SIZE,
-};
+pub use crate::group::{Edwards, Group, Keypair, PublicKey, Ristretto, SecretKey};
+pub use crate::proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder};
 
 /// ElGamal ciphertext.
 ///
@@ -47,9 +42,9 @@ impl<G: Group> Encryption<G> {
     /// Serializes this encryption as two compressed EC points (the random point,
     /// then the blinded value).
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = vec![0; 2 * G::POINT_SIZE];
-        G::serialize_point(&self.random_point, &mut bytes[..G::POINT_SIZE]);
-        G::serialize_point(&self.blinded_point, &mut bytes[G::POINT_SIZE..]);
+        let mut bytes = Vec::with_capacity(2 * G::POINT_SIZE);
+        G::serialize_point(&self.random_point, &mut bytes);
+        G::serialize_point(&self.blinded_point, &mut bytes);
         bytes
     }
 
@@ -182,7 +177,7 @@ impl<G: Group> DecryptionLookupTable<G> {
                     G::base_point(),
                     G::Scalar::from(i),
                 );
-                let mut bytes = vec![0_u8; G::POINT_SIZE];
+                let mut bytes = Vec::with_capacity(G::POINT_SIZE);
                 G::serialize_point(&point, &mut bytes);
                 let mut initial_bytes = [0_u8; 8];
                 initial_bytes.copy_from_slice(&bytes[..8]);
@@ -197,7 +192,7 @@ impl<G: Group> DecryptionLookupTable<G> {
     }
 
     pub fn get(&self, decrypted_point: G::Point) -> Option<u64> {
-        let mut bytes = vec![0_u8; G::POINT_SIZE];
+        let mut bytes = Vec::with_capacity(G::POINT_SIZE);
         G::serialize_point(&decrypted_point, &mut bytes);
         let mut initial_bytes = [0_u8; 8];
         initial_bytes.copy_from_slice(&bytes[..8]);
@@ -353,11 +348,9 @@ mod tests {
     use curve25519_dalek::scalar::Scalar as Scalar25519;
     use rand::{thread_rng, Rng};
 
-    use std::collections::HashMap;
-
     use super::*;
     use crate::{
-        group::{self, PointOps},
+        group::{self, PointOps, ScalarOps},
         Edwards,
     };
 
@@ -417,10 +410,8 @@ mod tests {
             encryptions.insert(bytes.to_vec(), zero_encryption);
         }
         assert_eq!(encryptions.len(), 100);
-        for (byte_vec, encryption) in encryptions {
-            let mut bytes = [0_u8; LOG_EQ_PROOF_SIZE];
-            bytes.copy_from_slice(&byte_vec);
-            let proof = LogEqualityProof::from_bytes(bytes).unwrap();
+        for (bytes, encryption) in encryptions {
+            let proof = LogEqualityProof::from_slice(&bytes).unwrap();
             assert!(encryption.verify_zero(keypair.public(), &proof));
         }
     }
@@ -457,7 +448,7 @@ mod tests {
 
     #[test]
     fn bool_proof_serialization() {
-        const BOOL_ENC_PROOF_SIZE: usize = 3 * SECRET_KEY_SIZE;
+        const BOOL_ENC_PROOF_SIZE: usize = 3 * Edwards::SCALAR_SIZE;
 
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);

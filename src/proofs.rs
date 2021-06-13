@@ -5,8 +5,12 @@ use rand_core::{CryptoRng, RngCore};
 use smallvec::{smallvec, SmallVec};
 use subtle::ConstantTimeEq;
 
-use crate::group::{Group, PublicKey, SecretKey, SECRET_KEY_SIZE};
-use crate::{Encryption, EncryptionWithLog};
+use std::io;
+
+use crate::{
+    group::{Group, PublicKey, SecretKey},
+    Encryption, EncryptionWithLog,
+};
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
 pub(crate) trait TranscriptForGroup {
@@ -29,15 +33,28 @@ impl TranscriptForGroup for Transcript {
     }
 
     fn append_point<G: Group>(&mut self, label: &'static [u8], point: &G::Point) {
-        let mut output = vec![0_u8; G::POINT_SIZE];
+        let mut output = Vec::with_capacity(G::POINT_SIZE);
         G::serialize_point(point, &mut output);
         self.append_point_bytes(label, &output);
     }
 
     fn challenge_scalar<G: Group>(&mut self, label: &'static [u8]) -> G::Scalar {
-        let mut buf = [0_u8; 64];
-        self.challenge_bytes(label, &mut buf);
-        G::scalar_from_random_bytes(buf)
+        struct TranscriptReader<'a> {
+            transcript: &'a mut Transcript,
+            label: &'static [u8],
+        }
+
+        impl io::Read for TranscriptReader<'_> {
+            fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
+                self.transcript.challenge_bytes(self.label, buffer);
+                Ok(buffer.len())
+            }
+        }
+
+        G::scalar_from_random_bytes(TranscriptReader {
+            transcript: self,
+            label,
+        })
     }
 }
 
@@ -161,9 +178,6 @@ pub struct LogEqualityProof<G: Group> {
     response: G::Scalar,
 }
 
-/// Size of a serialized `LogEqualityProof` (64 bytes).
-pub const LOG_EQ_PROOF_SIZE: usize = 2 * SECRET_KEY_SIZE;
-
 impl<G: Group> LogEqualityProof<G> {
     pub(crate) fn new<R>(
         log_base: &PublicKey<G>,
@@ -194,14 +208,13 @@ impl<G: Group> LogEqualityProof<G> {
 
     /// Attempts to parse the proof from `bytes`. Parsing will fail if the proof components
     /// (specifically, the response scalar `s`) do not have the canonical form.
-    pub fn from_bytes(bytes: [u8; LOG_EQ_PROOF_SIZE]) -> Option<Self> {
-        let mut challenge_bytes = [0_u8; SECRET_KEY_SIZE];
-        challenge_bytes.copy_from_slice(&bytes[..SECRET_KEY_SIZE]);
-        let challenge = G::deserialize_scalar(challenge_bytes)?;
-        let mut response_bytes = [0_u8; SECRET_KEY_SIZE];
-        response_bytes.copy_from_slice(&bytes[SECRET_KEY_SIZE..]);
-        let response = G::deserialize_scalar(response_bytes)?;
+    pub fn from_slice(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != 2 * G::SCALAR_SIZE {
+            return None;
+        }
 
+        let challenge = G::deserialize_scalar(&bytes[..G::SCALAR_SIZE])?;
+        let response = G::deserialize_scalar(&bytes[G::SCALAR_SIZE..])?;
         Some(Self {
             challenge,
             response,
@@ -234,12 +247,10 @@ impl<G: Group> LogEqualityProof<G> {
     }
 
     /// Serializes this proof into bytes.
-    pub fn to_bytes(&self) -> [u8; LOG_EQ_PROOF_SIZE] {
-        let mut bytes = [0_u8; LOG_EQ_PROOF_SIZE];
-        let challenge_bytes = G::serialize_scalar(&self.challenge);
-        bytes[..SECRET_KEY_SIZE].copy_from_slice(&challenge_bytes);
-        let response_bytes = G::serialize_scalar(&self.response);
-        bytes[SECRET_KEY_SIZE..].copy_from_slice(&response_bytes);
+    pub fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::with_capacity(2 * G::SCALAR_SIZE);
+        G::serialize_scalar(&self.challenge, &mut bytes);
+        G::serialize_scalar(&self.response, &mut bytes);
         bytes
     }
 }
@@ -505,28 +516,24 @@ impl<G: Group> RingProof<G> {
     }
 
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(SECRET_KEY_SIZE * (1 + self.total_rings_size()));
-        bytes.extend_from_slice(&G::serialize_scalar(&self.common_challenge));
+        let mut bytes = Vec::with_capacity(G::SCALAR_SIZE * (1 + self.total_rings_size()));
+        G::serialize_scalar(&self.common_challenge, &mut bytes);
+
         for response in &self.ring_responses {
-            bytes.extend_from_slice(&G::serialize_scalar(response));
+            G::serialize_scalar(response, &mut bytes);
         }
         bytes
     }
 
     pub fn from_slice(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() % SECRET_KEY_SIZE != 0 || bytes.len() < 3 * SECRET_KEY_SIZE {
+        if bytes.len() % G::SCALAR_SIZE != 0 || bytes.len() < 3 * G::SCALAR_SIZE {
             return None;
         }
-        let mut scalar_bytes = [0_u8; SECRET_KEY_SIZE];
-        scalar_bytes.copy_from_slice(&bytes[..SECRET_KEY_SIZE]);
-        let common_challenge = G::deserialize_scalar(scalar_bytes)?;
+        let common_challenge = G::deserialize_scalar(&bytes[..G::SCALAR_SIZE])?;
 
-        let ring_responses: Option<Vec<_>> = bytes[SECRET_KEY_SIZE..]
-            .chunks(SECRET_KEY_SIZE)
-            .map(|scalar_slice| {
-                scalar_bytes.copy_from_slice(&scalar_slice);
-                G::deserialize_scalar(scalar_bytes)
-            })
+        let ring_responses: Option<Vec<_>> = bytes[G::SCALAR_SIZE..]
+            .chunks(G::SCALAR_SIZE)
+            .map(G::deserialize_scalar)
             .collect();
         let ring_responses = ring_responses?;
         debug_assert!(ring_responses.len() >= 2);
@@ -710,7 +717,7 @@ mod tests {
             .collect();
 
         for _ in 0..100 {
-            let val: u32 = rng.gen_range(0, 4);
+            let val: u32 = rng.gen_range(0..4);
             let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
             let encryption_with_log =
                 EncryptionWithLog::new(value_point, keypair.public(), &mut rng);

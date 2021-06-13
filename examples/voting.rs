@@ -89,7 +89,7 @@ fn main() {
     let mut expected_totals = [0; OPTIONS_COUNT];
     let mut encrypted_totals = [Encryption::zero(); OPTIONS_COUNT];
     for i in 0..VOTES {
-        let choice = rng.gen_range(0, OPTIONS_COUNT);
+        let choice = rng.gen_range(0..OPTIONS_COUNT);
         println!("\nVoter #{} making choice #{}", i + 1, choice + 1);
         expected_totals[choice] += 1;
         let choice = EncryptedChoice::new(OPTIONS_COUNT, choice, key_set.shared_key(), &mut rng);

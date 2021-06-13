@@ -6,7 +6,9 @@ use curve25519_dalek::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-use crate::group::{Group, PointOps, ScalarOps, SECRET_KEY_SIZE};
+use std::{convert::TryInto, io::Read};
+
+use crate::group::{Group, PointOps, ScalarOps};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Ristretto {}
@@ -14,12 +16,18 @@ pub enum Ristretto {}
 impl ScalarOps for Ristretto {
     type Scalar = Scalar;
 
+    const SCALAR_SIZE: usize = 32;
+
     fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar {
-        Scalar::random(rng)
+        let mut scalar_bytes = [0_u8; 64];
+        rng.fill_bytes(&mut scalar_bytes[..]);
+        Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 
-    fn scalar_from_random_bytes(bytes: [u8; 2 * SECRET_KEY_SIZE]) -> Self::Scalar {
-        Scalar::from_bytes_mod_order_wide(&bytes)
+    fn scalar_from_random_bytes<R: Read>(mut source: R) -> Self::Scalar {
+        let mut scalar_bytes = [0_u8; 64];
+        source.read_exact(&mut scalar_bytes).unwrap();
+        Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar {
@@ -30,12 +38,13 @@ impl ScalarOps for Ristretto {
         Scalar::batch_invert(scalars);
     }
 
-    fn serialize_scalar(scalar: &Self::Scalar) -> [u8; SECRET_KEY_SIZE] {
-        scalar.to_bytes()
+    fn serialize_scalar(scalar: &Self::Scalar, output: &mut Vec<u8>) {
+        output.extend_from_slice(&scalar.to_bytes())
     }
 
-    fn deserialize_scalar(bytes: [u8; SECRET_KEY_SIZE]) -> Option<Self::Scalar> {
-        Scalar::from_canonical_bytes(bytes)
+    fn deserialize_scalar(bytes: &[u8]) -> Option<Self::Scalar> {
+        let bytes: &[u8; 32] = bytes.try_into().expect("input has incorrect byte size");
+        Scalar::from_canonical_bytes(*bytes)
     }
 }
 
@@ -56,8 +65,8 @@ impl PointOps for Ristretto {
         RISTRETTO_BASEPOINT_POINT
     }
 
-    fn serialize_point(point: &Self::Point, output: &mut [u8]) {
-        output.copy_from_slice(&point.compress().to_bytes());
+    fn serialize_point(point: &Self::Point, output: &mut Vec<u8>) {
+        output.extend_from_slice(&point.compress().to_bytes());
     }
 
     fn deserialize_point(input: &[u8]) -> Option<Self::Point> {
@@ -109,7 +118,7 @@ mod tests {
     fn encrypt_and_decrypt() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let value = Ristretto::scalar_mul_basepoint(&Scalar::random(&mut rng));
+        let value = Ristretto::scalar_mul_basepoint(&Ristretto::generate_scalar(&mut rng));
         let encrypted = Encryption::new(value, keypair.public(), &mut rng);
         let decryption = keypair.secret().decrypt(encrypted);
         assert_eq!(decryption, value);
@@ -137,7 +146,7 @@ mod tests {
         for _ in 0..1_000 {
             let secret_key = SecretKey::generate(&mut thread_rng());
             let keypair = Keypair::from_secret(secret_key.clone());
-            let ed_keypair = EdKeypair::from_bytes(keypair.to_bytes()).unwrap();
+            let ed_keypair = EdKeypair::from_secret(group::SecretKey::<Edwards>(secret_key.0));
             assert_ne!(keypair.public().as_bytes(), ed_keypair.public().as_bytes());
         }
     }

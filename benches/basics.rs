@@ -66,7 +66,7 @@ fn bench_choice_creation<G: Group>(b: &mut Bencher, number_of_variants: usize) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter(|| {
-        let choice = rng.gen_range(0, number_of_variants);
+        let choice = rng.gen_range(0..number_of_variants);
         EncryptedChoice::<G>::new(number_of_variants, choice, keypair.public(), &mut rng)
     })
 }
@@ -76,7 +76,7 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher, number_of_variants: usiz
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
         || {
-            let choice = rng.gen_range(0, number_of_variants);
+            let choice = rng.gen_range(0..number_of_variants);
             EncryptedChoice::<G>::new(number_of_variants, choice, keypair.public(), &mut rng)
         },
         |encrypted| {
@@ -91,7 +91,7 @@ fn bench_ring<G: Group>(b: &mut Bencher, chosen_values: Option<[usize; 5]>) {
     let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
     let chosen_values = chosen_values.unwrap_or_else(|| {
         let mut values = [0; 5];
-        values.iter_mut().for_each(|v| *v = rng.gen_range(0, 4));
+        values.iter_mut().for_each(|v| *v = rng.gen_range(0..4));
         values
     });
     assert!(chosen_values.iter().all(|&i| i < 4));
