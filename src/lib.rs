@@ -347,151 +347,13 @@ impl<G: Group> EncryptedChoice<G> {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::scalar::Scalar as Scalar25519;
-    use rand::{thread_rng, Rng};
+    use rand::thread_rng;
 
     use super::*;
-    use crate::{
-        group::{self, PointOps, ScalarOps},
-        Edwards,
-    };
 
-    type Keypair = group::Keypair<Edwards>;
-
-    #[test]
-    fn encryption_roundtrip() {
+    fn test_bogus_encrypted_choice_does_not_work<G: Group>() {
         let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-        let message = Edwards::scalar_mul_basepoint(&Scalar25519::from(12345_u32));
-        let encrypted = Encryption::new(message, keypair.public(), &mut rng);
-        let decryption = keypair.secret().decrypt(encrypted);
-        assert_eq!(decryption, message);
-    }
-
-    #[test]
-    fn zero_encryption_works() {
-        let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-        let (zero_encryption, proof) = Encryption::encrypt_zero(keypair.public(), &mut rng);
-        assert!(zero_encryption.verify_zero(keypair.public(), &proof));
-        let decrypted = keypair.secret().decrypt(zero_encryption);
-        assert_eq!(
-            decrypted,
-            Edwards::scalar_mul_basepoint(&Scalar25519::zero())
-        );
-
-        // The proof should not verify for non-zero messages.
-        let message = Edwards::scalar_mul_basepoint(&Scalar25519::from(123_u32));
-        let encryption = Encryption::new(message, keypair.public(), &mut rng);
-        assert!(!encryption.verify_zero(keypair.public(), &proof));
-
-        // ...or for another receiver key
-        let other_keypair = Keypair::generate(&mut rng);
-        assert!(!encryption.verify_zero(other_keypair.public(), &proof));
-
-        // ...or for another secret scalar used.
-        let (other_zero_encryption, other_proof) =
-            Encryption::encrypt_zero(keypair.public(), &mut rng);
-        assert!(!other_zero_encryption.verify_zero(keypair.public(), &proof));
-        assert!(!zero_encryption.verify_zero(keypair.public(), &other_proof));
-
-        let combined_encryption = other_zero_encryption + zero_encryption;
-        assert!(!combined_encryption.verify_zero(keypair.public(), &proof));
-        assert!(!combined_encryption.verify_zero(keypair.public(), &other_proof));
-    }
-
-    #[test]
-    fn zero_proof_serialization() {
-        let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-        let mut encryptions = HashMap::new();
-
-        for _ in 0..100 {
-            let (zero_encryption, proof) = Encryption::encrypt_zero(keypair.public(), &mut rng);
-            let bytes = proof.to_bytes();
-            encryptions.insert(bytes.to_vec(), zero_encryption);
-        }
-        assert_eq!(encryptions.len(), 100);
-        for (bytes, encryption) in encryptions {
-            let proof = LogEqualityProof::from_slice(&bytes).unwrap();
-            assert!(encryption.verify_zero(keypair.public(), &proof));
-        }
-    }
-
-    #[test]
-    fn bool_encryption_works() {
-        let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-
-        let (encryption, proof) = Encryption::encrypt_bool(false, keypair.public(), &mut rng);
-        assert_eq!(keypair.secret().decrypt(encryption), Edwards::identity());
-        assert!(encryption.verify_bool(keypair.public(), &proof));
-
-        let (other_encryption, other_proof) =
-            Encryption::encrypt_bool(true, keypair.public(), &mut rng);
-        assert_eq!(
-            keypair.secret().decrypt(other_encryption),
-            Edwards::base_point()
-        );
-        assert!(other_encryption.verify_bool(keypair.public(), &other_proof));
-
-        // The proofs should not verify for another encryption.
-        assert!(!other_encryption.verify_bool(keypair.public(), &proof));
-        assert!(!encryption.verify_bool(keypair.public(), &other_proof));
-
-        // ...even if the encryption is obtained from the "correct" value.
-        let combined_encryption = encryption + other_encryption;
-        assert_eq!(
-            keypair.secret().decrypt(combined_encryption),
-            Edwards::base_point()
-        );
-        assert!(!combined_encryption.verify_bool(keypair.public(), &proof));
-    }
-
-    #[test]
-    fn bool_proof_serialization() {
-        const BOOL_ENC_PROOF_SIZE: usize = 3 * Edwards::SCALAR_SIZE;
-
-        let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-        let mut encryptions = HashMap::new();
-
-        for _ in 0..100 {
-            let (bool_encryption, proof) =
-                Encryption::encrypt_bool(rng.gen_bool(0.5), keypair.public(), &mut rng);
-            let bytes = proof.to_bytes();
-            assert_eq!(bytes.len(), BOOL_ENC_PROOF_SIZE);
-            encryptions.insert(bytes, bool_encryption);
-        }
-        assert_eq!(encryptions.len(), 100);
-        for (bytes, encryption) in encryptions {
-            let proof = RingProof::from_slice(&bytes).unwrap();
-            assert!(encryption.verify_bool(keypair.public(), &proof));
-        }
-    }
-
-    #[test]
-    fn encrypted_choice_works() {
-        let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-
-        let choice = EncryptedChoice::new(5, 2, keypair.public(), &mut rng);
-        assert!(choice.verify(keypair.public()).is_some());
-        assert_eq!(choice.variants.len(), 5);
-        for (i, &variant) in choice.variants.iter().enumerate() {
-            let expected_plaintext = if i == 2 {
-                Edwards::base_point()
-            } else {
-                Edwards::identity()
-            };
-            assert_eq!(keypair.secret().decrypt(variant), expected_plaintext);
-        }
-    }
-
-    #[test]
-    fn bogus_encrypted_choice_does_not_work() {
-        let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
+        let keypair = Keypair::<G>::generate(&mut rng);
 
         let mut choice = EncryptedChoice::new(5, 2, keypair.public(), &mut rng);
         let (encrypted_one, _) = Encryption::encrypt_bool(true, keypair.public(), &mut rng);
@@ -504,12 +366,22 @@ mod tests {
         assert!(choice.verify(keypair.public()).is_none());
 
         let mut choice = EncryptedChoice::new(5, 4, keypair.public(), &mut rng);
-        choice.variants[4].blinded_point +=
-            Edwards::scalar_mul_basepoint(&Scalar25519::from(10_u32));
-        choice.variants[3].blinded_point -=
-            Edwards::scalar_mul_basepoint(&Scalar25519::from(10_u32));
+        choice.variants[4].blinded_point =
+            choice.variants[4].blinded_point + G::scalar_mul_basepoint(&G::Scalar::from(10));
+        choice.variants[3].blinded_point =
+            choice.variants[3].blinded_point - G::scalar_mul_basepoint(&G::Scalar::from(10));
         // These modifications leave `choice.sum_proof` correct, but the range proofs
         // for the last 2 variants should no longer verify.
         assert!(choice.verify(keypair.public()).is_none());
+    }
+
+    #[test]
+    fn bogus_encrypted_choice_does_not_work_for_edwards() {
+        test_bogus_encrypted_choice_does_not_work::<Edwards>();
+    }
+
+    #[test]
+    fn bogus_encrypted_choice_does_not_work_for_k256() {
+        test_bogus_encrypted_choice_does_not_work::<Generic<k256::Secp256k1>>();
     }
 }
