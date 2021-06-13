@@ -1,4 +1,3 @@
-use curve25519_dalek::traits::{Identity, IsIdentity};
 use rand_core::{CryptoRng, RngCore};
 use subtle::{ConditionallySelectable, ConstantTimeEq};
 
@@ -54,8 +53,6 @@ pub trait PointOps: ScalarOps {
     /// Member of the group. Should define necessary arithmetic operations (addition among
     /// points and multiplication by a `Scalar`), which need to be constant-time.
     type Point: Copy
-        + Identity
-        + IsIdentity
         + ops::Add<Output = Self::Point>
         + ops::Sub<Output = Self::Point>
         + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Point>
@@ -63,6 +60,12 @@ pub trait PointOps: ScalarOps {
         + ConstantTimeEq;
 
     const POINT_SIZE: usize;
+
+    /// Returns an identity point (aka point in infinity).
+    fn identity() -> Self::Point;
+
+    /// Checks if the specified point is an identity point.
+    fn is_identity(point: &Self::Point) -> bool;
 
     /// Returns the agreed-upon generator of the group aka basepoint.
     fn base_point() -> Self::Point;
@@ -98,7 +101,7 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
         I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
     {
-        let mut output = Self::Point::identity();
+        let mut output = Self::identity();
         for (scalar, point) in scalars.into_iter().zip(points) {
             output = output + point * scalar;
         }
@@ -120,7 +123,7 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
         I: IntoIterator<Item = Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
     {
-        let mut output = Self::Point::identity();
+        let mut output = Self::identity();
         for (scalar, point) in scalars.into_iter().zip(points) {
             output = output + point * &scalar;
         }
@@ -232,7 +235,7 @@ impl<G: Group> PublicKey<G> {
         }
 
         G::deserialize_point(bytes)
-            .filter(|point| !point.is_identity())
+            .filter(|point| !G::is_identity(point))
             .map(|full| PublicKey {
                 bytes: bytes.to_vec(),
                 full,

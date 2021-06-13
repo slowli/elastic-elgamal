@@ -95,7 +95,6 @@
 //! interpolation. (Indeed, `D_i` are tied to `D` by the same relations as key shares `x_i`
 //! are to `x`.) Once we have `D`, the encrypted value is restored as `[m]G = B - D`.
 
-use curve25519_dalek::traits::Identity;
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
@@ -217,7 +216,7 @@ impl<G: Group> PartialPublicKeySet<G> {
         }
 
         let coefficients = self.received_polynomials.values().fold(
-            vec![G::Point::identity(); self.params.threshold],
+            vec![G::identity(); self.params.threshold],
             |mut acc, val| {
                 for (i, &coefficient) in val.iter().enumerate() {
                     acc[i] = acc[i] + coefficient;

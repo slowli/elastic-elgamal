@@ -1,6 +1,5 @@
 // Implementation note: we use `SecretKey`s for sensitive scalars.
 
-use curve25519_dalek::traits::Identity;
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 
@@ -40,8 +39,8 @@ impl<G: Group> Encryption<G> {
 
     pub fn zero() -> Self {
         Self {
-            random_point: G::Point::identity(),
-            blinded_point: G::Point::identity(),
+            random_point: G::identity(),
+            blinded_point: G::identity(),
         }
     }
 
@@ -98,14 +97,14 @@ impl<G: Group> Encryption<G> {
         R: CryptoRng + RngCore,
     {
         let mut transcript = Transcript::new(b"bool_encryption");
-        let admissible_values = [G::Point::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::base_point()];
         let mut builder = RingProofBuilder::new(&receiver, &mut transcript, rng);
         let encryption = builder.add_value(&admissible_values, value as usize);
         (encryption.unwrap(), builder.build())
     }
 
     pub fn verify_bool(&self, receiver: &PublicKey<G>, proof: &RingProof<G>) -> bool {
-        let admissible_values = [G::Point::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::base_point()];
         proof.verify(
             receiver,
             &[&admissible_values],
@@ -258,7 +257,7 @@ impl<G: Group> EncryptedChoice<G> {
         assert!(number_of_variants > 0);
         assert!(choice < number_of_variants);
 
-        let admissible_values = [G::Point::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::base_point()];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");
         let mut proof_builder = RingProofBuilder::new(receiver, &mut transcript, rng);
 
@@ -334,7 +333,7 @@ impl<G: Group> EncryptedChoice<G> {
             return None;
         }
 
-        let admissible_values = [G::Point::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::base_point()];
         let admissible_values = vec![&admissible_values as &[_]; self.variants.len()];
         if self.range_proofs.verify(
             receiver,
@@ -351,7 +350,7 @@ impl<G: Group> EncryptedChoice<G> {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::{edwards::EdwardsPoint, scalar::Scalar as Scalar25519};
+    use curve25519_dalek::scalar::Scalar as Scalar25519;
     use rand::{thread_rng, Rng};
 
     use std::collections::HashMap;
@@ -432,10 +431,7 @@ mod tests {
         let keypair = Keypair::generate(&mut rng);
 
         let (encryption, proof) = Encryption::encrypt_bool(false, keypair.public(), &mut rng);
-        assert_eq!(
-            keypair.secret().decrypt(encryption),
-            EdwardsPoint::identity()
-        );
+        assert_eq!(keypair.secret().decrypt(encryption), Edwards::identity());
         assert!(encryption.verify_bool(keypair.public(), &proof));
 
         let (other_encryption, other_proof) =
@@ -493,7 +489,7 @@ mod tests {
             let expected_plaintext = if i == 2 {
                 Edwards::base_point()
             } else {
-                EdwardsPoint::identity()
+                Edwards::identity()
             };
             assert_eq!(keypair.secret().decrypt(variant), expected_plaintext);
         }

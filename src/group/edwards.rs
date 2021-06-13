@@ -2,7 +2,7 @@ use curve25519_dalek::{
     constants::{ED25519_BASEPOINT_POINT, ED25519_BASEPOINT_TABLE},
     edwards::{CompressedEdwardsY, EdwardsPoint},
     scalar::Scalar,
-    traits::{MultiscalarMul, VartimeMultiscalarMul},
+    traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
 };
 use rand_core::{CryptoRng, RngCore};
 
@@ -43,6 +43,14 @@ impl PointOps for Edwards {
     type Point = EdwardsPoint;
 
     const POINT_SIZE: usize = 32;
+
+    fn identity() -> Self::Point {
+        EdwardsPoint::identity()
+    }
+
+    fn is_identity(point: &Self::Point) -> bool {
+        point.is_identity()
+    }
 
     fn base_point() -> Self::Point {
         ED25519_BASEPOINT_POINT

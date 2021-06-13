@@ -2,7 +2,6 @@ use criterion::{
     criterion_group, criterion_main, measurement::WallTime, BatchSize, Bencher, BenchmarkGroup,
     BenchmarkId, Criterion, Throughput,
 };
-use curve25519_dalek::traits::Identity;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
@@ -98,7 +97,7 @@ fn bench_ring<G: Group>(b: &mut Bencher, chosen_values: Option<[usize; 5]>) {
     assert!(chosen_values.iter().all(|&i| i < 4));
 
     let admissible_values = [
-        G::Point::identity(),
+        G::identity(),
         G::base_point(),
         G::base_point() + G::base_point(),
         G::base_point() + G::base_point() + G::base_point(),

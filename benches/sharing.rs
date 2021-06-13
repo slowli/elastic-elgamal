@@ -2,7 +2,6 @@ use criterion::{
     criterion_group, criterion_main, measurement::WallTime, BatchSize, Bencher, BenchmarkGroup,
     Criterion, Throughput,
 };
-use curve25519_dalek::traits::Identity;
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
@@ -80,7 +79,7 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
         let variable = G::Scalar::from(5_u64);
         b.iter(|| {
             let mut x = G::Scalar::from(1_u64);
-            let mut value = G::Point::identity();
+            let mut value = G::identity();
             for &coefficient in &coefficients {
                 value = value + coefficient * &x;
                 x = x * variable;
@@ -91,7 +90,7 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     group.bench_function("poly/weierstrass_varmul", move |b| {
         let variable = G::Scalar::from(5_u64);
         b.iter(|| {
-            let mut value = G::Point::identity();
+            let mut value = G::identity();
             for &coefficient in coefficients1.iter().rev() {
                 value = G::vartime_multiscalar_mul(
                     [variable, G::Scalar::from(1_u64)].iter().cloned(),

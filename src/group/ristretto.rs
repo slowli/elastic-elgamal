@@ -2,7 +2,7 @@ use curve25519_dalek::{
     constants::{RISTRETTO_BASEPOINT_POINT, RISTRETTO_BASEPOINT_TABLE},
     ristretto::{CompressedRistretto, RistrettoPoint},
     scalar::Scalar,
-    traits::{MultiscalarMul, VartimeMultiscalarMul},
+    traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
 };
 use rand_core::{CryptoRng, RngCore};
 
@@ -43,6 +43,14 @@ impl PointOps for Ristretto {
     type Point = RistrettoPoint;
 
     const POINT_SIZE: usize = 32;
+
+    fn identity() -> Self::Point {
+        RistrettoPoint::identity()
+    }
+
+    fn is_identity(point: &Self::Point) -> bool {
+        point.is_identity()
+    }
 
     fn base_point() -> Self::Point {
         RISTRETTO_BASEPOINT_POINT
