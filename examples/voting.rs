@@ -1,14 +1,14 @@
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use rand_core::{CryptoRng, RngCore};
 
-use std::{collections::HashMap, iter::FromIterator};
+use std::{collections::HashMap, env, iter::FromIterator};
 
 use elgamal_with_sharing::{
     sharing::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
         PublicKeySet, StartingParticipant,
     },
-    DecryptionLookupTable, Edwards, EncryptedChoice, Encryption, Group,
+    DecryptionLookupTable, Edwards, EncryptedChoice, Encryption, Generic, Group, Ristretto,
 };
 
 /// Number of options in the poll.
@@ -79,11 +79,11 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
     (group, talliers)
 }
 
-fn main() {
+fn vote<G: Group>() {
     let mut rng = thread_rng();
 
     // Before polling is started, talliers agree on the shared encryption key.
-    let (key_set, talliers) = initialize_talliers::<Edwards, _>(TALLIER_PARAMS, &mut rng);
+    let (key_set, talliers) = initialize_talliers::<G, _>(TALLIER_PARAMS, &mut rng);
 
     // During polling, voters submit votes together with the proof of correctness.
     let mut expected_totals = [0; OPTIONS_COUNT];
@@ -130,7 +130,7 @@ fn main() {
     );
 
     // After polling, talliers submit decryption shares together with proof of their correctness.
-    let lookup_table = DecryptionLookupTable::<Edwards>::new(0..=(VOTES as u64));
+    let lookup_table = DecryptionLookupTable::<G>::new(0..=(VOTES as u64));
     for (i, (&variant_totals, &expected)) in
         encrypted_totals.iter().zip(&expected_totals).enumerate()
     {
@@ -167,5 +167,17 @@ fn main() {
         println!("Variant #{} decrypted tally: {}", i + 1, variant_tally);
         assert_eq!(variant_tally, expected);
         println!("The decrypted number is as expected!");
+    }
+}
+
+fn main() {
+    match env::args().nth(1).as_deref() {
+        None | Some("edwards") => vote::<Edwards>(),
+        Some("ristretto") => vote::<Ristretto>(),
+        Some("k256") => vote::<Generic<k256::Secp256k1>>(),
+        Some(other) => panic!(
+            "Unknown group: {}; use one of `edwards`, `ristretto` or `k256`",
+            other
+        ),
     }
 }
