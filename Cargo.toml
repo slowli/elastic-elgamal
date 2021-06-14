@@ -33,3 +33,7 @@ harness = false
 name = "sharing"
 path = "benches/sharing.rs"
 harness = false
+
+# Speed up `k256` arithmetic.
+[profile.dev.package.k256]
+opt-level = 2
