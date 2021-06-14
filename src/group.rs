@@ -11,7 +11,7 @@ pub use self::{edwards::Edwards, generic::Generic, ristretto::Ristretto};
 
 /// Helper trait for `Group` that describes operations on group scalars.
 pub trait ScalarOps {
-    /// Scalar type. Arithmetic operations should be constant-time.
+    /// Scalar type. Arithmetic operations must be constant-time.
     type Scalar: Copy
         + Default
         + From<u64>
@@ -23,11 +23,22 @@ pub trait ScalarOps {
         + ConditionallySelectable
         + fmt::Debug;
 
+    /// Byte size of a serialized [`Self::Scalar`].
     const SCALAR_SIZE: usize;
 
-    /// Generates a random scalar based on the provided CSPRNG.
+    /// Generates a random scalar based on the provided CSPRNG. This operation
+    /// must be constant-time.
     fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar;
 
+    /// Generates a scalar from the `source` of random bytes. This operation must be constant-time.
+    /// The `source` is guaranteed to return any necessary number of bytes.
+    ///
+    /// # Default implementation
+    ///
+    /// 1. Create a [ChaCha RNG] with the 32 bytes from the `source` as the seed.
+    /// 2. Call [`Self::generate_scalar()`] with the created RNG.
+    ///
+    /// [ChaCha CSPRNG]: https://docs.rs/rand_chacha/
     fn scalar_from_random_bytes<R: io::Read>(mut source: R) -> Self::Scalar {
         let mut rng_seed = <ChaChaRng as SeedableRng>::Seed::default();
         source
@@ -37,10 +48,15 @@ pub trait ScalarOps {
         Self::generate_scalar(&mut rng)
     }
 
-    /// Inverts the scalar. If the scalar is zero, the method should panic.
+    /// Inverts the `scalar`, which is guaranteed to be non-zero. This operation does not
+    /// need to be constant-time.
     fn invert_scalar(scalar: Self::Scalar) -> Self::Scalar;
 
-    /// Inverts scalars in a batch. The default implementation inverts every scalar successively.
+    /// Inverts scalars in a batch. This operation does not need to be constant-time.
+    ///
+    /// # Default implementation
+    ///
+    /// Inverts every scalar successively.
     fn invert_scalars(scalars: &mut [Self::Scalar]) {
         for scalar in scalars {
             *scalar = Self::invert_scalar(*scalar);
@@ -58,7 +74,7 @@ pub trait ScalarOps {
 /// Helper trait for `Group` that describes operations on group elements (i.e., EC points).
 pub trait PointOps: ScalarOps {
     /// Member of the group. Should define necessary arithmetic operations (addition among
-    /// points and multiplication by a `Scalar`), which need to be constant-time.
+    /// points and multiplication by a `Scalar`), which must be constant-time.
     type Point: Copy
         + ops::Add<Output = Self::Point>
         + ops::Sub<Output = Self::Point>
@@ -67,7 +83,7 @@ pub trait PointOps: ScalarOps {
         + ConstantTimeEq
         + fmt::Debug;
 
-    /// Byte size of serialized point.
+    /// Byte size of a serialized [`Self::Point`].
     const POINT_SIZE: usize;
 
     /// Returns an identity point (aka point in infinity).
@@ -100,12 +116,35 @@ pub trait PointOps: ScalarOps {
 /// [`Edwards`]: enum.Edwards.html
 /// [`Ristretto`]: enum.Ristretto.html
 pub trait Group: Copy + ScalarOps + PointOps + 'static {
-    /// Multiplies the provided scalar by `BASE_POINT`. This operation needs
-    /// to be constant-time.
+    /// Multiplies the provided scalar by [`Self::base_point()`]. This operation must be
+    /// constant-time.
+    ///
+    /// # Default implementation
+    ///
+    /// Implemented by multiplying [`Self::base_point()`] by `k` (which is constant-time as
+    /// per the [`PointOps`] contract).
     fn scalar_mul_basepoint(k: &Self::Scalar) -> Self::Point {
         Self::base_point() * k
     }
 
+    /// Multiplies the provided scalar by [`Self::base_point()`].
+    /// Unlike [`Self::scalar_mul_basepoint()`], this operation does not need to be constant-time;
+    /// thus, it may employ additional optimizations.
+    ///
+    /// # Default implementation
+    ///
+    /// Implemented by multiplying [`Self::base_point()`] by `k`.
+    fn vartime_scalar_mul_basepoint(k: &Self::Scalar) -> Self::Point {
+        Self::base_point() * k
+    }
+
+    /// Multiplies provided `scalars` by `points`. This operation must be constant-time
+    /// w.r.t. the given length of elements.
+    ///
+    /// # Default implementation
+    ///
+    /// Implemented by straightforward computations, which are constant-time as per
+    /// the [`PointOps`] contract.
     fn multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
@@ -120,24 +159,32 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
 
     /// Calculates `k * k_point + r * G`, where `G` is the group generator. This operation
     /// does not need to be constant-time.
+    ///
+    /// # Default implementation
+    ///
+    /// Implemented by straightforward computations.
     fn vartime_double_scalar_mul_basepoint(
-        k: Self::Scalar,
+        k: &Self::Scalar,
         k_point: Self::Point,
-        r: Self::Scalar,
+        r: &Self::Scalar,
     ) -> Self::Point {
-        k_point * &k + Self::base_point() * &r
+        k_point * k + Self::base_point() * r
     }
 
-    fn vartime_multiscalar_mul<I, J>(scalars: I, points: J) -> Self::Point
+    /// Multiplies provided `scalars` by `points`. Unlike [`Self::multiscalar_mul()`],
+    /// this operation does not need to be constant-time; thus, it may employ
+    /// additional optimizations.
+    ///
+    /// # Default implementation
+    ///
+    /// Implemented by calling [`Self::multiscalar_mul()`].
+    #[inline]
+    fn vartime_multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
-        I: IntoIterator<Item = Self::Scalar>,
+        I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
     {
-        let mut output = Self::identity();
-        for (scalar, point) in scalars.into_iter().zip(points) {
-            output = output + point * &scalar;
-        }
-        output
+        Self::multiscalar_mul(scalars, points)
     }
 }
 

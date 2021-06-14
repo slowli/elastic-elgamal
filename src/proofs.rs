@@ -117,9 +117,9 @@ impl<G: Group> ProofOfPossession<G> {
             transcript.append_point_bytes(b"K", &public_key.bytes);
         }
 
-        for (public_key, &response) in public_keys.iter().zip(&self.responses) {
+        for (public_key, response) in public_keys.iter().zip(&self.responses) {
             let random_point =
-                G::vartime_double_scalar_mul_basepoint(-self.challenge, public_key.full, response);
+                G::vartime_double_scalar_mul_basepoint(&-self.challenge, public_key.full, response);
             transcript.append_point::<G>(b"R", &random_point);
         }
 
@@ -229,10 +229,10 @@ impl<G: Group> LogEqualityProof<G> {
         transcript: &mut Transcript,
     ) -> bool {
         let commitments = (
-            G::vartime_double_scalar_mul_basepoint(-self.challenge, powers.0, self.response),
+            G::vartime_double_scalar_mul_basepoint(&-self.challenge, powers.0, &self.response),
             G::vartime_multiscalar_mul(
-                [-self.challenge, self.response].iter().cloned(),
-                [powers.1, log_base.full].iter().cloned(),
+                &[-self.challenge, self.response],
+                [powers.1, log_base.full].iter().copied(),
             ),
         );
 
@@ -480,15 +480,17 @@ impl<G: Group> RingProof<G> {
                 .enumerate()
             {
                 let dh_point = encryption.blinded_point - admissible_value;
+                let neg_challenge = -challenge;
+
                 commitments = (
                     G::vartime_double_scalar_mul_basepoint(
-                        -challenge,
+                        &neg_challenge,
                         encryption.random_point,
-                        *response,
+                        response,
                     ),
                     G::vartime_multiscalar_mul(
-                        [*response, -challenge].iter().cloned(),
-                        [receiver.full, dh_point].iter().cloned(),
+                        [response, &neg_challenge].iter().copied(),
+                        [receiver.full, dh_point].iter().copied(),
                     ),
                 );
 

@@ -170,16 +170,11 @@ pub struct DecryptionLookupTable<G: Group> {
 
 impl<G: Group> DecryptionLookupTable<G> {
     pub fn new(values: impl IntoIterator<Item = u64>) -> Self {
-        let zero = G::Scalar::from(0);
         let lookup_table = values
             .into_iter()
             .filter(|&value| value != 0)
             .map(|i| {
-                let point = G::vartime_double_scalar_mul_basepoint(
-                    zero,
-                    G::base_point(),
-                    G::Scalar::from(i),
-                );
+                let point = G::vartime_scalar_mul_basepoint(&G::Scalar::from(i));
                 let mut bytes = Vec::with_capacity(G::POINT_SIZE);
                 G::serialize_point(&point, &mut bytes);
                 let mut initial_bytes = [0_u8; 8];

@@ -79,6 +79,14 @@ impl Group for Ristretto {
         k * &RISTRETTO_BASEPOINT_TABLE
     }
 
+    fn vartime_scalar_mul_basepoint(k: &Scalar) -> Self::Point {
+        RistrettoPoint::vartime_double_scalar_mul_basepoint(
+            &Scalar::zero(),
+            &RistrettoPoint::identity(),
+            k,
+        )
+    }
+
     fn multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
@@ -88,16 +96,16 @@ impl Group for Ristretto {
     }
 
     fn vartime_double_scalar_mul_basepoint(
-        k: Scalar,
+        k: &Scalar,
         k_point: Self::Point,
-        r: Scalar,
+        r: &Scalar,
     ) -> Self::Point {
-        RistrettoPoint::vartime_double_scalar_mul_basepoint(&k, &k_point, &r)
+        RistrettoPoint::vartime_double_scalar_mul_basepoint(k, &k_point, r)
     }
 
-    fn vartime_multiscalar_mul<I, J>(scalars: I, points: J) -> Self::Point
+    fn vartime_multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
-        I: IntoIterator<Item = Self::Scalar>,
+        I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
     {
         RistrettoPoint::vartime_multiscalar_mul(scalars, points)

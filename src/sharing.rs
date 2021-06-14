@@ -113,14 +113,15 @@ use crate::{
 /// Computes value of EC polynomial at the specified point in variable time.
 fn polynomial_value<G: Group>(coefficients: &[G::Point], x: G::Scalar) -> G::Point {
     let mut val = G::Scalar::from(1_u64);
-    G::vartime_multiscalar_mul(
-        (0..coefficients.len()).map(|_| {
+    let scalars: Vec<_> = (0..coefficients.len())
+        .map(|_| {
             let output = val;
             val = val * x;
             output
-        }),
-        coefficients.iter().cloned(),
-    )
+        })
+        .collect();
+
+    G::vartime_multiscalar_mul(&scalars, coefficients.iter().copied())
 }
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
@@ -316,9 +317,9 @@ impl<G: Group> PublicKeySet<G> {
     pub fn from_participants(params: Params, participant_keys: Vec<PublicKey<G>>) -> Self {
         assert_eq!(params.shares, participant_keys.len());
         let indexes: Vec<_> = (0..params.threshold).collect();
-        let (coeffs, scale) = lagrange_coefficients::<G>(&indexes);
+        let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
         let shared_key = G::vartime_multiscalar_mul(
-            coeffs,
+            &denominators,
             participant_keys
                 .iter()
                 .map(|key| key.full)
@@ -628,7 +629,7 @@ impl<G: Group> DecryptionShare<G> {
         assert!(indexes.iter().all(|&index| index < params.shares));
 
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
-        let restored_value = G::vartime_multiscalar_mul(denominators, shares);
+        let restored_value = G::vartime_multiscalar_mul(&denominators, shares);
         let dh_point = restored_value * &scale;
         Some(encryption.blinded_point - dh_point)
     }

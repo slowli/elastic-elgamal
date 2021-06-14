@@ -93,8 +93,8 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
             let mut value = G::identity();
             for &coefficient in coefficients1.iter().rev() {
                 value = G::vartime_multiscalar_mul(
-                    [variable, G::Scalar::from(1_u64)].iter().cloned(),
-                    [value, coefficient].iter().cloned(),
+                    &[variable, G::Scalar::from(1_u64)],
+                    [value, coefficient].iter().copied(),
                 );
             }
             value
@@ -103,16 +103,14 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     group.bench_function("poly/pure_varmul", move |b| {
         let variable = G::Scalar::from(5_u64);
         let mut val = G::Scalar::from(1_u64);
-        b.iter(|| {
-            G::vartime_multiscalar_mul(
-                (0..coefficients2.len()).map(|_| {
-                    let output = val;
-                    val = val * variable;
-                    output
-                }),
-                coefficients2.iter().cloned(),
-            )
-        });
+        let scalars: Vec<_> = (0..coefficients2.len())
+            .map(|_| {
+                let output = val;
+                val = val * variable;
+                output
+            })
+            .collect();
+        b.iter(|| G::vartime_multiscalar_mul(&scalars, coefficients2.iter().copied()));
     });
 }
 

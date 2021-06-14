@@ -14,6 +14,15 @@ use std::{marker::PhantomData, ops};
 
 use super::{Group, PointOps, ScalarOps};
 
+/// Generic [`Group`] implementation for elliptic curves defined in terms of the traits
+/// from the [`elliptic-curve`] crate.
+///
+/// # Assumptions
+///
+/// - Arithmetic operations required to be constant-time as per [`ScalarOps`] and [`PointOps`]
+///   contracts are indeed constant-time.
+///
+/// [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 #[derive(Debug)]
 pub struct Generic<C>(PhantomData<C>);
 
@@ -43,7 +52,7 @@ impl<C: ProjectiveArithmetic> ScalarOps for Generic<C> {
     }
 
     fn deserialize_scalar(bytes: &[u8]) -> Option<Self::Scalar> {
-        // FIXME: avoid cloning here
+        // For most curves, cloning will be resolved as a copy.
         Scalar::<C>::from_repr(GenericArray::from_slice(bytes).clone())
     }
 }
@@ -59,14 +68,17 @@ where
 
     const POINT_SIZE: usize = <FieldSize<C> as Unsigned>::USIZE + 1;
 
+    #[inline]
     fn identity() -> Self::Point {
         C::ProjectivePoint::identity()
     }
 
+    #[inline]
     fn is_identity(point: &Self::Point) -> bool {
         point.is_identity().into()
     }
 
+    #[inline]
     fn base_point() -> Self::Point {
         C::ProjectivePoint::generator()
     }
@@ -89,6 +101,7 @@ where
     UncompressedPointSize<C>: ArrayLength<u8>,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
 {
+    // Default implementations are fine.
 }
 
 #[cfg(test)]
