@@ -186,7 +186,7 @@ fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
         b.iter(|| {
             G::multiscalar_mul(
                 [response, challenge].iter(),
-                [G::base_point(), point].iter().cloned(),
+                [G::base_point(), point].iter().copied(),
             )
         })
     });
@@ -200,7 +200,7 @@ fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
         b.iter(|| {
             G::multiscalar_mul(
                 [response, challenge].iter(),
-                [other_point, point].iter().cloned(),
+                [other_point, point].iter().copied(),
             )
         })
     });

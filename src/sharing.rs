@@ -102,7 +102,7 @@ use subtle::ConstantTimeEq;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
-    slice,
+    iter, slice,
 };
 
 use crate::{
@@ -181,6 +181,9 @@ pub struct Params {
 }
 
 impl Params {
+    /// # Panics
+    ///
+    /// - Panics if `shares` is equal to zero or if `threshold` is not in `1..=shares`.
     pub fn new(shares: usize, threshold: usize) -> Self {
         assert!(shares > 0);
         assert!(threshold > 0 && threshold <= shares);
@@ -263,17 +266,20 @@ impl<G: Group> PartialPublicKeySet<G> {
         polynomial: Vec<G::Point>,
         proof_of_possession: &ProofOfPossession<G>,
     ) -> Result<(), Error> {
-        assert!(index < self.params.shares);
-        assert!(!self.has_participant(index));
+        assert!(
+            index < self.params.shares,
+            "participant index {} out of bounds, expected a value in 0..{}",
+            index,
+            self.params.shares
+        );
+        assert!(
+            !self.has_participant(index),
+            "participant #{} was already initialized",
+            index
+        );
 
         if polynomial.len() != self.params.threshold {
             return Err(Error::MalformedParticipantPolynomial);
-        }
-
-        let mut public_keys = Vec::with_capacity(self.params.threshold);
-        for point in polynomial {
-            let public_key = PublicKey::from_point(point);
-            public_keys.push(public_key);
         }
 
         let mut transcript = Transcript::new(b"elgamal_share_poly");
@@ -281,12 +287,16 @@ impl<G: Group> PartialPublicKeySet<G> {
         transcript.append_u64(b"t", self.params.threshold as u64);
         transcript.append_u64(b"i", index as u64);
 
-        if !proof_of_possession.verify(&public_keys, &mut transcript) {
-            Err(Error::InvalidProofOfPossession)
-        } else {
-            let points = public_keys.into_iter().map(|key| key.full).collect();
-            self.received_polynomials.insert(index, points);
+        let public_keys: Vec<_> = polynomial
+            .iter()
+            .copied()
+            .map(PublicKey::from_point)
+            .collect();
+        if proof_of_possession.verify(public_keys.iter(), &mut transcript) {
+            self.received_polynomials.insert(index, polynomial);
             Ok(())
+        } else {
+            Err(Error::InvalidProofOfPossession)
         }
     }
 
@@ -341,8 +351,8 @@ impl<G: Group> PublicKeySet<G> {
         &self.shared_key
     }
 
-    pub fn participant_key(&self, index: usize) -> Option<PublicKey<G>> {
-        self.participant_keys.get(index).cloned()
+    pub fn participant_key(&self, index: usize) -> Option<&PublicKey<G>> {
+        self.participant_keys.get(index)
     }
 
     pub fn participant_keys(&self) -> &[PublicKey<G>] {
@@ -355,11 +365,21 @@ impl<G: Group> PublicKeySet<G> {
         transcript.append_point_bytes(b"K", &self.shared_key.bytes);
     }
 
+    /// # Panics
+    ///
+    /// Panics if `index` does not correspond to a participant.
     pub fn verify_participant(&self, index: usize, proof: &ProofOfPossession<G>) -> bool {
+        let participant_key = self.participant_key(index).unwrap_or_else(|| {
+            panic!(
+                "participant index {} out of bounds, expected a value in 0..{}",
+                index,
+                self.participant_keys.len()
+            );
+        });
         let mut transcript = Transcript::new(b"elgamal_participant_pop");
         self.commit(&mut transcript);
         transcript.append_u64(b"i", index as u64);
-        proof.verify(&[self.participant_key(index).unwrap()], &mut transcript)
+        proof.verify(iter::once(participant_key), &mut transcript)
     }
 
     pub fn verify_share(
@@ -398,11 +418,19 @@ pub struct StartingParticipant<G: Group> {
 }
 
 impl<G: Group> StartingParticipant<G> {
+    /// # Panics
+    ///
+    /// Panics if `index` is out of bounds as per `params`.
     pub fn new<R>(params: Params, index: usize, rng: &mut R) -> Self
     where
         R: CryptoRng + RngCore,
     {
-        assert!(index < params.shares);
+        assert!(
+            index < params.shares,
+            "participant index {} is out of bounds; expected a value in 0..{}",
+            index,
+            params.shares
+        );
 
         let (public_keys, secrets): (Vec<_>, Vec<_>) = (0..params.threshold)
             .map(|_| {
@@ -428,10 +456,11 @@ impl<G: Group> StartingParticipant<G> {
         }
     }
 
-    pub fn public_info(&self) -> (Vec<G::Point>, ProofOfPossession<G>) {
-        (self.public_points.clone(), self.proof_of_possession.clone())
+    pub fn public_info(&self) -> (&[G::Point], &ProofOfPossession<G>) {
+        (&self.public_points, &self.proof_of_possession)
     }
 
+    #[allow(clippy::missing_panics_doc)] // false positive
     pub fn finalize_key_set(
         &self,
         key_set: &PartialPublicKeySet<G>,
@@ -488,40 +517,52 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
         self.received_messages.len() == self.key_set.params.shares - 1
     }
 
-    pub fn complete(self) -> Result<ActiveParticipant<G>, Self> {
-        if !self.is_complete() {
-            return Err(self);
-        }
-
-        debug_assert_eq!(
+    /// # Panics
+    ///
+    /// Panics if the protocol cannot be completed at this point, i.e., [`Self::is_complete()`]
+    /// returns `false`.
+    pub fn complete(self) -> ActiveParticipant<G> {
+        assert!(self.is_complete(), "cannot complete protocol at this point");
+        debug_assert!(bool::from(
             G::scalar_mul_basepoint(&self.secret_share.0)
                 .ct_eq(&self.key_set.participant_keys[self.index].full)
-                .unwrap_u8(),
-            1
-        );
+        ));
 
-        Ok(ActiveParticipant {
+        ActiveParticipant {
             index: self.index,
             key_set: self.key_set,
             secret_share: self.secret_share,
-        })
+        }
     }
 
+    /// # Errors
+    ///
+    /// Returns an error if the message does not correspond to the participant's commitment.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `participant_index` is invalid, or if the message from this participant
+    /// was already processed. (The latter can be checked via [`Self::has_message()`].)
     pub fn receive_message(
         &mut self,
         participant_index: usize,
         message: SecretKey<G>,
     ) -> Result<(), Error> {
-        assert!(participant_index < self.key_set.params.shares);
-        assert!(!self.has_message(participant_index));
+        assert!(
+            participant_index < self.key_set.params.shares,
+            "participant index {} out of bounds; expected value in 0..{}",
+            participant_index,
+            self.key_set.params.shares
+        );
+        assert!(
+            !self.has_message(participant_index),
+            "message from participant #{} was already processed",
+            participant_index
+        );
 
         // Check that the received value is valid.
         let expected_value = &self.references[participant_index];
-        if expected_value
-            .ct_eq(&G::scalar_mul_basepoint(&message.0))
-            .unwrap_u8()
-            == 0
-        {
+        if !bool::from(expected_value.ct_eq(&G::scalar_mul_basepoint(&message.0))) {
             return Err(Error::InvalidSecret);
         }
 
@@ -613,6 +654,9 @@ pub struct DecryptionShare<G: Group> {
 }
 
 impl<G: Group> DecryptionShare<G> {
+    /// # Panics
+    ///
+    /// Panics if any index in `shares` exceeds the maximum participant's index as per `params`.
     pub fn combine(
         params: Params,
         encryption: Encryption<G>,
@@ -626,7 +670,12 @@ impl<G: Group> DecryptionShare<G> {
         if shares.len() < params.threshold {
             return None;
         }
-        assert!(indexes.iter().all(|&index| index < params.shares));
+        assert!(
+            indexes.iter().all(|&index| index < params.shares),
+            "Invalid share indexes {:?}; expected values in 0..{}",
+            indexes.iter().copied(),
+            params.shares
+        );
 
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
         let restored_value = G::vartime_multiscalar_mul(&denominators, shares);
@@ -684,20 +733,19 @@ mod tests {
         let (alice_poly, alice_proof) = alice.public_info();
         assert_eq!(
             alice_poly,
-            vec![Edwards::scalar_mul_basepoint(&alice.secrets[0].0)]
+            [Edwards::scalar_mul_basepoint(&alice.secrets[0].0)]
         );
         let bob: StartingParticipant<Edwards> = StartingParticipant::new(params, 1, &mut rng);
         let (bob_poly, bob_proof) = bob.public_info();
-        assert_eq!(
-            bob_poly,
-            vec![Edwards::scalar_mul_basepoint(&bob.secrets[0].0)]
-        );
+        assert_eq!(bob_poly, [Edwards::scalar_mul_basepoint(&bob.secrets[0].0)]);
 
         let mut group_info = PartialPublicKeySet::new(params);
         group_info
-            .add_participant(0, alice_poly, &alice_proof)
+            .add_participant(0, alice_poly.to_vec(), alice_proof)
             .unwrap();
-        group_info.add_participant(1, bob_poly, &bob_proof).unwrap();
+        group_info
+            .add_participant(1, bob_poly.to_vec(), bob_proof)
+            .unwrap();
         assert!(group_info.is_complete());
 
         let joint_secret = (alice.secrets[0].clone() + bob.secrets[0].clone()).0;
@@ -710,8 +758,8 @@ mod tests {
         bob.receive_message(0, a2b_message).unwrap();
         alice.receive_message(1, b2a_message).unwrap();
 
-        let alice = alice.complete().map_err(drop).unwrap();
-        let bob = bob.complete().map_err(drop).unwrap();
+        let alice = alice.complete();
+        let bob = bob.complete();
         assert_eq!(alice.secret_share.0, joint_secret);
         assert_eq!(bob.secret_share.0, joint_secret);
 
@@ -751,11 +799,13 @@ mod tests {
 
         let mut key_set = PartialPublicKeySet::<Edwards>::new(params);
         key_set
-            .add_participant(0, alice_poly, &alice_proof)
+            .add_participant(0, alice_poly.to_vec(), alice_proof)
             .unwrap();
-        key_set.add_participant(1, bob_poly, &bob_proof).unwrap();
         key_set
-            .add_participant(2, carol_poly, &carol_proof)
+            .add_participant(1, bob_poly.to_vec(), bob_proof)
+            .unwrap();
+        key_set
+            .add_participant(2, carol_poly.to_vec(), carol_proof)
             .unwrap();
         assert!(key_set.is_complete());
 
@@ -789,14 +839,14 @@ mod tests {
             ]
         );
 
-        let alice = alice.complete().map_err(drop).unwrap();
+        let alice = alice.complete();
         assert_eq!(alice.secret_share.0, secret0 + secret1);
-        let bob = bob.complete().map_err(drop).unwrap();
+        let bob = bob.complete();
         assert_eq!(
             bob.secret_share.0,
             secret0 + secret1 * Scalar25519::from(2_u32)
         );
-        let carol = carol.complete().map_err(drop).unwrap();
+        let carol = carol.complete();
         assert_eq!(
             carol.secret_share.0,
             secret0 + secret1 * Scalar25519::from(3_u32)

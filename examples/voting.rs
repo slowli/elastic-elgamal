@@ -48,7 +48,9 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
     let mut partial_info = PartialPublicKeySet::<G>::new(params);
     for (i, tallier) in talliers.iter().enumerate() {
         let (poly, proof) = tallier.public_info();
-        partial_info.add_participant(i, poly, &proof).unwrap();
+        partial_info
+            .add_participant(i, poly.to_vec(), proof)
+            .unwrap();
     }
     let group = partial_info.complete().unwrap();
 
@@ -74,7 +76,7 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
 
     let talliers = talliers
         .into_iter()
-        .map(|tallier| tallier.complete().map_err(drop).unwrap())
+        .map(|tallier| tallier.complete())
         .collect();
     (group, talliers)
 }

@@ -39,7 +39,7 @@ fn bench_proof_of_possession_verification<G: Group>(b: &mut Bencher, degree: usi
                 &mut rng,
             )
         },
-        |proof| proof.verify(&poly, &mut Transcript::new(b"bench_pop")),
+        |proof| proof.verify(poly.iter(), &mut Transcript::new(b"bench_pop")),
         BatchSize::SmallInput,
     );
 }

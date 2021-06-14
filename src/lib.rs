@@ -1,4 +1,9 @@
-// Implementation note: we use `SecretKey`s for sensitive scalars.
+#![warn(clippy::all, clippy::pedantic)]
+#![allow(
+    clippy::must_use_candidate,
+    clippy::module_name_repetitions,
+    clippy::doc_markdown
+)]
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
@@ -244,6 +249,9 @@ pub struct EncryptedChoice<G: Group> {
 
 #[allow(clippy::len_without_is_empty)] // `is_empty()` would always be false
 impl<G: Group> EncryptedChoice<G> {
+    /// # Panics
+    ///
+    /// Panics if `number_of_variants` is zero, or if `choice` is not in `0..number_of_variants`.
     pub fn new<R>(
         number_of_variants: usize,
         choice: usize,
@@ -253,8 +261,16 @@ impl<G: Group> EncryptedChoice<G> {
     where
         R: CryptoRng + RngCore,
     {
-        assert!(number_of_variants > 0);
-        assert!(choice < number_of_variants);
+        assert!(
+            number_of_variants > 0,
+            "`number_of_variants` must be positive"
+        );
+        assert!(
+            choice < number_of_variants,
+            "invalid choice {}; expected a value in 0..{}",
+            choice,
+            number_of_variants
+        );
 
         let admissible_values = [G::identity(), G::base_point()];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");

@@ -58,7 +58,7 @@ impl TranscriptForGroup for Transcript {
     }
 }
 
-/// Proof of possession of several secret scalars.
+/// Proof of possession of one or more secret scalars.
 ///
 /// # Construction
 ///
@@ -107,17 +107,23 @@ impl<G: Group> ProofOfPossession<G> {
         }
     }
 
-    pub fn verify(&self, public_keys: &[PublicKey<G>], transcript: &mut Transcript) -> bool {
-        if self.responses.len() != public_keys.len() {
+    pub fn verify<'a>(
+        &self,
+        public_keys: impl Iterator<Item = &'a PublicKey<G>> + Clone,
+        transcript: &mut Transcript,
+    ) -> bool {
+        let mut key_count = 0;
+        transcript.start_proof(b"multi_pop");
+        for public_key in public_keys.clone() {
+            transcript.append_point_bytes(b"K", &public_key.bytes);
+            key_count += 1;
+        }
+
+        if key_count != self.responses.len() {
             return false;
         }
 
-        transcript.start_proof(b"multi_pop");
-        for public_key in public_keys {
-            transcript.append_point_bytes(b"K", &public_key.bytes);
-        }
-
-        for (public_key, response) in public_keys.iter().zip(&self.responses) {
+        for (public_key, response) in public_keys.zip(&self.responses) {
             let random_point =
                 G::vartime_double_scalar_mul_basepoint(&-self.challenge, public_key.full, response);
             transcript.append_point::<G>(b"R", &random_point);
@@ -339,7 +345,7 @@ impl<'a, G: Group> Ring<'a, G> {
                 G::scalar_mul_basepoint(&response) - random_point * &challenge,
                 G::multiscalar_mul(
                     [response, -challenge].iter(),
-                    [log_base, dh_point].iter().cloned(),
+                    [log_base, dh_point].iter().copied(),
                 ),
             );
         }
@@ -413,7 +419,7 @@ impl<'a, G: Group> Ring<'a, G> {
                 G::scalar_mul_basepoint(&response) - self.encryption.random_point * &challenge,
                 G::multiscalar_mul(
                     [response, -challenge].iter(),
-                    [log_base, dh_point].iter().cloned(),
+                    [log_base, dh_point].iter().copied(),
                 ),
             );
 
@@ -527,6 +533,7 @@ impl<G: Group> RingProof<G> {
         bytes
     }
 
+    #[allow(clippy::missing_panics_doc)] // triggered by `debug_assert`
     pub fn from_slice(bytes: &[u8]) -> Option<Self> {
         if bytes.len() % G::SCALAR_SIZE != 0 || bytes.len() < 3 * G::SCALAR_SIZE {
             return None;
@@ -624,7 +631,7 @@ mod tests {
             &mut Transcript::new(b"test_multi_PoP"),
             &mut rng,
         );
-        assert!(proof.verify(&poly, &mut Transcript::new(b"test_multi_PoP")));
+        assert!(proof.verify(poly.iter(), &mut Transcript::new(b"test_multi_PoP")));
     }
 
     #[test]
@@ -664,7 +671,7 @@ mod tests {
         let mut transcript = Transcript::new(b"test_ring_encryption");
         RingProof::initialize_transcript(&mut transcript, keypair.public());
 
-        let ring = Ring::new(
+        let signature_ring = Ring::new(
             0,
             keypair.public().full,
             encryption_with_log,
@@ -673,7 +680,12 @@ mod tests {
             &transcript,
             &mut rng,
         );
-        let proof = Ring::aggregate(vec![ring], keypair.public().full, &mut transcript, &mut rng);
+        let proof = Ring::aggregate(
+            vec![signature_ring],
+            keypair.public().full,
+            &mut transcript,
+            &mut rng,
+        );
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         assert!(proof.verify(
@@ -690,7 +702,7 @@ mod tests {
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         RingProof::initialize_transcript(&mut transcript, keypair.public());
-        let ring = Ring::new(
+        let signature_ring = Ring::new(
             0,
             keypair.public().full,
             encryption_with_log,
@@ -699,7 +711,12 @@ mod tests {
             &transcript,
             &mut rng,
         );
-        let proof = Ring::aggregate(vec![ring], keypair.public().full, &mut transcript, &mut rng);
+        let proof = Ring::aggregate(
+            vec![signature_ring],
+            keypair.public().full,
+            &mut transcript,
+            &mut rng,
+        );
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         assert!(proof.verify(
@@ -728,7 +745,7 @@ mod tests {
             let mut transcript = Transcript::new(b"test_ring_encryption");
             RingProof::initialize_transcript(&mut transcript, keypair.public());
 
-            let ring = Ring::new(
+            let signature_ring = Ring::new(
                 0,
                 keypair.public().full,
                 encryption_with_log,
@@ -737,8 +754,12 @@ mod tests {
                 &transcript,
                 &mut rng,
             );
-            let proof =
-                Ring::aggregate(vec![ring], keypair.public().full, &mut transcript, &mut rng);
+            let proof = Ring::aggregate(
+                vec![signature_ring],
+                keypair.public().full,
+                &mut transcript,
+                &mut rng,
+            );
 
             let mut transcript = Transcript::new(b"test_ring_encryption");
             assert!(proof.verify(
@@ -752,11 +773,11 @@ mod tests {
 
     #[test]
     fn multiple_rings_with_boolean_flags_work() {
+        const RING_COUNT: usize = 5;
+
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let admissible_values = [EdwardsPoint::identity(), Edwards::base_point()];
-
-        const RING_COUNT: usize = 5;
 
         for _ in 0..20 {
             let mut transcript = Transcript::new(b"test_ring_encryption");
@@ -770,7 +791,7 @@ mod tests {
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
                     let encryption = encryption_with_log.encryption;
 
-                    let ring = Ring::new(
+                    let signature_ring = Ring::new(
                         ring_index,
                         keypair.public().full,
                         encryption_with_log,
@@ -780,7 +801,7 @@ mod tests {
                         &mut rng,
                     );
 
-                    (encryption, ring)
+                    (encryption, signature_ring)
                 })
                 .unzip();
 
@@ -799,13 +820,13 @@ mod tests {
     #[test]
     fn multiple_rings_with_base4_value_encoding_work() {
         // We're testing encryptions of `u8` integers, hence 4 rings with 4 elements (=2 bits) each.
-        const RING_COUNT: usize = 4;
+        const RING_COUNT: u8 = 4;
 
         // Admissible values are `[O, G, [2]G, [3]G]` for the first ring,
         // `[O, [4]G, [8]G, [12]G]` for the second ring, etc.
         let admissible_values: Vec<_> = (0..RING_COUNT)
             .map(|ring_index| {
-                let power: u32 = 1 << (2 * ring_index as u32);
+                let power: u32 = 1 << (2 * u32::from(ring_index));
                 [
                     EdwardsPoint::identity(),
                     Edwards::scalar_mul_basepoint(&Scalar25519::from(power)),
@@ -825,9 +846,9 @@ mod tests {
 
             let (encryptions, rings): (Vec<_>, Vec<_>) = (0..RING_COUNT)
                 .map(|ring_index| {
-                    let mask = 3 << (2 * ring_index as u8);
+                    let mask = 3 << (2 * ring_index);
                     let val = overall_value & mask;
-                    let val_index = (val >> (2 * ring_index as u8)) as usize;
+                    let val_index = (val >> (2 * ring_index)) as usize;
                     assert!(val_index < 4);
 
                     let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
@@ -835,7 +856,8 @@ mod tests {
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
                     let encryption = encryption_with_log.encryption;
 
-                    let ring = Ring::new(
+                    let ring_index = usize::from(ring_index);
+                    let signature_ring = Ring::new(
                         ring_index,
                         keypair.public().full,
                         encryption_with_log,
@@ -845,7 +867,7 @@ mod tests {
                         &mut rng,
                     );
 
-                    (encryption, ring)
+                    (encryption, signature_ring)
                 })
                 .unzip();
 

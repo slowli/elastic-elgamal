@@ -26,7 +26,9 @@ impl<G: Group> Rig<G> {
         let mut partial_info = PartialPublicKeySet::<G>::new(params);
         for (i, participant) in participants.iter().enumerate() {
             let (poly, proof) = participant.public_info();
-            partial_info.add_participant(i, poly, &proof).unwrap();
+            partial_info
+                .add_participant(i, poly.to_vec(), proof)
+                .unwrap();
         }
         let info = partial_info.complete().unwrap();
 
@@ -44,7 +46,7 @@ impl<G: Group> Rig<G> {
         }
         let participants = participants
             .into_iter()
-            .map(|participant| participant.complete().map_err(drop).unwrap())
+            .map(|participant| participant.complete())
             .collect();
         Self { info, participants }
     }
@@ -80,7 +82,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
         for _ in 0..5 {
             let chosen_shares = shares
                 .iter()
-                .cloned()
+                .copied()
                 .enumerate()
                 .choose_multiple(&mut rng, params.threshold);
             let decrypted = DecryptionShare::combine(params, encrypted, chosen_shares);
