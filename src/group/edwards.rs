@@ -125,9 +125,8 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::group;
 
-    type PublicKey = group::PublicKey<Edwards>;
+    type PublicKey = crate::PublicKey<Edwards>;
 
     #[test]
     fn mangled_point_is_invalid_public_key() {

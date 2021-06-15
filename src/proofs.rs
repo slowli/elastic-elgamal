@@ -8,8 +8,7 @@ use subtle::ConstantTimeEq;
 use std::{fmt, io};
 
 use crate::{
-    group::{Group, Keypair, PublicKey, SecretKey},
-    Encryption, EncryptionWithLog,
+    encryption::EncryptionWithLog, group::Group, Encryption, Keypair, PublicKey, SecretKey,
 };
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
@@ -341,8 +340,8 @@ impl<'a, G: Group> Ring<'a, G> {
             "Specified value index is out of bounds"
         );
 
-        let random_point = encryption_with_log.encryption.random_point;
-        let blinded_value = encryption_with_log.encryption.blinded_point;
+        let random_point = encryption_with_log.inner.random_point;
+        let blinded_value = encryption_with_log.inner.blinded_point;
         debug_assert!(
             {
                 let expected_blinded_value = log_base * &encryption_with_log.random_scalar.0
@@ -354,7 +353,7 @@ impl<'a, G: Group> Ring<'a, G> {
 
         let mut transcript = transcript.clone();
         transcript.start_proof(b"ring_enc");
-        transcript.append_message(b"enc", &encryption_with_log.encryption.to_bytes());
+        transcript.append_message(b"enc", &encryption_with_log.inner.to_bytes());
         // NB: we don't add `admissible_values` to the transcript since we assume that
         // they are fixed in the higher-level protocol.
         transcript.append_u64(b"i", index as u64);
@@ -393,7 +392,7 @@ impl<'a, G: Group> Ring<'a, G> {
             index,
             value_index,
             admissible_values,
-            encryption: encryption_with_log.encryption,
+            encryption: encryption_with_log.inner,
             transcript,
             responses,
             terminal_commitments: commitments,
@@ -817,7 +816,7 @@ mod tests {
 
         let value = EdwardsPoint::identity();
         let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
-        let encryption = encryption_with_log.encryption;
+        let encryption = encryption_with_log.inner;
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         RingProof::initialize_transcript(&mut transcript, keypair.public());
@@ -849,7 +848,7 @@ mod tests {
         // Check a proof for the encryption of 1.
         let value = Edwards::base_point();
         let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
-        let encryption = encryption_with_log.encryption;
+        let encryption = encryption_with_log.inner;
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         RingProof::initialize_transcript(&mut transcript, keypair.public());
@@ -891,7 +890,7 @@ mod tests {
             let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
             let encryption_with_log =
                 EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
-            let encryption = encryption_with_log.encryption;
+            let encryption = encryption_with_log.inner;
 
             let mut transcript = Transcript::new(b"test_ring_encryption");
             RingProof::initialize_transcript(&mut transcript, keypair.public());
@@ -940,7 +939,7 @@ mod tests {
                     let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
                     let encryption_with_log =
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
-                    let encryption = encryption_with_log.encryption;
+                    let encryption = encryption_with_log.inner;
 
                     let signature_ring = Ring::new(
                         ring_index,
@@ -1005,7 +1004,7 @@ mod tests {
                     let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
                     let encryption_with_log =
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
-                    let encryption = encryption_with_log.encryption;
+                    let encryption = encryption_with_log.inner;
 
                     let ring_index = usize::from(ring_index);
                     let signature_ring = Ring::new(
@@ -1047,7 +1046,7 @@ mod tests {
 
         let mut builder = RingProofBuilder::new(keypair.public(), &mut transcript, &mut rng);
         let encryptions: Vec<_> = (0..5)
-            .map(|i| builder.add_value(&admissible_values, i & 1).unwrap())
+            .map(|i| builder.add_value(&admissible_values, i & 1).inner)
             .collect();
         let proof = builder.build();
 

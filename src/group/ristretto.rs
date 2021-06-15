@@ -118,10 +118,10 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{group, DiscreteLogLookupTable, Edwards, EncryptedChoice, Encryption};
+    use crate::{DiscreteLogLookupTable, Edwards, EncryptedChoice, Encryption};
 
-    type SecretKey = group::SecretKey<Ristretto>;
-    type Keypair = group::Keypair<Ristretto>;
+    type SecretKey = crate::SecretKey<Ristretto>;
+    type Keypair = crate::Keypair<Ristretto>;
 
     #[test]
     fn encrypt_and_decrypt() {
@@ -150,12 +150,12 @@ mod tests {
 
     #[test]
     fn edwards_and_ristretto_public_keys_differ() {
-        type EdKeypair = group::Keypair<Edwards>;
+        type EdKeypair = crate::Keypair<Edwards>;
 
         for _ in 0..1_000 {
             let secret_key = SecretKey::generate(&mut thread_rng());
             let keypair = Keypair::from(secret_key.clone());
-            let ed_keypair = EdKeypair::from(group::SecretKey::<Edwards>(secret_key.0));
+            let ed_keypair = EdKeypair::from(crate::SecretKey::<Edwards>(secret_key.0));
             assert_ne!(keypair.public().as_bytes(), ed_keypair.public().as_bytes());
         }
     }
