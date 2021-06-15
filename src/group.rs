@@ -188,9 +188,19 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
     }
 }
 
+/// Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
+/// the [`Group`] scalar.
 // TODO: zeroize?
-#[derive(Debug)]
 pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
+
+impl<G: Group> fmt::Debug for SecretKey<G> {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter
+            .debug_struct("SecretKey")
+            .field("public", &PublicKey::from(self))
+            .finish()
+    }
+}
 
 impl<G: Group> Clone for SecretKey<G> {
     fn clone(&self) -> Self {
@@ -203,11 +213,17 @@ impl<G: Group> SecretKey<G> {
         SecretKey(scalar)
     }
 
+    /// Generates a random secret key.
     pub fn generate<R: CryptoRng + RngCore>(rng: &mut R) -> Self {
         SecretKey(G::generate_scalar(rng))
     }
 
+    /// Deserializes a secret key from bytes. If bytes do not represent a valid scalar,
+    /// returns `None`.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+        if bytes.len() != G::SCALAR_SIZE {
+            return None;
+        }
         G::deserialize_scalar(bytes).map(SecretKey)
     }
 }
@@ -234,7 +250,7 @@ impl<G: Group> ops::Mul<G::Scalar> for SecretKey<G> {
     }
 }
 
-impl<'a, G: Group> ops::Mul<G::Scalar> for &'a SecretKey<G> {
+impl<G: Group> ops::Mul<G::Scalar> for &SecretKey<G> {
     type Output = SecretKey<G>;
 
     fn mul(self, k: G::Scalar) -> SecretKey<G> {
@@ -242,12 +258,12 @@ impl<'a, G: Group> ops::Mul<G::Scalar> for &'a SecretKey<G> {
     }
 }
 
-/// Public key in the signature scheme.
+/// Public key for ElGamal encryption and related protocols.
 ///
 /// # Implementation details
 ///
-/// We store both the compressed group point (which is what public key *is*
-/// in most digital signature implementations) and its decompression into a group element.
+/// We store both the original bytes (which are used in zero-knowledge proofs)
+/// and its decompression into a group element.
 /// This increases the memory footprint, but speeds up arithmetic on the keys.
 pub struct PublicKey<G: Group> {
     pub(crate) bytes: Vec<u8>,
@@ -282,6 +298,8 @@ where
 }
 
 impl<G: Group> PublicKey<G> {
+    /// Deserializes a public key from bytes. If the bytes do not represent a valid [`Group`]
+    /// element, returns `None`.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() != G::POINT_SIZE {
             return None;
@@ -304,13 +322,16 @@ impl<G: Group> PublicKey<G> {
         }
     }
 
-    pub fn from_secret(secret: &SecretKey<G>) -> Self {
-        let point = G::base_point() * &secret.0;
-        Self::from_point(point)
-    }
-
+    /// Returns bytes representing the group element corresponding to this key.
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
+    }
+}
+
+impl<G: Group> From<&SecretKey<G>> for PublicKey<G> {
+    fn from(secret_key: &SecretKey<G>) -> Self {
+        let point = G::scalar_mul_basepoint(&secret_key.0);
+        Self::from_point(point)
     }
 }
 
@@ -332,9 +353,20 @@ impl<G: Group> ops::Mul<G::Scalar> for PublicKey<G> {
     }
 }
 
+/// Keypair for ElGamal encryption and related protocols, consisting of a [`SecretKey`]
+/// and the matching [`PublicKey`].
 pub struct Keypair<G: Group> {
     secret: SecretKey<G>,
     public: PublicKey<G>,
+}
+
+impl<G: Group> fmt::Debug for Keypair<G> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Keypair")
+            .field("public", &self.public)
+            .finish()
+    }
 }
 
 impl<G: Group> Clone for Keypair<G> {
@@ -347,31 +379,37 @@ impl<G: Group> Clone for Keypair<G> {
 }
 
 impl<G: Group> Keypair<G> {
+    /// Generates a random keypair.
     pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
         let secret = SecretKey::generate(rng);
         Keypair {
-            public: PublicKey::from_secret(&secret),
+            public: PublicKey::from(&secret),
             secret,
         }
     }
 
-    pub fn from_secret(secret: SecretKey<G>) -> Self {
-        Keypair {
-            public: PublicKey::from_secret(&secret),
-            secret,
-        }
-    }
-
+    /// Returns the public part of this keypair.
     pub fn public(&self) -> &PublicKey<G> {
         &self.public
     }
 
+    /// Returns the secret part of this keypair.
     pub fn secret(&self) -> &SecretKey<G> {
         &self.secret
     }
 
+    /// Returns public and secret keys comprising this keypair.
     pub fn into_tuple(self) -> (PublicKey<G>, SecretKey<G>) {
         (self.public, self.secret)
+    }
+}
+
+impl<G: Group> From<SecretKey<G>> for Keypair<G> {
+    fn from(secret: SecretKey<G>) -> Self {
+        Self {
+            public: PublicKey::from(&secret),
+            secret,
+        }
     }
 }
 

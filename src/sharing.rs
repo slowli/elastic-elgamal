@@ -167,23 +167,33 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
     (denominators, scale)
 }
 
-#[derive(Debug, Clone, Copy)]
+/// Errors that can occur during the secret sharing protocol.
+#[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum Error {
+    /// Participant polynomial is malformed.
     MalformedParticipantPolynomial,
+    /// Secret received from a participant does not correspond to their previous commitment.
     InvalidSecret,
+    /// Proof of possession supplied with a participant's polynomial is invalid.
     InvalidProofOfPossession,
 }
 
+/// Parameters of a shared ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Params {
+    /// Total number of shares / participants.
     pub shares: usize,
+    /// Number of participants necessary to jointly restore the secret.
     pub threshold: usize,
 }
 
 impl Params {
+    /// Creates new parameters.
+    ///
     /// # Panics
     ///
-    /// - Panics if `shares` is equal to zero or if `threshold` is not in `1..=shares`.
+    /// Panics if `shares` is equal to zero or if `threshold` is not in `1..=shares`.
     pub fn new(shares: usize, threshold: usize) -> Self {
         assert!(shares > 0);
         assert!(threshold > 0 && threshold <= shares);
@@ -191,7 +201,9 @@ impl Params {
     }
 }
 
-/// In-progress information about the participants of a shared ElGamal encryption scheme.
+/// In-progress information about the participants of a shared ElGamal encryption scheme
+/// before all participants' commitments are collected.
+#[derive(Debug)]
 pub struct PartialPublicKeySet<G: Group> {
     params: Params,
     received_polynomials: BTreeMap<usize, Vec<G::Point>>,
@@ -206,14 +218,19 @@ impl<G: Group> PartialPublicKeySet<G> {
         }
     }
 
+    /// Checks whether a valid polynomial commitment was received from a participant with
+    /// the specified `index`.
     pub fn has_participant(&self, index: usize) -> bool {
         self.received_polynomials.contains_key(&index)
     }
 
+    /// Checks whether this set is complete (has commitments from all participants).
     pub fn is_complete(&self) -> bool {
         self.received_polynomials.len() == self.params.shares
     }
 
+    /// Completes this set returning [`PublicKeySet`]. Returns `None` if this set is currently
+    /// not complete (i.e., [`Self::is_complete()`] returns `false`).
     pub fn complete(&self) -> Option<PublicKeySet<G>> {
         if !self.is_complete() {
             return None;
@@ -231,7 +248,7 @@ impl<G: Group> PartialPublicKeySet<G> {
 
         // The shared public key is the value of the resulting polynomial at `0`.
         let shared_key = PublicKey::from_point(coefficients[0]);
-        // A participant's public key is the value of the resulting polynomial at her index
+        // A participant's public key is the value of the resulting polynomial at their index
         // (1-based).
         let participant_keys: Vec<_> = (0..self.params.shares)
             .map(|index| {
@@ -316,7 +333,9 @@ impl<G: Group> PartialPublicKeySet<G> {
     }
 }
 
-#[derive(Clone)]
+/// Full public information about the participants of a shared ElGamal encryption scheme
+/// after all participants' commitments are collected.
+#[derive(Debug, Clone)]
 pub struct PublicKeySet<G: Group> {
     params: Params,
     shared_key: PublicKey<G>,
@@ -324,8 +343,15 @@ pub struct PublicKeySet<G: Group> {
 }
 
 impl<G: Group> PublicKeySet<G> {
+    /// Creates a key set from the parameters and public keys of all participants.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of keys in `participant_keys` does not match the number
+    /// of participants in `params`.
     pub fn from_participants(params: Params, participant_keys: Vec<PublicKey<G>>) -> Self {
         assert_eq!(params.shares, participant_keys.len());
+
         let indexes: Vec<_> = (0..params.threshold).collect();
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
         let shared_key = G::vartime_multiscalar_mul(
@@ -343,18 +369,23 @@ impl<G: Group> PublicKeySet<G> {
         }
     }
 
+    /// Returns parameters for this scheme.
     pub fn params(&self) -> Params {
         self.params
     }
 
+    /// Returns the shared public key used in this scheme.
     pub fn shared_key(&self) -> &PublicKey<G> {
         &self.shared_key
     }
 
+    /// Returns the public key of a participant with the specified `index`. If `index` is
+    /// out of bounds, returns `None`.
     pub fn participant_key(&self, index: usize) -> Option<&PublicKey<G>> {
         self.participant_keys.get(index)
     }
 
+    /// Returns the slice with all participants' public keys.
     pub fn participant_keys(&self) -> &[PublicKey<G>] {
         &self.participant_keys
     }
@@ -365,6 +396,12 @@ impl<G: Group> PublicKeySet<G> {
         transcript.append_point_bytes(b"K", &self.shared_key.bytes);
     }
 
+    /// Verifies a proof of possession of the participant's secret key.
+    ///
+    /// Proofs of possession for participants are not required for protocol correctness.
+    /// Still, they can be useful to attribute failures or just as an additional safety mechanism;
+    /// see [the module docs](index.html) for details.
+    ///
     /// # Panics
     ///
     /// Panics if `index` does not correspond to a participant.
@@ -382,6 +419,8 @@ impl<G: Group> PublicKeySet<G> {
         proof.verify(iter::once(participant_key), &mut transcript)
     }
 
+    /// Verifies a candidate decryption share for `encryption` provided by a participant
+    /// with the specified `index`.
     pub fn verify_share(
         &self,
         candidate_share: CandidateShare<G>,
@@ -409,6 +448,9 @@ impl<G: Group> PublicKeySet<G> {
     }
 }
 
+/// Personalized state of a participant of a shared ElGamal encryption scheme
+/// at the initial step of the protocol, before the [`PublicKeySet`] is determined.
+#[derive(Debug)]
 pub struct StartingParticipant<G: Group> {
     params: Params,
     index: usize,
@@ -418,6 +460,8 @@ pub struct StartingParticipant<G: Group> {
 }
 
 impl<G: Group> StartingParticipant<G> {
+    /// Creates participant information generating all necessary secrets and proofs.
+    ///
     /// # Panics
     ///
     /// Panics if `index` is out of bounds as per `params`.
@@ -456,11 +500,20 @@ impl<G: Group> StartingParticipant<G> {
         }
     }
 
+    /// Returns public participant information: participant's public polynomial and proof
+    /// of possession for the corresponding secret polynomial.
     pub fn public_info(&self) -> (&[G::Point], &ProofOfPossession<G>) {
         (&self.public_points, &self.proof_of_possession)
     }
 
-    #[allow(clippy::missing_panics_doc)] // false positive
+    /// Transforms the participant's state after collecting public info from all participants
+    /// in `key_set`. Returns `None` if `key_set` does not have full public info from all
+    /// participants.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `key_set` has different parameters than [`Params`] supplied when creating
+    /// this participant state.
     pub fn finalize_key_set(
         &self,
         key_set: &PartialPublicKeySet<G>,
@@ -492,6 +545,10 @@ impl<G: Group> StartingParticipant<G> {
     }
 }
 
+/// Personalized state of a participant of a shared ElGamal encryption scheme
+/// at the intermediate step of the protocol, after the [`PublicKeySet`] is determined
+/// but before the participant gets messages from all other participants.
+#[derive(Debug)]
 pub struct ParticipantExchangingSecrets<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
@@ -513,10 +570,13 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
         self.index == participant_index || self.received_messages.contains(&participant_index)
     }
 
+    /// Checks whether we have received messages from all other participants.
     pub fn is_complete(&self) -> bool {
         self.received_messages.len() == self.key_set.params.shares - 1
     }
 
+    /// Completes the sharing protocol.
+    ///
     /// # Panics
     ///
     /// Panics if the protocol cannot be completed at this point, i.e., [`Self::is_complete()`]
@@ -535,6 +595,8 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
         }
     }
 
+    /// Processes a message from a participant with the specified index.
+    ///
     /// # Errors
     ///
     /// Returns an error if the message does not correspond to the participant's commitment.
@@ -543,7 +605,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
     ///
     /// Panics if `participant_index` is invalid, or if the message from this participant
     /// was already processed. (The latter can be checked via [`Self::has_message()`].)
-    pub fn receive_message(
+    pub fn process_message(
         &mut self,
         participant_index: usize,
         message: SecretKey<G>,
@@ -572,6 +634,10 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
     }
 }
 
+/// Personalized state of a participant of a shared ElGamal encryption scheme once the participant
+/// receives all necessary messages. At this point, the participant can produce
+/// [`DecryptionShare`]s.
+#[derive(Debug)]
 pub struct ActiveParticipant<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
@@ -579,12 +645,19 @@ pub struct ActiveParticipant<G: Group> {
 }
 
 impl<G: Group> ActiveParticipant<G> {
+    /// Creates the participant state based on readily available components. This is
+    /// useful to restore previously persisted state.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `secret_share` does not correspond to the participant's public key share
+    /// in `key_set`.
     pub fn new(key_set: PublicKeySet<G>, index: usize, secret_share: SecretKey<G>) -> Self {
-        assert_eq!(
-            G::scalar_mul_basepoint(&secret_share.0)
-                .ct_eq(&key_set.participant_keys[index].full)
-                .unwrap_u8(),
-            1,
+        assert!(
+            bool::from(
+                G::scalar_mul_basepoint(&secret_share.0)
+                    .ct_eq(&key_set.participant_keys[index].full)
+            ),
             "Secret key share does not correspond to public key share"
         );
 
@@ -595,22 +668,30 @@ impl<G: Group> ActiveParticipant<G> {
         }
     }
 
+    /// Returns the public key set for the shared ElGamal encryption scheme this participant
+    /// is a part of.
     pub fn key_set(&self) -> &PublicKeySet<G> {
         &self.key_set
     }
 
+    /// Returns 0-based index of this participant.
     pub fn index(&self) -> usize {
         self.index
     }
 
+    /// Returns share of the secret key for this participant. This is secret information that
+    /// must not be shared.
     pub fn secret_share(&self) -> &SecretKey<G> {
         &self.secret_share
     }
 
+    /// Returns share of the public key for this participant.
     pub fn public_key_share(&self) -> &PublicKey<G> {
         &self.key_set.participant_keys[self.index]
     }
 
+    /// Generates a [`ProofOfPossession`] of the participant's
+    /// [`secret_share`](Self::secret_share()).
     pub fn proof_of_possession<R: CryptoRng + RngCore>(&self, rng: &mut R) -> ProofOfPossession<G> {
         let mut transcript = Transcript::new(b"elgamal_participant_pop");
         self.key_set.commit(&mut transcript);
@@ -623,6 +704,8 @@ impl<G: Group> ActiveParticipant<G> {
         )
     }
 
+    /// Creates a [`DecryptionShare`] for the specified `encryption` together with a proof
+    /// of its validity. `rng` is used to generate the proof.
     pub fn decrypt_share<R>(
         &self,
         encryption: Encryption<G>,
@@ -648,12 +731,19 @@ impl<G: Group> ActiveParticipant<G> {
     }
 }
 
-#[derive(Clone, Copy)]
+/// Decryption share for a certain encryption in a shared ElGamal encryption scheme.
+// TODO: embed params into share?
+#[derive(Debug, Clone, Copy)]
 pub struct DecryptionShare<G: Group> {
     dh_point: G::Point,
 }
 
 impl<G: Group> DecryptionShare<G> {
+    /// Combines shares decrypting the specified `encryption`. The shares must be provided
+    /// together with the 0-based indexes of the participants they are coming from.
+    ///
+    /// Returns the decrypted value, or `None` if the number of shares is insufficient.
+    ///
     /// # Panics
     ///
     /// Panics if any index in `shares` exceeds the maximum participant's index as per `params`.
@@ -683,6 +773,7 @@ impl<G: Group> DecryptionShare<G> {
         Some(encryption.blinded_point - dh_point)
     }
 
+    /// Serializes this share into bytes.
     pub fn to_bytes(self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(G::POINT_SIZE);
         G::serialize_point(&self.dh_point, &mut bytes);
@@ -690,12 +781,15 @@ impl<G: Group> DecryptionShare<G> {
     }
 }
 
-#[derive(Clone, Copy)]
+/// Candidate for a [`DecryptionShare`] that has not passed verification via
+/// [`PublicKeySey::verify_share()`].
+#[derive(Debug, Clone, Copy)]
 pub struct CandidateShare<G: Group> {
     inner: DecryptionShare<G>,
 }
 
 impl<G: Group> CandidateShare<G> {
+    /// Deserializes a share from `bytes`. Returns `None` if the share is malformed.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() == G::POINT_SIZE {
             let dh_point = G::deserialize_point(bytes)?;
@@ -755,8 +849,8 @@ mod tests {
         let a2b_message = alice.message(1);
         let mut bob = bob.finalize_key_set(&group_info).unwrap();
         let b2a_message = bob.message(0);
-        bob.receive_message(0, a2b_message).unwrap();
-        alice.receive_message(1, b2a_message).unwrap();
+        bob.process_message(0, a2b_message).unwrap();
+        alice.process_message(1, b2a_message).unwrap();
 
         let alice = alice.complete();
         let bob = bob.complete();
@@ -822,7 +916,7 @@ mod tests {
             for j in 0..3 {
                 if j != i {
                     let message = actors[i].message(j);
-                    actors[j].receive_message(i, message).unwrap();
+                    actors[j].process_message(i, message).unwrap();
                 }
             }
         }

@@ -5,7 +5,7 @@ use rand_core::{CryptoRng, RngCore};
 use smallvec::{smallvec, SmallVec};
 use subtle::ConstantTimeEq;
 
-use std::io;
+use std::{fmt, io};
 
 use crate::{
     group::{Group, PublicKey, SecretKey},
@@ -66,13 +66,15 @@ impl TranscriptForGroup for Transcript {
 /// of a discrete log. The difference with the combination of several concurrent Schnorr
 /// protocol instances is that the challenge is shared among all instances (which yields a
 /// ~2x proof size reduction).
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct ProofOfPossession<G: Group> {
     challenge: G::Scalar,
     responses: Vec<G::Scalar>,
 }
 
 impl<G: Group> ProofOfPossession<G> {
+    /// Creates a proof of possession with the specified `secrets` and corresponding `public_keys`.
+    #[doc(hidden)] // public only for benchmarking
     pub fn new<R>(
         secrets: &[SecretKey<G>],
         public_keys: &[PublicKey<G>],
@@ -82,6 +84,8 @@ impl<G: Group> ProofOfPossession<G> {
     where
         R: CryptoRng + RngCore,
     {
+        debug_assert_eq!(secrets.len(), public_keys.len());
+
         transcript.start_proof(b"multi_pop");
         for public_key in public_keys {
             transcript.append_point_bytes(b"K", &public_key.bytes);
@@ -107,6 +111,7 @@ impl<G: Group> ProofOfPossession<G> {
         }
     }
 
+    #[doc(hidden)] // public only for benchmarking
     pub fn verify<'a>(
         &self,
         public_keys: impl Iterator<Item = &'a PublicKey<G>> + Clone,
@@ -280,6 +285,19 @@ struct Ring<'a, G: Group> {
     random_scalar: SecretKey<G>,
 }
 
+impl<G: Group> fmt::Debug for Ring<'_, G> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Ring")
+            .field("index", &self.index)
+            .field("admissible_values", &self.admissible_values)
+            .field("encryption", &self.encryption)
+            .field("responses", &self.responses)
+            .field("terminal_commitments", &self.terminal_commitments)
+            .finish()
+    }
+}
+
 impl<'a, G: Group> Ring<'a, G> {
     fn new<R>(
         index: usize,
@@ -306,8 +324,8 @@ impl<'a, G: Group> Ring<'a, G> {
         let blinded_value = encryption_with_log.encryption.blinded_point;
         debug_assert!(
             {
-                let expected_blinded_value =
-                    log_base * &encryption_with_log.discrete_log.0 + admissible_values[value_index];
+                let expected_blinded_value = log_base * &encryption_with_log.random_scalar.0
+                    + admissible_values[value_index];
                 expected_blinded_value.ct_eq(&blinded_value).unwrap_u8() == 1
             },
             "Specified encryption does not match the specified `value_index`"
@@ -358,7 +376,7 @@ impl<'a, G: Group> Ring<'a, G> {
             transcript,
             responses,
             terminal_commitments: commitments,
-            discrete_log: encryption_with_log.discrete_log,
+            discrete_log: encryption_with_log.random_scalar,
             random_scalar,
         }
     }
@@ -438,6 +456,12 @@ impl<'a, G: Group> Ring<'a, G> {
     }
 }
 
+/// Zero-knowledge proof that the encrypted value is in the a priori known set of
+/// admissible values.
+///
+/// # Construction
+///
+/// FIXME
 #[derive(Debug, Clone)]
 pub struct RingProof<G: Group> {
     common_challenge: G::Scalar,
@@ -519,10 +543,13 @@ impl<G: Group> RingProof<G> {
         expected_challenge == self.common_challenge
     }
 
-    pub fn total_rings_size(&self) -> usize {
+    pub(crate) fn total_rings_size(&self) -> usize {
         self.ring_responses.len()
     }
 
+    /// Serializes this proof to bytes.
+    ///
+    /// FIXME: serialization format
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(G::SCALAR_SIZE * (1 + self.total_rings_size()));
         G::serialize_scalar(&self.common_challenge, &mut bytes);
@@ -533,6 +560,8 @@ impl<G: Group> RingProof<G> {
         bytes
     }
 
+    /// Attempts to deserialize a proof from bytes. Returns `None` if `bytes` do not represent
+    /// a well-formed proof.
     #[allow(clippy::missing_panics_doc)] // triggered by `debug_assert`
     pub fn from_slice(bytes: &[u8]) -> Option<Self> {
         if bytes.len() % G::SCALAR_SIZE != 0 || bytes.len() < 3 * G::SCALAR_SIZE {
@@ -557,6 +586,7 @@ impl<G: Group> RingProof<G> {
 /// **NB.** Separate method calls of the builder depend on the position of the encrypted values
 /// within admissible ones. This means that if a proof is constructed with interruptions between
 /// method calls, there is a chance for an adversary to perform a timing attack.
+#[doc(hidden)] // only public for benchmarking
 pub struct RingProofBuilder<'a, G: Group, R> {
     receiver: &'a PublicKey<G>,
     transcript: &'a mut Transcript,
@@ -564,7 +594,19 @@ pub struct RingProofBuilder<'a, G: Group, R> {
     rng: &'a mut R,
 }
 
+impl<G: Group, R: fmt::Debug> fmt::Debug for RingProofBuilder<'_, G, R> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("RingProofBuilder")
+            .field("receiver", self.receiver)
+            .field("rings", &self.rings)
+            .field("rng", self.rng)
+            .finish()
+    }
+}
+
 impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
+    /// Starts building a [`RingProof`].
     pub fn new(receiver: &'a PublicKey<G>, transcript: &'a mut Transcript, rng: &'a mut R) -> Self {
         RingProof::<G>::initialize_transcript(transcript, receiver);
         Self {
@@ -575,6 +617,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
         }
     }
 
+    /// Adds a value among `admissible_values` as a new ring to this proof.
     pub fn add_value(
         &mut self,
         admissible_values: &'a [G::Point],
@@ -595,6 +638,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
         encryption_with_log
     }
 
+    /// Finishes building a [`RingProof`].
     pub fn build(self) -> RingProof<G> {
         Ring::aggregate(self.rings, self.receiver.full, self.transcript, self.rng)
     }
@@ -618,11 +662,8 @@ mod tests {
     #[test]
     fn proof_of_possession_basics() {
         let mut rng = thread_rng();
-        let (poly_secrets, poly): (Vec<_>, Vec<_>) = (0..5)
-            .map(|_| {
-                let keypair = Keypair::generate(&mut rng);
-                (keypair.secret().clone(), keypair.public().clone())
-            })
+        let (poly, poly_secrets): (Vec<_>, Vec<_>) = (0..5)
+            .map(|_| Keypair::generate(&mut rng).into_tuple())
             .unzip();
 
         let proof = ProofOfPossession::new(

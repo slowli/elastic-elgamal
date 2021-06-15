@@ -9,7 +9,7 @@ use elgamal_with_sharing::{
         ActiveParticipant, DecryptionShare, Params, PartialPublicKeySet, PublicKeySet,
         StartingParticipant,
     },
-    DecryptionLookupTable, EncryptedChoice, Encryption, Group,
+    DiscreteLogLookupTable, EncryptedChoice, Encryption, Group,
 };
 
 struct Rig<G: Group> {
@@ -40,7 +40,7 @@ impl<G: Group> Rig<G> {
             for j in 0..participants.len() {
                 if j != i {
                     let message = participants[i].message(j);
-                    participants[j].receive_message(i, message).unwrap();
+                    participants[j].process_message(i, message).unwrap();
                 }
             }
         }
@@ -95,7 +95,7 @@ fn test_simple_voting<G: Group>() {
     const CHOICE_COUNT: usize = 5;
     const VOTES: usize = 50;
 
-    let lookup_table = DecryptionLookupTable::<G>::new(0..=(VOTES as u64));
+    let lookup_table = DiscreteLogLookupTable::<G>::new(0..=(VOTES as u64));
     let mut rng = thread_rng();
     let params = Params::new(10, 7);
     let rig = Rig::<G>::new(params, &mut rng);

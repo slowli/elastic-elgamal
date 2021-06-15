@@ -1,3 +1,9 @@
+//! [ElGamal encryption] on elliptic curves with pluggable crypto backends.
+//!
+//! [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
+
+// Linter settings.
+#![warn(missing_debug_implementations, missing_docs, bare_trait_objects)]
 #![warn(clippy::all, clippy::pedantic)]
 #![allow(
     clippy::must_use_candidate,
@@ -8,7 +14,7 @@
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 
-use std::{collections::HashMap, marker::PhantomData, ops};
+use std::{collections::HashMap, fmt, marker::PhantomData, ops};
 
 mod group;
 mod proofs;
@@ -23,10 +29,20 @@ pub use crate::{
 ///
 /// Ciphertexts are partially homomorphic: they can be added together or multiplied by a scalar
 /// value.
-#[derive(Debug, Clone, Copy)]
+#[derive(Clone, Copy)]
 pub struct Encryption<G: Group> {
     random_point: G::Point,
     blinded_point: G::Point,
+}
+
+impl<G: Group> fmt::Debug for Encryption<G> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("Encryption")
+            .field("random_point", &self.random_point)
+            .field("blinded_point", &self.blinded_point)
+            .finish()
+    }
 }
 
 impl<G: Group> Encryption<G> {
@@ -39,6 +55,7 @@ impl<G: Group> Encryption<G> {
         EncryptionWithLog::new(value, receiver, rng).encryption
     }
 
+    /// Represents encryption of zero value without the blinding factor.
     pub fn zero() -> Self {
         Self {
             random_point: G::identity(),
@@ -105,6 +122,8 @@ impl<G: Group> Encryption<G> {
         (encryption.unwrap(), builder.build())
     }
 
+    /// Verifies a proof of encryption correctness of a boolean value, which was presumably
+    /// obtained via [`Self::encrypt_bool()`].
     pub fn verify_bool(&self, receiver: &PublicKey<G>, proof: &RingProof<G>) -> bool {
         let admissible_values = [G::identity(), G::base_point()];
         proof.verify(
@@ -167,13 +186,15 @@ impl<G: Group> SecretKey<G> {
     }
 }
 
+/// Lookup table for discrete logarithms.
 #[derive(Debug, Clone)]
-pub struct DecryptionLookupTable<G: Group> {
+pub struct DiscreteLogLookupTable<G: Group> {
     inner: HashMap<[u8; 8], u64>,
     _t: PhantomData<G>,
 }
 
-impl<G: Group> DecryptionLookupTable<G> {
+impl<G: Group> DiscreteLogLookupTable<G> {
+    /// Creates a lookup table for the specified `values`.
     pub fn new(values: impl IntoIterator<Item = u64>) -> Self {
         let lookup_table = values
             .into_iter()
@@ -194,6 +215,8 @@ impl<G: Group> DecryptionLookupTable<G> {
         }
     }
 
+    /// Gets the discrete log of `decrypted_point`, or `None` if it is not present among `values`
+    /// supplied when constructing this table.
     pub fn get(&self, decrypted_point: &G::Point) -> Option<u64> {
         if G::is_identity(decrypted_point) {
             // The identity point may have a special serialization (e.g., in SEC standard),
@@ -209,13 +232,16 @@ impl<G: Group> DecryptionLookupTable<G> {
     }
 }
 
-#[derive(Clone)]
+/// [`Encryption`] together with the random scalar used to create it.
+#[derive(Debug, Clone)]
+#[doc(hidden)] // only public for benchmarking
 pub struct EncryptionWithLog<G: Group> {
     encryption: Encryption<G>,
-    discrete_log: SecretKey<G>,
+    random_scalar: SecretKey<G>,
 }
 
 impl<G: Group> EncryptionWithLog<G> {
+    /// Creates an encryption of `value` for the specified `receiver`.
     pub fn new<R: CryptoRng + RngCore>(
         value: G::Point,
         receiver: &PublicKey<G>,
@@ -224,14 +250,14 @@ impl<G: Group> EncryptionWithLog<G> {
         let random_scalar = SecretKey::<G>::generate(rng);
         let random_point = G::scalar_mul_basepoint(&random_scalar.0);
         let dh_point = receiver.full * &random_scalar.0;
-        let biased_point = value + dh_point;
+        let blinded_point = value + dh_point;
 
         Self {
             encryption: Encryption {
                 random_point,
-                blinded_point: biased_point,
+                blinded_point,
             },
-            discrete_log: random_scalar,
+            random_scalar,
         }
     }
 
@@ -240,15 +266,34 @@ impl<G: Group> EncryptionWithLog<G> {
     }
 }
 
-#[derive(Clone)]
+/// Encrypted choice of a value in a range `0..n` for certain integer `n > 1` together with
+/// validity zero-knowledge proofs.
+///
+/// # Construction
+///
+/// The choice is represented as a vector of `n` *variant encryptions* of Boolean values (0 or 1),
+/// where the chosen variant is an encryption of 1 and other variants are encryptions of 0.
+/// This ensures that multiple [`EncryptedChoice`]s can be added (e.g., within a voting protocol).
+/// These encryptions can be obtained via [`Self::verify()`].
+///
+/// Zero-knowledge proofs are:
+///
+/// - A [`RingProof`] attesting that all `n` encryptions are indeed encryptions of Boolean
+///   values. This proof can be obtained via [`Self::range_proof()`].
+/// - A [`LogEqualityProof`] attesting that the encrypted values sum up to 1. Combined with
+///   the range proof, this means that exactly one of encryptions is 1, and all others are 0.
+///   This proof can be obtained via [`Self::sum_proof()`].
+#[derive(Debug, Clone)]
 pub struct EncryptedChoice<G: Group> {
     variants: Vec<Encryption<G>>,
-    range_proofs: RingProof<G>,
+    range_proof: RingProof<G>,
     sum_proof: LogEqualityProof<G>,
 }
 
 #[allow(clippy::len_without_is_empty)] // `is_empty()` would always be false
 impl<G: Group> EncryptedChoice<G> {
+    /// Creates an encrypted choice.
+    ///
     /// # Panics
     ///
     /// Panics if `number_of_variants` is zero, or if `choice` is not in `0..number_of_variants`.
@@ -281,10 +326,10 @@ impl<G: Group> EncryptedChoice<G> {
             .collect();
         let range_proofs = proof_builder.build();
 
-        let mut sum_log = variants[0].discrete_log.clone();
+        let mut sum_log = variants[0].random_scalar.clone();
         let mut sum_encryption = variants[0].encryption;
         for variant in variants.iter().skip(1) {
-            sum_log += variant.discrete_log.clone();
+            sum_log += variant.random_scalar.clone();
             sum_encryption += variant.encryption;
         }
 
@@ -304,30 +349,36 @@ impl<G: Group> EncryptedChoice<G> {
                 .into_iter()
                 .map(|variant| variant.encryption)
                 .collect(),
-            range_proofs,
+            range_proof: range_proofs,
             sum_proof,
         }
     }
 
+    /// Returns the number of variants in this choice.
     pub fn len(&self) -> usize {
         self.variants.len()
     }
 
+    /// Returns variant encryptions **without** checking their validity.
     pub fn variants_unchecked(&self) -> &[Encryption<G>] {
         &self.variants
     }
 
-    pub fn range_proofs(&self) -> &RingProof<G> {
-        &self.range_proofs
+    /// Returns the range proof for the variant encryptions.
+    pub fn range_proof(&self) -> &RingProof<G> {
+        &self.range_proof
     }
 
+    /// Returns the sum proof for the variant encryptions.
     pub fn sum_proof(&self) -> &LogEqualityProof<G> {
         &self.sum_proof
     }
 
+    /// Verifies the range and sum proofs in this choice and returns variant encryptions
+    /// if they check out. Otherwise, returns `None`.
     pub fn verify(&self, receiver: &PublicKey<G>) -> Option<&[Encryption<G>]> {
         // Some sanity checks.
-        if self.len() == 0 || self.range_proofs.total_rings_size() != 2 * self.variants.len() {
+        if self.len() == 0 || self.range_proof.total_rings_size() != 2 * self.variants.len() {
             return None;
         }
 
@@ -350,7 +401,7 @@ impl<G: Group> EncryptedChoice<G> {
 
         let admissible_values = [G::identity(), G::base_point()];
         let admissible_values = vec![&admissible_values as &[_]; self.variants.len()];
-        if self.range_proofs.verify(
+        if self.range_proof.verify(
             receiver,
             &admissible_values,
             &self.variants,

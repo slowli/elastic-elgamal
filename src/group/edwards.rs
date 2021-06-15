@@ -10,8 +10,12 @@ use std::{convert::TryInto, io::Read};
 
 use crate::group::{Group, PointOps, ScalarOps};
 
+/// Prime-order subgroup of Curve25519.
+///
+/// Since the curve has cofactor 8, [`Self::deserialize_point()`] explicitly checks
+/// that the deserialized point is torsion-free (belongs to the prime-order subgroup).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Edwards {}
+pub struct Edwards(());
 
 impl ScalarOps for Edwards {
     type Scalar = Scalar;

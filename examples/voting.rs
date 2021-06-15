@@ -8,7 +8,7 @@ use elgamal_with_sharing::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
         PublicKeySet, StartingParticipant,
     },
-    DecryptionLookupTable, Edwards, EncryptedChoice, Encryption, Generic, Group, Ristretto,
+    DiscreteLogLookupTable, Edwards, EncryptedChoice, Encryption, Generic, Group, Ristretto,
 };
 
 /// Number of options in the poll.
@@ -69,7 +69,7 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
         for j in 0..talliers.len() {
             if j != i {
                 let message = talliers[i].message(j);
-                talliers[j].receive_message(i, message).unwrap();
+                talliers[j].process_message(i, message).unwrap();
             }
         }
     }
@@ -106,7 +106,7 @@ fn vote<G: Group>() {
         );
         println!(
             "Range proof: {}",
-            hex::encode(&choice.range_proofs().to_bytes())
+            hex::encode(&choice.range_proof().to_bytes())
         );
         println!(
             "Sum proof: {}",
@@ -132,7 +132,7 @@ fn vote<G: Group>() {
     );
 
     // After polling, talliers submit decryption shares together with proof of their correctness.
-    let lookup_table = DecryptionLookupTable::<G>::new(0..=(VOTES as u64));
+    let lookup_table = DiscreteLogLookupTable::<G>::new(0..=(VOTES as u64));
     for (i, (&variant_totals, &expected)) in
         encrypted_totals.iter().zip(&expected_totals).enumerate()
     {

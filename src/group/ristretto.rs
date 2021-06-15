@@ -10,8 +10,9 @@ use std::{convert::TryInto, io::Read};
 
 use crate::group::{Group, PointOps, ScalarOps};
 
+/// [Ristretto](https://ristretto.group/) transform of Curve25519.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Ristretto {}
+pub struct Ristretto(());
 
 impl ScalarOps for Ristretto {
     type Scalar = Scalar;
@@ -117,7 +118,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{group, DecryptionLookupTable, Edwards, EncryptedChoice, Encryption};
+    use crate::{group, DiscreteLogLookupTable, Edwards, EncryptedChoice, Encryption};
 
     type SecretKey = group::SecretKey<Ristretto>;
     type Keypair = group::Keypair<Ristretto>;
@@ -140,7 +141,7 @@ mod tests {
             EncryptedChoice::new(5, 3, keypair.public(), &mut rng);
         assert!(encrypted_choice.verify(keypair.public()).is_some());
 
-        let lookup_table = DecryptionLookupTable::<Ristretto>::new(0..=1);
+        let lookup_table = DiscreteLogLookupTable::<Ristretto>::new(0..=1);
         for (i, &variant) in encrypted_choice.variants_unchecked().iter().enumerate() {
             let decryption = keypair.secret().decrypt(variant);
             assert_eq!(lookup_table.get(&decryption).unwrap(), (i == 3) as u64);
@@ -153,8 +154,8 @@ mod tests {
 
         for _ in 0..1_000 {
             let secret_key = SecretKey::generate(&mut thread_rng());
-            let keypair = Keypair::from_secret(secret_key.clone());
-            let ed_keypair = EdKeypair::from_secret(group::SecretKey::<Edwards>(secret_key.0));
+            let keypair = Keypair::from(secret_key.clone());
+            let ed_keypair = EdKeypair::from(group::SecretKey::<Edwards>(secret_key.0));
             assert_ne!(keypair.public().as_bytes(), ed_keypair.public().as_bytes());
         }
     }
