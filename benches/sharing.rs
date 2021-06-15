@@ -10,36 +10,27 @@ use elgamal_with_sharing::{Edwards, Group, Keypair, ProofOfPossession, Ristretto
 
 fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
-    let (poly, poly_secrets): (Vec<_>, Vec<_>) = (0..degree)
-        .map(|_| Keypair::<G>::generate(&mut rng).into_tuple())
-        .unzip();
+    let keypairs: Vec<_> = (0..degree)
+        .map(|_| Keypair::<G>::generate(&mut rng))
+        .collect();
 
-    b.iter(|| {
-        ProofOfPossession::new(
-            &poly_secrets,
-            &poly,
-            &mut Transcript::new(b"bench_pop"),
-            &mut rng,
-        )
-    });
+    b.iter(|| ProofOfPossession::new(&keypairs, &mut Transcript::new(b"bench_pop"), &mut rng));
 }
 
 fn bench_proof_of_possession_verification<G: Group>(b: &mut Bencher, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
-    let (poly, poly_secrets): (Vec<_>, Vec<_>) = (0..degree)
-        .map(|_| Keypair::<G>::generate(&mut rng).into_tuple())
-        .unzip();
+    let keypairs: Vec<_> = (0..degree)
+        .map(|_| Keypair::<G>::generate(&mut rng))
+        .collect();
 
     b.iter_batched(
-        || {
-            ProofOfPossession::new(
-                &poly_secrets,
-                &poly,
+        || ProofOfPossession::new(&keypairs, &mut Transcript::new(b"bench_pop"), &mut rng),
+        |proof| {
+            proof.verify(
+                keypairs.iter().map(Keypair::public),
                 &mut Transcript::new(b"bench_pop"),
-                &mut rng,
             )
         },
-        |proof| proof.verify(poly.iter(), &mut Transcript::new(b"bench_pop")),
         BatchSize::SmallInput,
     );
 }

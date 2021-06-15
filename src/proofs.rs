@@ -8,7 +8,7 @@ use subtle::ConstantTimeEq;
 use std::{fmt, io};
 
 use crate::{
-    group::{Group, PublicKey, SecretKey},
+    group::{Group, Keypair, PublicKey, SecretKey},
     Encryption, EncryptionWithLog,
 };
 
@@ -66,6 +66,11 @@ impl TranscriptForGroup for Transcript {
 /// of a discrete log. The difference with the combination of several concurrent Schnorr
 /// protocol instances is that the challenge is shared among all instances (which yields a
 /// ~2x proof size reduction).
+///
+/// # Implementation notes
+///
+/// - Proof generation is constant-time. Verification is **not** constant-time.
+// TODO: serialization?
 #[derive(Debug, Clone)]
 pub struct ProofOfPossession<G: Group> {
     challenge: G::Scalar,
@@ -73,25 +78,34 @@ pub struct ProofOfPossession<G: Group> {
 }
 
 impl<G: Group> ProofOfPossession<G> {
-    /// Creates a proof of possession with the specified `secrets` and corresponding `public_keys`.
-    #[doc(hidden)] // public only for benchmarking
-    pub fn new<R>(
-        secrets: &[SecretKey<G>],
-        public_keys: &[PublicKey<G>],
+    /// Creates a proof of possession with the specified `keypairs`.
+    pub fn new<R: CryptoRng + RngCore>(
+        keypairs: &[Keypair<G>],
         transcript: &mut Transcript,
         rng: &mut R,
-    ) -> Self
-    where
-        R: CryptoRng + RngCore,
-    {
-        debug_assert_eq!(secrets.len(), public_keys.len());
+    ) -> Self {
+        Self::from_keys(
+            keypairs.iter().map(Keypair::secret),
+            keypairs.iter().map(Keypair::public),
+            transcript,
+            rng,
+        )
+    }
 
+    pub(crate) fn from_keys<'a, R: CryptoRng + RngCore>(
+        secrets: impl Iterator<Item = &'a SecretKey<G>>,
+        public_keys: impl Iterator<Item = &'a PublicKey<G>>,
+        transcript: &mut Transcript,
+        rng: &mut R,
+    ) -> Self {
         transcript.start_proof(b"multi_pop");
+        let mut key_count = 0;
         for public_key in public_keys {
             transcript.append_point_bytes(b"K", &public_key.bytes);
+            key_count += 1;
         }
 
-        let mut random_scalars: Vec<_> = (0..secrets.len())
+        let mut random_scalars: Vec<_> = (0..key_count)
             .map(|_| {
                 let random_scalar = SecretKey::<G>::generate(rng);
                 let random_point = G::scalar_mul_basepoint(&random_scalar.0);
@@ -101,7 +115,7 @@ impl<G: Group> ProofOfPossession<G> {
             .collect();
 
         let challenge = transcript.challenge_scalar::<G>(b"c");
-        for (secret, response) in secrets.iter().zip(&mut random_scalars) {
+        for (secret, response) in secrets.zip(&mut random_scalars) {
             *response += secret.clone() * challenge;
         }
 
@@ -111,7 +125,7 @@ impl<G: Group> ProofOfPossession<G> {
         }
     }
 
-    #[doc(hidden)] // public only for benchmarking
+    /// Verifies this proof against the provided `public_keys`.
     pub fn verify<'a>(
         &self,
         public_keys: impl Iterator<Item = &'a PublicKey<G>> + Clone,
@@ -142,10 +156,16 @@ impl<G: Group> ProofOfPossession<G> {
 /// Zero-knowledge proof of equality of two discrete logarithms in different bases,
 /// aka Chaum - Pedersen protocol.
 ///
-/// # Implementation details
+/// # Construction
 ///
 /// This proof is a result of the [Fiat – Shamir transform][fst] applied to a standard
 /// ZKP of equality of the two discrete logs in different bases.
+///
+/// - Public parameters of the proof are the two bases `G` and `K` in a prime-order group
+///   in which discrete log problem is believed to be hard.
+/// - Prover and verifier both know group elements `R` and `B`, which presumably have
+///   the same discrete log in bases `G` and `K` respectively.
+/// - Prover additionally knows the discrete log in question: `r = dlog_G(R) = dlog_K(B)`.
 ///
 /// The interactive proof is specified as a sigma protocol (see, e.g., [this course])
 /// as follows:
@@ -257,7 +277,8 @@ impl<G: Group> LogEqualityProof<G> {
         expected_challenge == self.challenge
     }
 
-    /// Serializes this proof into bytes.
+    /// Serializes this proof into bytes. As described [above](#implementation-details),
+    /// the is serialized as 2 scalars: `(c, s)`, i.e., challenge and response.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(2 * G::SCALAR_SIZE);
         G::serialize_scalar(&self.challenge, &mut bytes);
@@ -326,14 +347,14 @@ impl<'a, G: Group> Ring<'a, G> {
             {
                 let expected_blinded_value = log_base * &encryption_with_log.random_scalar.0
                     + admissible_values[value_index];
-                expected_blinded_value.ct_eq(&blinded_value).unwrap_u8() == 1
+                bool::from(expected_blinded_value.ct_eq(&blinded_value))
             },
             "Specified encryption does not match the specified `value_index`"
         );
 
         let mut transcript = transcript.clone();
         transcript.start_proof(b"ring_enc");
-        transcript.append_message(b"enc", &encryption_with_log.encryption.to_bytes()[..]);
+        transcript.append_message(b"enc", &encryption_with_log.encryption.to_bytes());
         // NB: we don't add `admissible_values` to the transcript since we assume that
         // they are fixed in the higher-level protocol.
         transcript.append_u64(b"i", index as u64);
@@ -456,12 +477,104 @@ impl<'a, G: Group> Ring<'a, G> {
     }
 }
 
-/// Zero-knowledge proof that the encrypted value is in the a priori known set of
-/// admissible values.
+/// Zero-knowledge proof that the one or more encrypted values is each in the a priori known set of
+/// admissible values. (Admissible values may differ among encrypted values.)
 ///
 /// # Construction
 ///
-/// FIXME
+/// In short, a proof is constructed almost identically to [Borromean ring signatures] by
+/// Maxwell and Poelstra, with the only major difference being that we work on encryptions
+/// instead of group elements (= public keys).
+///
+/// A proof consists of one or more *rings*. Each ring proves than a certain
+/// ElGamal encryption `E = (R, B)` for public key `K` in a group with generator `G`
+/// is an encryption of one of distinct admissible values `x_0`, `x_1`, ..., `x_n`.
+/// `K` and `G` are shared among rings, admissible values are generally not.
+/// Different rings may have different number of admissible values.
+///
+/// ## Single ring
+///
+/// A ring is a challenge `e_0` and a set of responses `s_0`, `s_1`, ..., `s_n`, which
+/// must satisfy the following verification procedure:
+///
+/// For each `j` in `0..=n`, compute
+///
+/// ```text
+/// R_G(j) = [s_j]G - [e_j]R;
+/// R_K(j) = [s_j]K - [e_j](B - [x_j]G);
+/// e_{j+1} = H(j, R_G(j), R_K(j));
+/// ```
+///
+/// Here, `H` is a cryptographic hash function. The ring is valid if `e_0 = e_{n+1}`.
+///
+/// This construction is almost identical to [Abe-Ohkubo-Suzuki ring signatures][ring],
+/// with the only difference that two group elements are hashed on each iteration instead of one.
+/// Also, if admissible values consist of a single value, this protocol reduces to
+/// [`LogEqualityProof`] / Chaum-Pedersen protocol.
+///
+/// As with "ordinary" ring signatures, constructing a ring is only feasible when knowing
+/// additional *trapdoor information*. Namely, the prover must know
+///
+/// ```text
+/// r = dlog_G(R) = dlog_K(B - [x_j]G)
+/// ```
+///
+/// for a certain `j`. (This discrete log `r` is the random scalar used in ElGamal encryption.)
+/// With this info, the prover constructs the ring as follows:
+///
+/// 1. Select random scalar `x` and compute `R_G(j) = [x]G`, `R_K(j) = [x]K`.
+/// 2. Compute `e_{j+1}`, ... `e_n`, ..., `e_j` ("wrapping" around `e_0 = e_{n+1}`)
+///   as per verification formulas, selecting each `s_*` scalar uniformly at random.
+/// 3. Compute `s_j` using the trapdoor information: `s_j = x + e_j * r`.
+///
+/// ## Multiple rings
+///
+/// Transformation to multiple rings is analogous to one in [Borromean ring signatures].
+/// Namely, challenge `e_0` is shared among all rings and is computed by hashing
+/// values of `R_G` and `R_K` with the maximum index for each of the rings.
+///
+/// # Applications
+///
+/// ## Voting protocols
+///
+/// [`EncryptedChoice`](crate::EncryptedChoice) uses `RingProof` to prove that all encrypted
+/// values are Boolean (0 or 1). Using a common challenge allows to reduce proof size by ~33%.
+///
+/// ## Range proofs
+///
+/// Another application is a *range proof* for an ElGamal encryption: proving that an encrypted
+/// value is in range `0..=n`, where `n` is a positive integer. To make the proof more compact,
+/// the same trick can be used as for [Pedersen commitments] (used, e.g., for confidential
+/// transaction amounts in [Elements]):
+///
+/// 1. Represent the value in base 2: `n = n_0 + n_1 * 2 + n_2 * 4 + ...`, where `n_i in {0, 1}`.
+///   (Other bases are applicable as well.)
+/// 2. Split the encryption correspondingly: `E = E_0 + E_1 + ...`, where `E_i` is an encryption
+///   of `n_i * 2^i`. That is, `E_0` encrypts 0 or 1, `E_1` encrypts 0 or 2, `E_2` - 0 or 4, etc.
+/// 3. Produce a `RingProof` that `E_i` is valid for all `i`.
+///
+/// As with "ordinary" range proofs, this construction is not optimal in terms of space
+/// or proving / verification complexity for large ranges; it is linear w.r.t. the bit length
+/// of the range. (Constructions like [Bulletproofs] are *logarithmic* w.r.t. the bit length.)
+/// Still, it can be useful for small ranges.
+///
+/// # Implementation details
+///
+/// - The proof is serialized as the common challenge `e_0` followed by `s_i` scalars for
+///   all the rings.
+/// - Standalone proof generation and verification are not exposed in public crate APIs.
+///   Rather, proofs are part of large protocols, such as [`Encryption::encrypt_bool()`] /
+///   [`Encryption::verify_bool()`].
+/// - The context of the proof is set using [`Transcript`] APIs, which provides hash functions
+///   in the protocol described above. Importantly, the proof itself commits to encrypted values
+///   and ring indexes, but not to the admissible values across the rings. This must be taken
+///   care of in a higher-level protocol, and this is the case for protocols exposed by the crate.
+///
+/// [Pedersen commitments]: https://en.wikipedia.org/wiki/Commitment_scheme
+/// [Elements]: https://elementsproject.org/features/confidential-transactions/investigation
+/// [Borromean ring signatures]: https://raw.githubusercontent.com/Blockstream/borromean_paper/master/borromean_draft_0.01_34241bb.pdf
+/// [ring]: https://link.springer.com/content/pdf/10.1007/3-540-36178-2_26.pdf
+/// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 #[derive(Debug, Clone)]
 pub struct RingProof<G: Group> {
     common_challenge: G::Scalar,
@@ -501,7 +614,7 @@ impl<G: Group> RingProof<G> {
 
             let mut ring_transcript = initial_ring_transcript.clone();
             ring_transcript.start_proof(b"ring_enc");
-            ring_transcript.append_message(b"enc", &encryption.to_bytes()[..]);
+            ring_transcript.append_message(b"enc", &encryption.to_bytes());
             ring_transcript.append_u64(b"i", ring_index as u64);
 
             for (eq_index, (&admissible_value, response)) in values
@@ -547,9 +660,9 @@ impl<G: Group> RingProof<G> {
         self.ring_responses.len()
     }
 
-    /// Serializes this proof to bytes.
-    ///
-    /// FIXME: serialization format
+    /// Serializes this proof into bytes. As described [above](#implementation-details),
+    /// the proof is serialized as the common challenge `e_0` followed by response scalars `s_*`
+    /// corresponding successively to each admissible value in each ring.
     pub fn to_bytes(&self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(G::SCALAR_SIZE * (1 + self.total_rings_size()));
         G::serialize_scalar(&self.common_challenge, &mut bytes);
@@ -662,17 +775,14 @@ mod tests {
     #[test]
     fn proof_of_possession_basics() {
         let mut rng = thread_rng();
-        let (poly, poly_secrets): (Vec<_>, Vec<_>) = (0..5)
-            .map(|_| Keypair::generate(&mut rng).into_tuple())
-            .unzip();
+        let poly: Vec<_> = (0..5).map(|_| Keypair::generate(&mut rng)).collect();
 
-        let proof = ProofOfPossession::new(
-            &poly_secrets,
-            &poly,
-            &mut Transcript::new(b"test_multi_PoP"),
-            &mut rng,
-        );
-        assert!(proof.verify(poly.iter(), &mut Transcript::new(b"test_multi_PoP")));
+        let proof =
+            ProofOfPossession::new(&poly, &mut Transcript::new(b"test_multi_PoP"), &mut rng);
+        assert!(proof.verify(
+            poly.iter().map(Keypair::public),
+            &mut Transcript::new(b"test_multi_PoP")
+        ));
     }
 
     #[test]

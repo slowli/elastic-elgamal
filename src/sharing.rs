@@ -102,7 +102,7 @@ use subtle::ConstantTimeEq;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
-    iter, slice,
+    iter,
 };
 
 use crate::{
@@ -454,8 +454,7 @@ impl<G: Group> PublicKeySet<G> {
 pub struct StartingParticipant<G: Group> {
     params: Params,
     index: usize,
-    secrets: Vec<SecretKey<G>>,
-    public_points: Vec<G::Point>,
+    polynomial: Vec<Keypair<G>>,
     proof_of_possession: ProofOfPossession<G>,
 }
 
@@ -476,34 +475,34 @@ impl<G: Group> StartingParticipant<G> {
             params.shares
         );
 
-        let (public_keys, secrets): (Vec<_>, Vec<_>) = (0..params.threshold)
-            .map(|_| {
-                let keypair = Keypair::<G>::generate(rng);
-                keypair.into_tuple()
-            })
-            .unzip();
+        let polynomial: Vec<_> = (0..params.threshold)
+            .map(|_| Keypair::<G>::generate(rng))
+            .collect();
 
         let mut transcript = Transcript::new(b"elgamal_share_poly");
         transcript.append_u64(b"n", params.shares as u64);
         transcript.append_u64(b"t", params.threshold as u64);
         transcript.append_u64(b"i", index as u64);
 
-        let proof_of_possession =
-            ProofOfPossession::new(&secrets, &public_keys, &mut transcript, rng);
+        let proof_of_possession = ProofOfPossession::new(&polynomial, &mut transcript, rng);
 
         Self {
             params,
             index,
-            secrets,
-            public_points: public_keys.into_iter().map(|key| key.full).collect(),
+            polynomial,
             proof_of_possession,
         }
     }
 
     /// Returns public participant information: participant's public polynomial and proof
     /// of possession for the corresponding secret polynomial.
-    pub fn public_info(&self) -> (&[G::Point], &ProofOfPossession<G>) {
-        (&self.public_points, &self.proof_of_possession)
+    pub fn public_info(&self) -> (Vec<G::Point>, &ProofOfPossession<G>) {
+        let public_polynomial = self
+            .polynomial
+            .iter()
+            .map(|pair| pair.public().full)
+            .collect();
+        (public_polynomial, &self.proof_of_possession)
     }
 
     /// Transforms the participant's state after collecting public info from all participants
@@ -526,8 +525,8 @@ impl<G: Group> StartingParticipant<G> {
             .map(|index| {
                 let power = G::Scalar::from(index as u64 + 1);
                 let mut poly_value = SecretKey::new(G::Scalar::from(0));
-                for secret_scalar in self.secrets.iter().rev() {
-                    poly_value = poly_value * power + secret_scalar.clone();
+                for keypair in self.polynomial.iter().rev() {
+                    poly_value = poly_value * power + keypair.secret().clone();
                 }
                 (index, poly_value)
             })
@@ -696,9 +695,9 @@ impl<G: Group> ActiveParticipant<G> {
         let mut transcript = Transcript::new(b"elgamal_participant_pop");
         self.key_set.commit(&mut transcript);
         transcript.append_u64(b"i", self.index as u64);
-        ProofOfPossession::new(
-            &[self.secret_share.clone()],
-            slice::from_ref(self.public_key_share()),
+        ProofOfPossession::from_keys(
+            iter::once(&self.secret_share),
+            iter::once(self.public_key_share()),
             &mut transcript,
             rng,
         )
@@ -782,7 +781,7 @@ impl<G: Group> DecryptionShare<G> {
 }
 
 /// Candidate for a [`DecryptionShare`] that has not passed verification via
-/// [`PublicKeySey::verify_share()`].
+/// [`PublicKeySet::verify_share()`].
 #[derive(Debug, Clone, Copy)]
 pub struct CandidateShare<G: Group> {
     inner: DecryptionShare<G>,
@@ -827,22 +826,25 @@ mod tests {
         let (alice_poly, alice_proof) = alice.public_info();
         assert_eq!(
             alice_poly,
-            [Edwards::scalar_mul_basepoint(&alice.secrets[0].0)]
+            [Edwards::scalar_mul_basepoint(
+                &alice.polynomial[0].secret().0
+            )]
         );
         let bob: StartingParticipant<Edwards> = StartingParticipant::new(params, 1, &mut rng);
         let (bob_poly, bob_proof) = bob.public_info();
-        assert_eq!(bob_poly, [Edwards::scalar_mul_basepoint(&bob.secrets[0].0)]);
+        assert_eq!(
+            bob_poly,
+            [Edwards::scalar_mul_basepoint(&bob.polynomial[0].secret().0)]
+        );
 
         let mut group_info = PartialPublicKeySet::new(params);
         group_info
-            .add_participant(0, alice_poly.to_vec(), alice_proof)
+            .add_participant(0, alice_poly, alice_proof)
             .unwrap();
-        group_info
-            .add_participant(1, bob_poly.to_vec(), bob_proof)
-            .unwrap();
+        group_info.add_participant(1, bob_poly, bob_proof).unwrap();
         assert!(group_info.is_complete());
 
-        let joint_secret = (alice.secrets[0].clone() + bob.secrets[0].clone()).0;
+        let joint_secret = alice.polynomial[0].secret().0 + bob.polynomial[0].secret().0;
         let joint_pt = Edwards::scalar_mul_basepoint(&joint_secret);
 
         let mut alice = alice.finalize_key_set(&group_info).unwrap();
@@ -892,20 +894,18 @@ mod tests {
         let (carol_poly, carol_proof) = carol.public_info();
 
         let mut key_set = PartialPublicKeySet::<Edwards>::new(params);
-        key_set
-            .add_participant(0, alice_poly.to_vec(), alice_proof)
-            .unwrap();
-        key_set
-            .add_participant(1, bob_poly.to_vec(), bob_proof)
-            .unwrap();
-        key_set
-            .add_participant(2, carol_poly.to_vec(), carol_proof)
-            .unwrap();
+        key_set.add_participant(0, alice_poly, alice_proof).unwrap();
+        key_set.add_participant(1, bob_poly, bob_proof).unwrap();
+        key_set.add_participant(2, carol_poly, carol_proof).unwrap();
         assert!(key_set.is_complete());
 
-        let secret0 = alice.secrets[0].0 + bob.secrets[0].0 + carol.secrets[0].0;
+        let secret0 = alice.polynomial[0].secret().0
+            + bob.polynomial[0].secret().0
+            + carol.polynomial[0].secret().0;
         let pt0 = Edwards::scalar_mul_basepoint(&secret0);
-        let secret1 = alice.secrets[1].0 + bob.secrets[1].0 + carol.secrets[1].0;
+        let secret1 = alice.polynomial[1].secret().0
+            + bob.polynomial[1].secret().0
+            + carol.polynomial[1].secret().0;
         let pt1 = Edwards::scalar_mul_basepoint(&secret1);
 
         let mut alice = alice.finalize_key_set(&key_set).unwrap();

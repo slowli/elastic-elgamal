@@ -12,8 +12,9 @@ use crate::group::{Group, PointOps, ScalarOps};
 
 /// Prime-order subgroup of Curve25519.
 ///
-/// Since the curve has cofactor 8, [`Self::deserialize_point()`] explicitly checks
-/// that the deserialized point is torsion-free (belongs to the prime-order subgroup).
+/// Since the curve has cofactor 8, [`PointOps::deserialize_point()`] implementation
+/// explicitly checks that the deserialized point is torsion-free
+/// (belongs to the prime-order subgroup).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct Edwards(());
 

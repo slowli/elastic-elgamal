@@ -1,3 +1,5 @@
+// FIXME: make module public
+
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use subtle::{ConditionallySelectable, ConstantTimeEq};
@@ -99,7 +101,7 @@ pub trait PointOps: ScalarOps {
     fn serialize_point(point: &Self::Point, output: &mut Vec<u8>);
 
     /// Deserializes a point from the byte buffer, which is guaranteed to have length
-    /// [`Self::BYTE_SIZE`].
+    /// [`Self::POINT_SIZE`].
     fn deserialize_point(input: &[u8]) -> Option<Self::Point>;
 }
 
@@ -116,26 +118,27 @@ pub trait PointOps: ScalarOps {
 /// [`Edwards`]: enum.Edwards.html
 /// [`Ristretto`]: enum.Ristretto.html
 pub trait Group: Copy + ScalarOps + PointOps + 'static {
-    /// Multiplies the provided scalar by [`Self::base_point()`]. This operation must be
+    /// Multiplies the provided scalar by [`PointOps::base_point()`]. This operation must be
     /// constant-time.
     ///
     /// # Default implementation
     ///
-    /// Implemented by multiplying [`Self::base_point()`] by `k` (which is constant-time as
-    /// per the [`PointOps`] contract).
+    /// Implemented using [`Mul`](ops::Mul) (which is constant-time as per the [`PointOps`]
+    /// contract).
     fn scalar_mul_basepoint(k: &Self::Scalar) -> Self::Point {
         Self::base_point() * k
     }
 
-    /// Multiplies the provided scalar by [`Self::base_point()`].
+    /// Multiplies the provided scalar by [`PointOps::base_point()`].
     /// Unlike [`Self::scalar_mul_basepoint()`], this operation does not need to be constant-time;
     /// thus, it may employ additional optimizations.
     ///
     /// # Default implementation
     ///
-    /// Implemented by multiplying [`Self::base_point()`] by `k`.
+    /// Implemented by calling [`Self::scalar_mul_basepoint()`].
+    #[inline]
     fn vartime_scalar_mul_basepoint(k: &Self::Scalar) -> Self::Point {
-        Self::base_point() * k
+        Self::scalar_mul_basepoint(k)
     }
 
     /// Multiplies provided `scalars` by `points`. This operation must be constant-time

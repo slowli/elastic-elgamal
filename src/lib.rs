@@ -21,7 +21,9 @@ mod proofs;
 pub mod sharing;
 
 pub use crate::{
-    group::{Edwards, Generic, Group, Keypair, PublicKey, Ristretto, SecretKey},
+    group::{
+        Edwards, Generic, Group, Keypair, PointOps, PublicKey, Ristretto, ScalarOps, SecretKey,
+    },
     proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder},
 };
 
@@ -163,10 +165,10 @@ impl<G: Group> ops::Sub for Encryption<G> {
     }
 }
 
-impl<'a, G: Group> ops::Mul<&'a G::Scalar> for Encryption<G> {
+impl<G: Group> ops::Mul<&G::Scalar> for Encryption<G> {
     type Output = Self;
 
-    fn mul(self, rhs: &'a G::Scalar) -> Self {
+    fn mul(self, rhs: &G::Scalar) -> Self {
         Self {
             random_point: self.random_point * rhs,
             blinded_point: self.blinded_point * rhs,
