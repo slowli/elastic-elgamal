@@ -6,7 +6,10 @@ use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
 
-use elgamal_with_sharing::{Edwards, Group, Keypair, ProofOfPossession, Ristretto};
+use elgamal_with_sharing::{
+    group::{Edwards, Group, Ristretto},
+    Keypair, ProofOfPossession,
+};
 
 fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);

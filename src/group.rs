@@ -1,4 +1,10 @@
-// FIXME: make module public
+//! Traits for prime-order groups in which discrete log problem is believed to be hard,
+//! and some implementations of such groups.
+//!
+//! Such groups can be applied for ElGamal [`Encryption`](crate::Encryption)
+//! and other cryptographic protocols from this crate.
+
+// FIXME: rename basepoint -> base_point; Edwards -> Ed25519 (?)
 
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
@@ -11,13 +17,14 @@ mod generic;
 mod ristretto;
 pub use self::{edwards::Edwards, generic::Generic, ristretto::Ristretto};
 
-/// Helper trait for `Group` that describes operations on group scalars.
+/// Helper trait for [`Group`] that describes operations on group scalars.
 pub trait ScalarOps {
-    /// Scalar type. Arithmetic operations must be constant-time.
+    /// Scalar type. As per [`Group`] contract, scalars must form a prime field.
+    /// Arithmetic operations on scalars requested here must be constant-time.
     type Scalar: Copy
         + Default
         + From<u64>
-        + PartialEq
+        + PartialEq // FIXME: replace with `ConstantTimeEq`
         + ops::Neg<Output = Self::Scalar>
         + ops::Add<Output = Self::Scalar>
         + ops::Sub<Output = Self::Scalar>
@@ -73,10 +80,11 @@ pub trait ScalarOps {
     fn deserialize_scalar(bytes: &[u8]) -> Option<Self::Scalar>;
 }
 
-/// Helper trait for `Group` that describes operations on group elements (i.e., EC points).
+/// Helper trait for [`Group`] that describes operations on group elements (i.e., EC points
+/// for elliptic curve groups).
 pub trait PointOps: ScalarOps {
-    /// Member of the group. Should define necessary arithmetic operations (addition among
-    /// points and multiplication by a `Scalar`), which must be constant-time.
+    /// Member of the group. Arithmetic operations requested here (addition among
+    /// points and multiplication by a `Scalar`) must be constant-time.
     type Point: Copy
         + ops::Add<Output = Self::Point>
         + ops::Sub<Output = Self::Point>
@@ -88,16 +96,16 @@ pub trait PointOps: ScalarOps {
     /// Byte size of a serialized [`Self::Point`].
     const POINT_SIZE: usize;
 
-    /// Returns an identity point (aka point in infinity).
+    /// Returns the identity of the group (aka point in infinity for EC groups).
     fn identity() -> Self::Point;
 
-    /// Checks if the specified point is an identity point.
+    /// Checks if the specified point is the identity.
     fn is_identity(point: &Self::Point) -> bool;
 
     /// Returns the agreed-upon generator of the group aka basepoint.
     fn base_point() -> Self::Point;
 
-    /// Serializes a point into a byte buffer.
+    /// Serializes `point` into a byte buffer.
     fn serialize_point(point: &Self::Point, output: &mut Vec<u8>);
 
     /// Deserializes a point from the byte buffer, which is guaranteed to have length
@@ -105,9 +113,12 @@ pub trait PointOps: ScalarOps {
     fn deserialize_point(input: &[u8]) -> Option<Self::Point>;
 }
 
-/// Prime-order group that can be used in ElGamal encryption and related applications.
+/// Prime-order group in which discrete log problem is believed to be hard.
 ///
-/// This crate provides two implementations of this trait:
+/// Groups conforming to this trait can be used for ElGamal [`Encryption`] and other
+/// cryptographic protocols defined in this crate.
+///
+/// This crate provides the following implementations of this trait:
 ///
 /// - [`Edwards`], representation of a prime-order subgroup of Ed25519 with the conventionally
 ///   chosen generator.
@@ -115,8 +126,6 @@ pub trait PointOps: ScalarOps {
 ///   of the [eponymous technique][ristretto].
 ///
 /// [ristretto]: https://ristretto.group/
-/// [`Edwards`]: enum.Edwards.html
-/// [`Ristretto`]: enum.Ristretto.html
 pub trait Group: Copy + ScalarOps + PointOps + 'static {
     /// Multiplies the provided scalar by [`PointOps::base_point()`]. This operation must be
     /// constant-time.

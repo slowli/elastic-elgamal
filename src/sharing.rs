@@ -106,8 +106,9 @@ use std::{
 };
 
 use crate::{
+    group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
-    Encryption, Group, Keypair, PublicKey, SecretKey,
+    Encryption, Keypair, PublicKey, SecretKey,
 };
 
 /// Computes value of EC polynomial at the specified point in variable time.
@@ -807,7 +808,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::Edwards;
+    use crate::group::Ristretto;
 
     impl<G: Group> DecryptionShare<G> {
         fn to_candidate(self) -> CandidateShare<G> {
@@ -822,19 +823,21 @@ mod tests {
 
         let mut rng = thread_rng();
         let params = Params::new(2, 1);
-        let alice: StartingParticipant<Edwards> = StartingParticipant::new(params, 0, &mut rng);
+        let alice: StartingParticipant<Ristretto> = StartingParticipant::new(params, 0, &mut rng);
         let (alice_poly, alice_proof) = alice.public_info();
         assert_eq!(
             alice_poly,
-            [Edwards::scalar_mul_basepoint(
+            [Ristretto::scalar_mul_basepoint(
                 &alice.polynomial[0].secret().0
             )]
         );
-        let bob: StartingParticipant<Edwards> = StartingParticipant::new(params, 1, &mut rng);
+        let bob: StartingParticipant<Ristretto> = StartingParticipant::new(params, 1, &mut rng);
         let (bob_poly, bob_proof) = bob.public_info();
         assert_eq!(
             bob_poly,
-            [Edwards::scalar_mul_basepoint(&bob.polynomial[0].secret().0)]
+            [Ristretto::scalar_mul_basepoint(
+                &bob.polynomial[0].secret().0
+            )]
         );
 
         let mut group_info = PartialPublicKeySet::new(params);
@@ -845,7 +848,7 @@ mod tests {
         assert!(group_info.is_complete());
 
         let joint_secret = alice.polynomial[0].secret().0 + bob.polynomial[0].secret().0;
-        let joint_pt = Edwards::scalar_mul_basepoint(&joint_secret);
+        let joint_pt = Ristretto::scalar_mul_basepoint(&joint_secret);
 
         let mut alice = alice.finalize_key_set(&group_info).unwrap();
         let a2b_message = alice.message(1);
@@ -866,7 +869,7 @@ mod tests {
             vec![PublicKey::from_point(joint_pt); 2]
         );
 
-        let message = Edwards::scalar_mul_basepoint(&Scalar25519::from(5_u32));
+        let message = Ristretto::scalar_mul_basepoint(&Scalar25519::from(5_u32));
         let encryption = Encryption::new(message, &group_info.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         let alice_share = group_info
@@ -886,14 +889,14 @@ mod tests {
         let mut rng = thread_rng();
         let params = Params::new(3, 2);
 
-        let alice = StartingParticipant::<Edwards>::new(params, 0, &mut rng);
+        let alice = StartingParticipant::<Ristretto>::new(params, 0, &mut rng);
         let (alice_poly, alice_proof) = alice.public_info();
-        let bob = StartingParticipant::<Edwards>::new(params, 1, &mut rng);
+        let bob = StartingParticipant::<Ristretto>::new(params, 1, &mut rng);
         let (bob_poly, bob_proof) = bob.public_info();
-        let carol = StartingParticipant::<Edwards>::new(params, 2, &mut rng);
+        let carol = StartingParticipant::<Ristretto>::new(params, 2, &mut rng);
         let (carol_poly, carol_proof) = carol.public_info();
 
-        let mut key_set = PartialPublicKeySet::<Edwards>::new(params);
+        let mut key_set = PartialPublicKeySet::<Ristretto>::new(params);
         key_set.add_participant(0, alice_poly, alice_proof).unwrap();
         key_set.add_participant(1, bob_poly, bob_proof).unwrap();
         key_set.add_participant(2, carol_poly, carol_proof).unwrap();
@@ -902,11 +905,11 @@ mod tests {
         let secret0 = alice.polynomial[0].secret().0
             + bob.polynomial[0].secret().0
             + carol.polynomial[0].secret().0;
-        let pt0 = Edwards::scalar_mul_basepoint(&secret0);
+        let pt0 = Ristretto::scalar_mul_basepoint(&secret0);
         let secret1 = alice.polynomial[1].secret().0
             + bob.polynomial[1].secret().0
             + carol.polynomial[1].secret().0;
-        let pt1 = Edwards::scalar_mul_basepoint(&secret1);
+        let pt1 = Ristretto::scalar_mul_basepoint(&secret1);
 
         let mut alice = alice.finalize_key_set(&key_set).unwrap();
         let mut bob = bob.finalize_key_set(&key_set).unwrap();
@@ -951,7 +954,7 @@ mod tests {
         assert!(key_set.verify_participant(2, &carol.proof_of_possession(&mut rng)));
         assert!(!key_set.verify_participant(1, &alice.proof_of_possession(&mut rng)));
 
-        let message = Edwards::scalar_mul_basepoint(&Scalar25519::from(15_u32));
+        let message = Ristretto::scalar_mul_basepoint(&Scalar25519::from(15_u32));
         let encryption = Encryption::new(message, &key_set.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         assert!(key_set
@@ -975,7 +978,7 @@ mod tests {
     fn lagrange_coeffs_are_computed_correctly() {
         // d_0 = 2 / (2 - 1) = 2
         // d_1 = 1 / (1 - 2) = -1
-        let (coeffs, scale) = lagrange_coefficients::<Edwards>(&[0, 1]);
+        let (coeffs, scale) = lagrange_coefficients::<Ristretto>(&[0, 1]);
         assert_eq!(
             coeffs,
             vec![Scalar25519::from(1_u32), -Scalar25519::from(2_u32).invert()]
@@ -984,7 +987,7 @@ mod tests {
 
         // d_0 = 3 / (3 - 1) = 3/2
         // d_1 = 1 / (1 - 3) = -1/2
-        let (coeffs, scale) = lagrange_coefficients::<Edwards>(&[0, 2]);
+        let (coeffs, scale) = lagrange_coefficients::<Ristretto>(&[0, 2]);
         assert_eq!(
             coeffs,
             vec![
@@ -997,7 +1000,7 @@ mod tests {
         // d_0 = 4 * 5 / (4 - 1) * (5 - 1) = 20/12 = 5/3
         // d_1 = 1 * 5 / (1 - 4) * (5 - 4) = -5/3
         // d_2 = 1 * 4 / (1 - 5) * (4 - 5) = 4/4 = 1
-        let (coeffs, scale) = lagrange_coefficients::<Edwards>(&[0, 3, 4]);
+        let (coeffs, scale) = lagrange_coefficients::<Ristretto>(&[0, 3, 4]);
         assert_eq!(
             coeffs,
             vec![

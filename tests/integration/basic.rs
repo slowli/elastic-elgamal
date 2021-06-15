@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::assert_ct_eq;
 use elgamal_with_sharing::{
-    EncryptedChoice, Encryption, Group, Keypair, LogEqualityProof, RingProof,
+    group::Group, EncryptedChoice, Encryption, Keypair, LogEqualityProof, RingProof,
 };
 
 fn test_encryption_roundtrip<G: Group>() {
@@ -129,7 +129,7 @@ fn test_encrypted_choice_works<G: Group>() {
 
 mod edwards {
     use super::*;
-    use elgamal_with_sharing::Edwards;
+    use elgamal_with_sharing::group::Edwards;
 
     #[test]
     fn encryption_roundtrip() {
@@ -164,7 +164,7 @@ mod edwards {
 
 mod ristretto {
     use super::*;
-    use elgamal_with_sharing::Ristretto;
+    use elgamal_with_sharing::group::Ristretto;
 
     #[test]
     fn encryption_roundtrip() {
@@ -199,7 +199,7 @@ mod ristretto {
 
 mod k256 {
     use super::*;
-    use elgamal_with_sharing::Generic;
+    use elgamal_with_sharing::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

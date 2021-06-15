@@ -5,11 +5,12 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::assert_ct_eq;
 use elgamal_with_sharing::{
+    group::Group,
     sharing::{
         ActiveParticipant, DecryptionShare, Params, PartialPublicKeySet, PublicKeySet,
         StartingParticipant,
     },
-    DiscreteLogLookupTable, EncryptedChoice, Encryption, Group,
+    DiscreteLogLookupTable, EncryptedChoice, Encryption,
 };
 
 struct Rig<G: Group> {
@@ -132,7 +133,7 @@ fn test_simple_voting<G: Group>() {
 
 mod edwards {
     use super::*;
-    use elgamal_with_sharing::Edwards;
+    use elgamal_with_sharing::group::Edwards;
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
@@ -212,7 +213,7 @@ mod edwards {
 
 mod ristretto {
     use super::*;
-    use elgamal_with_sharing::Ristretto;
+    use elgamal_with_sharing::group::Ristretto;
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
@@ -292,7 +293,7 @@ mod ristretto {
 
 mod k256 {
     use super::*;
-    use elgamal_with_sharing::Generic;
+    use elgamal_with_sharing::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

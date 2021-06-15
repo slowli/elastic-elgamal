@@ -2,7 +2,7 @@
 
 use rand_core::{CryptoRng, RngCore};
 
-use crate::{Encryption, Group};
+use crate::{group::Group, Encryption};
 
 use std::{fmt, ops};
 

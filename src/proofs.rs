@@ -759,17 +759,14 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::{
-        edwards::EdwardsPoint, scalar::Scalar as Scalar25519, traits::Identity,
+        ristretto::RistrettoPoint, scalar::Scalar as Scalar25519, traits::Identity,
     };
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::{
-        group::{PointOps, ScalarOps},
-        Edwards,
-    };
+    use crate::group::{PointOps, Ristretto, ScalarOps};
 
-    type Keypair = crate::Keypair<Edwards>;
+    type Keypair = crate::Keypair<Ristretto>;
 
     #[test]
     fn proof_of_possession_basics() {
@@ -790,8 +787,8 @@ mod tests {
         let keypair = Keypair::generate(&mut rng);
 
         for _ in 0..100 {
-            let secret = Edwards::generate_scalar(&mut rng);
-            let basepoint_val = Edwards::scalar_mul_basepoint(&secret);
+            let secret = Ristretto::generate_scalar(&mut rng);
+            let basepoint_val = Ristretto::scalar_mul_basepoint(&secret);
             let key_val = keypair.public().full * secret;
             let proof = LogEqualityProof::new(
                 keypair.public(),
@@ -812,9 +809,9 @@ mod tests {
     fn single_ring_with_2_elements_works() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let admissible_values = [EdwardsPoint::identity(), Edwards::base_point()];
+        let admissible_values = [RistrettoPoint::identity(), Ristretto::base_point()];
 
-        let value = EdwardsPoint::identity();
+        let value = RistrettoPoint::identity();
         let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
         let encryption = encryption_with_log.inner;
 
@@ -846,7 +843,7 @@ mod tests {
         ));
 
         // Check a proof for the encryption of 1.
-        let value = Edwards::base_point();
+        let value = Ristretto::base_point();
         let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
         let encryption = encryption_with_log.inner;
 
@@ -882,12 +879,12 @@ mod tests {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let admissible_values: Vec<_> = (0_u32..4)
-            .map(|i| Edwards::scalar_mul_basepoint(&Scalar25519::from(i)))
+            .map(|i| Ristretto::scalar_mul_basepoint(&Scalar25519::from(i)))
             .collect();
 
         for _ in 0..100 {
             let val: u32 = rng.gen_range(0..4);
-            let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
+            let value_point = Ristretto::scalar_mul_basepoint(&Scalar25519::from(val));
             let encryption_with_log =
                 EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
             let encryption = encryption_with_log.inner;
@@ -927,7 +924,7 @@ mod tests {
 
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let admissible_values = [EdwardsPoint::identity(), Edwards::base_point()];
+        let admissible_values = [RistrettoPoint::identity(), Ristretto::base_point()];
 
         for _ in 0..20 {
             let mut transcript = Transcript::new(b"test_ring_encryption");
@@ -936,7 +933,7 @@ mod tests {
             let (encryptions, rings): (Vec<_>, Vec<_>) = (0..RING_COUNT)
                 .map(|ring_index| {
                     let val = rng.gen_bool(0.5) as u32;
-                    let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
+                    let value_point = Ristretto::scalar_mul_basepoint(&Scalar25519::from(val));
                     let encryption_with_log =
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
                     let encryption = encryption_with_log.inner;
@@ -978,10 +975,10 @@ mod tests {
             .map(|ring_index| {
                 let power: u32 = 1 << (2 * u32::from(ring_index));
                 [
-                    EdwardsPoint::identity(),
-                    Edwards::scalar_mul_basepoint(&Scalar25519::from(power)),
-                    Edwards::scalar_mul_basepoint(&Scalar25519::from(power * 2)),
-                    Edwards::scalar_mul_basepoint(&Scalar25519::from(power * 3)),
+                    RistrettoPoint::identity(),
+                    Ristretto::scalar_mul_basepoint(&Scalar25519::from(power)),
+                    Ristretto::scalar_mul_basepoint(&Scalar25519::from(power * 2)),
+                    Ristretto::scalar_mul_basepoint(&Scalar25519::from(power * 3)),
                 ]
             })
             .collect();
@@ -1001,7 +998,7 @@ mod tests {
                     let val_index = (val >> (2 * ring_index)) as usize;
                     assert!(val_index < 4);
 
-                    let value_point = Edwards::scalar_mul_basepoint(&Scalar25519::from(val));
+                    let value_point = Ristretto::scalar_mul_basepoint(&Scalar25519::from(val));
                     let encryption_with_log =
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
                     let encryption = encryption_with_log.inner;
@@ -1042,7 +1039,7 @@ mod tests {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let mut transcript = Transcript::new(b"test_ring_encryption");
-        let admissible_values = [EdwardsPoint::identity(), Edwards::base_point()];
+        let admissible_values = [RistrettoPoint::identity(), Ristretto::base_point()];
 
         let mut builder = RingProofBuilder::new(keypair.public(), &mut transcript, &mut rng);
         let encryptions: Vec<_> = (0..5)

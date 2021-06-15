@@ -118,7 +118,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{DiscreteLogLookupTable, Edwards, EncryptedChoice, Encryption};
+    use crate::{group::Edwards, DiscreteLogLookupTable, EncryptedChoice, Encryption};
 
     type SecretKey = crate::SecretKey<Ristretto>;
     type Keypair = crate::Keypair<Ristretto>;

@@ -2,13 +2,14 @@ use criterion::{
     criterion_group, criterion_main, measurement::WallTime, BatchSize, Bencher, BenchmarkGroup,
     BenchmarkId, Criterion, Throughput,
 };
+use merlin::Transcript;
 use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use elgamal_with_sharing::{
-    Edwards, EncryptedChoice, Encryption, Group, Keypair, RingProofBuilder, Ristretto,
+    group::{Edwards, Group, Ristretto},
+    EncryptedChoice, Encryption, Keypair, RingProofBuilder,
 };
-use merlin::Transcript;
 
 fn bench_encrypt<G: Group>(b: &mut Bencher) {
     let mut rng = ChaChaRng::from_seed([5; 32]);

@@ -6,8 +6,9 @@ use rand_core::{CryptoRng, RngCore};
 use std::{collections::HashMap, fmt, marker::PhantomData, ops};
 
 use crate::{
+    group::Group,
     proofs::{LogEqualityProof, RingProof, RingProofBuilder},
-    Group, PublicKey, SecretKey,
+    PublicKey, SecretKey,
 };
 
 /// ElGamal asymmetric encryption.
@@ -387,7 +388,10 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{Generic, Keypair, Ristretto};
+    use crate::{
+        group::{Generic, Ristretto},
+        Keypair,
+    };
 
     fn test_bogus_encrypted_choice_does_not_work<G: Group>() {
         let mut rng = thread_rng();

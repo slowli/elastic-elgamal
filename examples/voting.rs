@@ -4,11 +4,12 @@ use rand_core::{CryptoRng, RngCore};
 use std::{collections::HashMap, env, iter::FromIterator};
 
 use elgamal_with_sharing::{
+    group::{Edwards, Generic, Group, Ristretto},
     sharing::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
         PublicKeySet, StartingParticipant,
     },
-    DiscreteLogLookupTable, Edwards, EncryptedChoice, Encryption, Generic, Group, Ristretto,
+    DiscreteLogLookupTable, EncryptedChoice, Encryption,
 };
 
 /// Number of options in the poll.

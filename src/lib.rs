@@ -12,14 +12,13 @@
 )]
 
 mod encryption;
-mod group;
+pub mod group;
 mod keys;
 mod proofs;
 pub mod sharing;
 
 pub use crate::{
     encryption::{DiscreteLogLookupTable, EncryptedChoice, Encryption},
-    group::{Edwards, Generic, Group, PointOps, Ristretto, ScalarOps},
     keys::{Keypair, PublicKey, SecretKey},
     proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder},
 };
