@@ -94,6 +94,8 @@
 //! Given any `t + 1` decryption shares, it is possible to restore `D = [x]R` using Lagrange
 //! interpolation. (Indeed, `D_i` are tied to `D` by the same relations as key shares `x_i`
 //! are to `x`.) Once we have `D`, the encrypted value is restored as `[m]G = B - D`.
+//!
+//! [Gennaro et al.]: https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
@@ -122,7 +124,7 @@ fn polynomial_value<G: Group>(coefficients: &[G::Point], x: G::Scalar) -> G::Poi
         })
         .collect();
 
-    G::vartime_multiscalar_mul(&scalars, coefficients.iter().copied())
+    G::vartime_multi_mul(&scalars, coefficients.iter().copied())
 }
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
@@ -355,7 +357,7 @@ impl<G: Group> PublicKeySet<G> {
 
         let indexes: Vec<_> = (0..params.threshold).collect();
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
-        let shared_key = G::vartime_multiscalar_mul(
+        let shared_key = G::vartime_multi_mul(
             &denominators,
             participant_keys
                 .iter()
@@ -584,7 +586,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
     pub fn complete(self) -> ActiveParticipant<G> {
         assert!(self.is_complete(), "cannot complete protocol at this point");
         debug_assert!(bool::from(
-            G::scalar_mul_basepoint(&self.secret_share.0)
+            G::mul_base_point(&self.secret_share.0)
                 .ct_eq(&self.key_set.participant_keys[self.index].full)
         ));
 
@@ -624,7 +626,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
 
         // Check that the received value is valid.
         let expected_value = &self.references[participant_index];
-        if !bool::from(expected_value.ct_eq(&G::scalar_mul_basepoint(&message.0))) {
+        if !bool::from(expected_value.ct_eq(&G::mul_base_point(&message.0))) {
             return Err(Error::InvalidSecret);
         }
 
@@ -655,7 +657,7 @@ impl<G: Group> ActiveParticipant<G> {
     pub fn new(key_set: PublicKeySet<G>, index: usize, secret_share: SecretKey<G>) -> Self {
         assert!(
             bool::from(
-                G::scalar_mul_basepoint(&secret_share.0)
+                G::mul_base_point(&secret_share.0)
                     .ct_eq(&key_set.participant_keys[index].full)
             ),
             "Secret key share does not correspond to public key share"
@@ -768,7 +770,7 @@ impl<G: Group> DecryptionShare<G> {
         );
 
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
-        let restored_value = G::vartime_multiscalar_mul(&denominators, shares);
+        let restored_value = G::vartime_multi_mul(&denominators, shares);
         let dh_point = restored_value * &scale;
         Some(encryption.blinded_point - dh_point)
     }
@@ -827,7 +829,7 @@ mod tests {
         let (alice_poly, alice_proof) = alice.public_info();
         assert_eq!(
             alice_poly,
-            [Ristretto::scalar_mul_basepoint(
+            [Ristretto::mul_base_point(
                 &alice.polynomial[0].secret().0
             )]
         );
@@ -835,7 +837,7 @@ mod tests {
         let (bob_poly, bob_proof) = bob.public_info();
         assert_eq!(
             bob_poly,
-            [Ristretto::scalar_mul_basepoint(
+            [Ristretto::mul_base_point(
                 &bob.polynomial[0].secret().0
             )]
         );
@@ -848,7 +850,7 @@ mod tests {
         assert!(group_info.is_complete());
 
         let joint_secret = alice.polynomial[0].secret().0 + bob.polynomial[0].secret().0;
-        let joint_pt = Ristretto::scalar_mul_basepoint(&joint_secret);
+        let joint_pt = Ristretto::mul_base_point(&joint_secret);
 
         let mut alice = alice.finalize_key_set(&group_info).unwrap();
         let a2b_message = alice.message(1);
@@ -869,7 +871,7 @@ mod tests {
             vec![PublicKey::from_point(joint_pt); 2]
         );
 
-        let message = Ristretto::scalar_mul_basepoint(&Scalar25519::from(5_u32));
+        let message = Ristretto::mul_base_point(&Scalar25519::from(5_u32));
         let encryption = Encryption::new(message, &group_info.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         let alice_share = group_info
@@ -905,11 +907,11 @@ mod tests {
         let secret0 = alice.polynomial[0].secret().0
             + bob.polynomial[0].secret().0
             + carol.polynomial[0].secret().0;
-        let pt0 = Ristretto::scalar_mul_basepoint(&secret0);
+        let pt0 = Ristretto::mul_base_point(&secret0);
         let secret1 = alice.polynomial[1].secret().0
             + bob.polynomial[1].secret().0
             + carol.polynomial[1].secret().0;
-        let pt1 = Ristretto::scalar_mul_basepoint(&secret1);
+        let pt1 = Ristretto::mul_base_point(&secret1);
 
         let mut alice = alice.finalize_key_set(&key_set).unwrap();
         let mut bob = bob.finalize_key_set(&key_set).unwrap();
@@ -954,7 +956,7 @@ mod tests {
         assert!(key_set.verify_participant(2, &carol.proof_of_possession(&mut rng)));
         assert!(!key_set.verify_participant(1, &alice.proof_of_possession(&mut rng)));
 
-        let message = Ristretto::scalar_mul_basepoint(&Scalar25519::from(15_u32));
+        let message = Ristretto::mul_base_point(&Scalar25519::from(15_u32));
         let encryption = Encryption::new(message, &key_set.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         assert!(key_set

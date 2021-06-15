@@ -64,7 +64,7 @@ impl<G: Group> Encryption<G> {
         R: CryptoRng + RngCore,
     {
         let random_scalar = SecretKey::<G>::generate(rng);
-        let random_point = G::scalar_mul_basepoint(&random_scalar.0);
+        let random_point = G::mul_base_point(&random_scalar.0);
         let blinded_point = receiver.full * &random_scalar.0;
         let encryption = Self {
             random_point,
@@ -176,7 +176,7 @@ impl<G: Group> DiscreteLogLookupTable<G> {
             .into_iter()
             .filter(|&value| value != 0)
             .map(|i| {
-                let point = G::vartime_scalar_mul_basepoint(&G::Scalar::from(i));
+                let point = G::vartime_mul_base_point(&G::Scalar::from(i));
                 let mut bytes = Vec::with_capacity(G::POINT_SIZE);
                 G::serialize_point(&point, &mut bytes);
                 let mut initial_bytes = [0_u8; 8];
@@ -224,7 +224,7 @@ impl<G: Group> EncryptionWithLog<G> {
         rng: &mut R,
     ) -> Self {
         let random_scalar = SecretKey::<G>::generate(rng);
-        let random_point = G::scalar_mul_basepoint(&random_scalar.0);
+        let random_point = G::mul_base_point(&random_scalar.0);
         let dh_point = receiver.full * &random_scalar.0;
         let blinded_point = value + dh_point;
 
@@ -409,9 +409,9 @@ mod tests {
 
         let mut choice = EncryptedChoice::new(5, 4, keypair.public(), &mut rng);
         choice.variants[4].blinded_point =
-            choice.variants[4].blinded_point + G::scalar_mul_basepoint(&G::Scalar::from(10));
+            choice.variants[4].blinded_point + G::mul_base_point(&G::Scalar::from(10));
         choice.variants[3].blinded_point =
-            choice.variants[3].blinded_point - G::scalar_mul_basepoint(&G::Scalar::from(10));
+            choice.variants[3].blinded_point - G::mul_base_point(&G::Scalar::from(10));
         // These modifications leave `choice.sum_proof` correct, but the range proofs
         // for the last 2 variants should no longer verify.
         assert!(choice.verify(keypair.public()).is_none());

@@ -10,15 +10,21 @@ use std::{convert::TryInto, io::Read};
 
 use crate::group::{Group, PointOps, ScalarOps};
 
-/// Prime-order subgroup of Curve25519.
+/// Prime-order subgroup of Curve25519 without any transforms performed for EC points.
 ///
 /// Since the curve has cofactor 8, [`PointOps::deserialize_point()`] implementation
-/// explicitly checks that the deserialized point is torsion-free
-/// (belongs to the prime-order subgroup).
+/// explicitly checks on deserializing each EC point that the point is torsion-free
+/// (belongs to the prime-order subgroup), which is moderately slow (takes ~0.1ms).
+///
+/// Prefer using [`Ristretto`] if compatibility with other Curve25519 applications is not a concern.
+/// (If it *is* a concern, beware of [pitfalls]!)
+///
+/// [`Ristretto`]: crate::group::Ristretto
+/// [pitfalls]: https://ristretto.group/why_ristretto.html#pitfalls-of-a-cofactor
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct Edwards(());
+pub struct Curve25519Subgroup(());
 
-impl ScalarOps for Edwards {
+impl ScalarOps for Curve25519Subgroup {
     type Scalar = Scalar;
 
     const SCALAR_SIZE: usize = 32;
@@ -53,7 +59,7 @@ impl ScalarOps for Edwards {
     }
 }
 
-impl PointOps for Edwards {
+impl PointOps for Curve25519Subgroup {
     type Point = EdwardsPoint;
 
     const POINT_SIZE: usize = 32;
@@ -81,12 +87,12 @@ impl PointOps for Edwards {
     }
 }
 
-impl Group for Edwards {
-    fn scalar_mul_basepoint(k: &Scalar) -> Self::Point {
+impl Group for Curve25519Subgroup {
+    fn mul_base_point(k: &Scalar) -> Self::Point {
         k * &ED25519_BASEPOINT_TABLE
     }
 
-    fn vartime_scalar_mul_basepoint(k: &Scalar) -> Self::Point {
+    fn vartime_mul_base_point(k: &Scalar) -> Self::Point {
         EdwardsPoint::vartime_double_scalar_mul_basepoint(
             &Scalar::zero(),
             &EdwardsPoint::identity(),
@@ -94,7 +100,7 @@ impl Group for Edwards {
         )
     }
 
-    fn multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
@@ -102,7 +108,7 @@ impl Group for Edwards {
         EdwardsPoint::multiscalar_mul(scalars, points)
     }
 
-    fn vartime_double_scalar_mul_basepoint(
+    fn vartime_double_mul_base_point(
         k: &Scalar,
         k_point: Self::Point,
         r: &Scalar,
@@ -110,7 +116,7 @@ impl Group for Edwards {
         EdwardsPoint::vartime_double_scalar_mul_basepoint(k, &k_point, r)
     }
 
-    fn vartime_multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn vartime_multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
@@ -126,13 +132,13 @@ mod tests {
 
     use super::*;
 
-    type PublicKey = crate::PublicKey<Edwards>;
+    type PublicKey = crate::PublicKey<Curve25519Subgroup>;
 
     #[test]
     fn mangled_point_is_invalid_public_key() {
         let mut rng = thread_rng();
         for _ in 0..100 {
-            let mut point = Edwards::scalar_mul_basepoint(&Edwards::generate_scalar(&mut rng));
+            let mut point = Curve25519Subgroup::mul_base_point(&Curve25519Subgroup::generate_scalar(&mut rng));
             point += EIGHT_TORSION[1];
             assert!(!point.is_torsion_free());
             let bytes = point.compress().to_bytes();

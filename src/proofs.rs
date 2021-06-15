@@ -107,7 +107,7 @@ impl<G: Group> ProofOfPossession<G> {
         let mut random_scalars: Vec<_> = (0..key_count)
             .map(|_| {
                 let random_scalar = SecretKey::<G>::generate(rng);
-                let random_point = G::scalar_mul_basepoint(&random_scalar.0);
+                let random_point = G::mul_base_point(&random_scalar.0);
                 transcript.append_point::<G>(b"R", &random_point);
                 random_scalar
             })
@@ -143,12 +143,12 @@ impl<G: Group> ProofOfPossession<G> {
 
         for (public_key, response) in public_keys.zip(&self.responses) {
             let random_point =
-                G::vartime_double_scalar_mul_basepoint(&-self.challenge, public_key.full, response);
+                G::vartime_double_mul_base_point(&-self.challenge, public_key.full, response);
             transcript.append_point::<G>(b"R", &random_point);
         }
 
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
-        expected_challenge == self.challenge
+        bool::from(expected_challenge.ct_eq(&self.challenge))
     }
 }
 
@@ -225,7 +225,7 @@ impl<G: Group> LogEqualityProof<G> {
         transcript.append_point::<G>(b"[x]K", &powers.1);
 
         let random_scalar = SecretKey::<G>::generate(rng);
-        transcript.append_point::<G>(b"[r]G", &G::scalar_mul_basepoint(&random_scalar.0));
+        transcript.append_point::<G>(b"[r]G", &G::mul_base_point(&random_scalar.0));
         transcript.append_point::<G>(b"[r]K", &(log_base.full * &random_scalar.0));
         let challenge = transcript.challenge_scalar::<G>(b"c");
         let response = random_scalar.0 + challenge * (*secret);
@@ -259,8 +259,8 @@ impl<G: Group> LogEqualityProof<G> {
         transcript: &mut Transcript,
     ) -> bool {
         let commitments = (
-            G::vartime_double_scalar_mul_basepoint(&-self.challenge, powers.0, &self.response),
-            G::vartime_multiscalar_mul(
+            G::vartime_double_mul_base_point(&-self.challenge, powers.0, &self.response),
+            G::vartime_multi_mul(
                 &[-self.challenge, self.response],
                 [powers.1, log_base.full].iter().copied(),
             ),
@@ -273,7 +273,7 @@ impl<G: Group> LogEqualityProof<G> {
         transcript.append_point::<G>(b"[r]G", &commitments.0);
         transcript.append_point::<G>(b"[r]K", &commitments.1);
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
-        expected_challenge == self.challenge
+        bool::from(expected_challenge.ct_eq(&self.challenge))
     }
 
     /// Serializes this proof into bytes. As described [above](#implementation-details),
@@ -361,7 +361,7 @@ impl<'a, G: Group> Ring<'a, G> {
         // Choose a random scalar to use in the equation matching the known discrete log.
         let random_scalar = SecretKey::<G>::generate(rng);
         let mut commitments = (
-            G::scalar_mul_basepoint(&random_scalar.0),
+            G::mul_base_point(&random_scalar.0),
             log_base * &random_scalar.0,
         );
 
@@ -380,8 +380,8 @@ impl<'a, G: Group> Ring<'a, G> {
             responses[eq_index] = response;
             let dh_point = blinded_value - admissible_value;
             commitments = (
-                G::scalar_mul_basepoint(&response) - random_point * &challenge,
-                G::multiscalar_mul(
+                G::mul_base_point(&response) - random_point * &challenge,
+                G::multi_mul(
                     [response, -challenge].iter(),
                     [log_base, dh_point].iter().copied(),
                 ),
@@ -454,8 +454,8 @@ impl<'a, G: Group> Ring<'a, G> {
             self.responses[eq_index] = response;
             let dh_point = self.encryption.blinded_point - admissible_value;
             let commitments = (
-                G::scalar_mul_basepoint(&response) - self.encryption.random_point * &challenge,
-                G::multiscalar_mul(
+                G::mul_base_point(&response) - self.encryption.random_point * &challenge,
+                G::multi_mul(
                     [response, -challenge].iter(),
                     [log_base, dh_point].iter().copied(),
                 ),
@@ -470,7 +470,9 @@ impl<'a, G: Group> Ring<'a, G> {
 
         // Finally, compute the response for equation #`value_index`, using our knowledge
         // of the trapdoor.
-        debug_assert!(self.responses[self.value_index] == G::Scalar::from(0_u64));
+        debug_assert!(bool::from(
+            self.responses[self.value_index].ct_eq(&G::Scalar::from(0_u64))
+        ));
         self.responses[self.value_index] = self.random_scalar.0 + challenge * self.discrete_log.0;
         self.responses.to_vec()
     }
@@ -625,12 +627,12 @@ impl<G: Group> RingProof<G> {
                 let neg_challenge = -challenge;
 
                 commitments = (
-                    G::vartime_double_scalar_mul_basepoint(
+                    G::vartime_double_mul_base_point(
                         &neg_challenge,
                         encryption.random_point,
                         response,
                     ),
-                    G::vartime_multiscalar_mul(
+                    G::vartime_multi_mul(
                         [response, &neg_challenge].iter().copied(),
                         [receiver.full, dh_point].iter().copied(),
                     ),
@@ -652,7 +654,7 @@ impl<G: Group> RingProof<G> {
         }
 
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
-        expected_challenge == self.common_challenge
+        bool::from(expected_challenge.ct_eq(&self.common_challenge))
     }
 
     pub(crate) fn total_rings_size(&self) -> usize {
@@ -788,7 +790,7 @@ mod tests {
 
         for _ in 0..100 {
             let secret = Ristretto::generate_scalar(&mut rng);
-            let basepoint_val = Ristretto::scalar_mul_basepoint(&secret);
+            let basepoint_val = Ristretto::mul_base_point(&secret);
             let key_val = keypair.public().full * secret;
             let proof = LogEqualityProof::new(
                 keypair.public(),
@@ -879,12 +881,12 @@ mod tests {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let admissible_values: Vec<_> = (0_u32..4)
-            .map(|i| Ristretto::scalar_mul_basepoint(&Scalar25519::from(i)))
+            .map(|i| Ristretto::mul_base_point(&Scalar25519::from(i)))
             .collect();
 
         for _ in 0..100 {
             let val: u32 = rng.gen_range(0..4);
-            let value_point = Ristretto::scalar_mul_basepoint(&Scalar25519::from(val));
+            let value_point = Ristretto::mul_base_point(&Scalar25519::from(val));
             let encryption_with_log =
                 EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
             let encryption = encryption_with_log.inner;
@@ -933,7 +935,7 @@ mod tests {
             let (encryptions, rings): (Vec<_>, Vec<_>) = (0..RING_COUNT)
                 .map(|ring_index| {
                     let val = rng.gen_bool(0.5) as u32;
-                    let value_point = Ristretto::scalar_mul_basepoint(&Scalar25519::from(val));
+                    let value_point = Ristretto::mul_base_point(&Scalar25519::from(val));
                     let encryption_with_log =
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
                     let encryption = encryption_with_log.inner;
@@ -976,9 +978,9 @@ mod tests {
                 let power: u32 = 1 << (2 * u32::from(ring_index));
                 [
                     RistrettoPoint::identity(),
-                    Ristretto::scalar_mul_basepoint(&Scalar25519::from(power)),
-                    Ristretto::scalar_mul_basepoint(&Scalar25519::from(power * 2)),
-                    Ristretto::scalar_mul_basepoint(&Scalar25519::from(power * 3)),
+                    Ristretto::mul_base_point(&Scalar25519::from(power)),
+                    Ristretto::mul_base_point(&Scalar25519::from(power * 2)),
+                    Ristretto::mul_base_point(&Scalar25519::from(power * 3)),
                 ]
             })
             .collect();
@@ -998,7 +1000,7 @@ mod tests {
                     let val_index = (val >> (2 * ring_index)) as usize;
                     assert!(val_index < 4);
 
-                    let value_point = Ristretto::scalar_mul_basepoint(&Scalar25519::from(val));
+                    let value_point = Ristretto::mul_base_point(&Scalar25519::from(val));
                     let encryption_with_log =
                         EncryptionWithLog::new(value_point, keypair.public(), &mut rng);
                     let encryption = encryption_with_log.inner;

@@ -4,18 +4,16 @@
 //! Such groups can be applied for ElGamal [`Encryption`](crate::Encryption)
 //! and other cryptographic protocols from this crate.
 
-// FIXME: rename basepoint -> base_point; Edwards -> Ed25519 (?)
-
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use subtle::{ConditionallySelectable, ConstantTimeEq};
 
 use std::{fmt, io, ops};
 
-mod edwards;
+mod curve25519;
 mod generic;
 mod ristretto;
-pub use self::{edwards::Edwards, generic::Generic, ristretto::Ristretto};
+pub use self::{curve25519::Curve25519Subgroup, generic::Generic, ristretto::Ristretto};
 
 /// Helper trait for [`Group`] that describes operations on group scalars.
 pub trait ScalarOps {
@@ -24,12 +22,12 @@ pub trait ScalarOps {
     type Scalar: Copy
         + Default
         + From<u64>
-        + PartialEq // FIXME: replace with `ConstantTimeEq`
         + ops::Neg<Output = Self::Scalar>
         + ops::Add<Output = Self::Scalar>
         + ops::Sub<Output = Self::Scalar>
         + ops::Mul<Output = Self::Scalar>
         + ConditionallySelectable
+        + ConstantTimeEq
         + fmt::Debug;
 
     /// Byte size of a serialized [`Self::Scalar`].
@@ -39,15 +37,15 @@ pub trait ScalarOps {
     /// must be constant-time.
     fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar;
 
-    /// Generates a scalar from the `source` of random bytes. This operation must be constant-time.
+    /// Generates a scalar from a `source` of random bytes. This operation must be constant-time.
     /// The `source` is guaranteed to return any necessary number of bytes.
     ///
     /// # Default implementation
     ///
-    /// 1. Create a [ChaCha RNG] with the 32 bytes from the `source` as the seed.
+    /// 1. Create a [ChaCha RNG] using 32 bytes read from `source` as the seed.
     /// 2. Call [`Self::generate_scalar()`] with the created RNG.
     ///
-    /// [ChaCha CSPRNG]: https://docs.rs/rand_chacha/
+    /// [ChaCha RNG]: https://docs.rs/rand_chacha/
     fn scalar_from_random_bytes<R: io::Read>(mut source: R) -> Self::Scalar {
         let mut rng_seed = <ChaChaRng as SeedableRng>::Seed::default();
         source
@@ -120,12 +118,17 @@ pub trait PointOps: ScalarOps {
 ///
 /// This crate provides the following implementations of this trait:
 ///
-/// - [`Edwards`], representation of a prime-order subgroup of Ed25519 with the conventionally
-///   chosen generator.
-/// - [`Ristretto`], a transform of Ed25519 which eliminates its co-factor 8 with the help
+/// - [`Curve25519Subgroup`], representation of a prime-order subgroup of Curve25519
+///   with the conventionally chosen generator.
+/// - [`Ristretto`], a transform of Curve25519 which eliminates its co-factor 8 with the help
 ///   of the [eponymous technique][ristretto].
+/// - [`Generic`] implementation defined in terms of traits from the [`elliptic-curve`] crate.
+///   (For example, this means secp256k1 support via the [`k256`] crate.)
 ///
+/// [`Encryption`]: crate::Encryption
 /// [ristretto]: https://ristretto.group/
+/// [`elliptic-curve`]: https://docs.rs/elliptic-curve/
+/// [`k256`]: https://docs.rs/k256/
 pub trait Group: Copy + ScalarOps + PointOps + 'static {
     /// Multiplies the provided scalar by [`PointOps::base_point()`]. This operation must be
     /// constant-time.
@@ -134,20 +137,20 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
     ///
     /// Implemented using [`Mul`](ops::Mul) (which is constant-time as per the [`PointOps`]
     /// contract).
-    fn scalar_mul_basepoint(k: &Self::Scalar) -> Self::Point {
+    fn mul_base_point(k: &Self::Scalar) -> Self::Point {
         Self::base_point() * k
     }
 
     /// Multiplies the provided scalar by [`PointOps::base_point()`].
-    /// Unlike [`Self::scalar_mul_basepoint()`], this operation does not need to be constant-time;
+    /// Unlike [`Self::mul_base_point()`], this operation does not need to be constant-time;
     /// thus, it may employ additional optimizations.
     ///
     /// # Default implementation
     ///
-    /// Implemented by calling [`Self::scalar_mul_basepoint()`].
+    /// Implemented by calling [`Self::mul_base_point()`].
     #[inline]
-    fn vartime_scalar_mul_basepoint(k: &Self::Scalar) -> Self::Point {
-        Self::scalar_mul_basepoint(k)
+    fn vartime_mul_base_point(k: &Self::Scalar) -> Self::Point {
+        Self::mul_base_point(k)
     }
 
     /// Multiplies provided `scalars` by `points`. This operation must be constant-time
@@ -157,7 +160,7 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
     ///
     /// Implemented by straightforward computations, which are constant-time as per
     /// the [`PointOps`] contract.
-    fn multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
@@ -174,8 +177,8 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
     ///
     /// # Default implementation
     ///
-    /// Implemented by straightforward computations.
-    fn vartime_double_scalar_mul_basepoint(
+    /// Implemented by straightforward arithmetic.
+    fn vartime_double_mul_base_point(
         k: &Self::Scalar,
         k_point: Self::Point,
         r: &Self::Scalar,
@@ -183,19 +186,19 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
         k_point * k + Self::base_point() * r
     }
 
-    /// Multiplies provided `scalars` by `points`. Unlike [`Self::multiscalar_mul()`],
+    /// Multiplies provided `scalars` by `points`. Unlike [`Self::multi_mul()`],
     /// this operation does not need to be constant-time; thus, it may employ
     /// additional optimizations.
     ///
     /// # Default implementation
     ///
-    /// Implemented by calling [`Self::multiscalar_mul()`].
+    /// Implemented by calling [`Self::multi_mul()`].
     #[inline]
-    fn vartime_multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn vartime_multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
     {
-        Self::multiscalar_mul(scalars, points)
+        Self::multi_mul(scalars, points)
     }
 }

@@ -76,11 +76,11 @@ impl PointOps for Ristretto {
 }
 
 impl Group for Ristretto {
-    fn scalar_mul_basepoint(k: &Scalar) -> Self::Point {
+    fn mul_base_point(k: &Scalar) -> Self::Point {
         k * &RISTRETTO_BASEPOINT_TABLE
     }
 
-    fn vartime_scalar_mul_basepoint(k: &Scalar) -> Self::Point {
+    fn vartime_mul_base_point(k: &Scalar) -> Self::Point {
         RistrettoPoint::vartime_double_scalar_mul_basepoint(
             &Scalar::zero(),
             &RistrettoPoint::identity(),
@@ -88,7 +88,7 @@ impl Group for Ristretto {
         )
     }
 
-    fn multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
@@ -96,7 +96,7 @@ impl Group for Ristretto {
         RistrettoPoint::multiscalar_mul(scalars, points)
     }
 
-    fn vartime_double_scalar_mul_basepoint(
+    fn vartime_double_mul_base_point(
         k: &Scalar,
         k_point: Self::Point,
         r: &Scalar,
@@ -104,7 +104,7 @@ impl Group for Ristretto {
         RistrettoPoint::vartime_double_scalar_mul_basepoint(k, &k_point, r)
     }
 
-    fn vartime_multiscalar_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn vartime_multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
         J: IntoIterator<Item = Self::Point>,
@@ -118,7 +118,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{group::Edwards, DiscreteLogLookupTable, EncryptedChoice, Encryption};
+    use crate::{group::Curve25519Subgroup, DiscreteLogLookupTable, EncryptedChoice, Encryption};
 
     type SecretKey = crate::SecretKey<Ristretto>;
     type Keypair = crate::Keypair<Ristretto>;
@@ -127,7 +127,7 @@ mod tests {
     fn encrypt_and_decrypt() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let value = Ristretto::scalar_mul_basepoint(&Ristretto::generate_scalar(&mut rng));
+        let value = Ristretto::mul_base_point(&Ristretto::generate_scalar(&mut rng));
         let encrypted = Encryption::new(value, keypair.public(), &mut rng);
         let decryption = keypair.secret().decrypt(encrypted);
         assert_eq!(decryption, value);
@@ -150,12 +150,12 @@ mod tests {
 
     #[test]
     fn edwards_and_ristretto_public_keys_differ() {
-        type EdKeypair = crate::Keypair<Edwards>;
+        type EdKeypair = crate::Keypair<Curve25519Subgroup>;
 
         for _ in 0..1_000 {
             let secret_key = SecretKey::generate(&mut thread_rng());
             let keypair = Keypair::from(secret_key.clone());
-            let ed_keypair = EdKeypair::from(crate::SecretKey::<Edwards>(secret_key.0));
+            let ed_keypair = EdKeypair::from(crate::SecretKey::<Curve25519Subgroup>(secret_key.0));
             assert_ne!(keypair.public().as_bytes(), ed_keypair.public().as_bytes());
         }
     }

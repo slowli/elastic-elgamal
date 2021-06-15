@@ -158,7 +158,7 @@ impl<G: Group> PublicKey<G> {
 
 impl<G: Group> From<&SecretKey<G>> for PublicKey<G> {
     fn from(secret_key: &SecretKey<G>) -> Self {
-        let point = G::scalar_mul_basepoint(&secret_key.0);
+        let point = G::mul_base_point(&secret_key.0);
         Self::from_point(point)
     }
 }

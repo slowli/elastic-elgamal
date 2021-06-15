@@ -4,7 +4,7 @@ use rand_core::{CryptoRng, RngCore};
 use std::{collections::HashMap, env, iter::FromIterator};
 
 use elgamal_with_sharing::{
-    group::{Edwards, Generic, Group, Ristretto},
+    group::{Curve25519Subgroup, Generic, Group, Ristretto},
     sharing::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
         PublicKeySet, StartingParticipant,
@@ -175,7 +175,7 @@ fn vote<G: Group>() {
 
 fn main() {
     match env::args().nth(1).as_deref() {
-        None | Some("edwards") => vote::<Edwards>(),
+        None | Some("edwards") => vote::<Curve25519Subgroup>(),
         Some("ristretto") => vote::<Ristretto>(),
         Some("k256") => vote::<Generic<k256::Secp256k1>>(),
         Some(other) => panic!(

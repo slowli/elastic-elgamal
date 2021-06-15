@@ -128,7 +128,7 @@ mod tests {
     fn point_roundtrip() {
         let mut rng = thread_rng();
         for _ in 0..100 {
-            let point = K256::scalar_mul_basepoint(&K256::generate_scalar(&mut rng));
+            let point = K256::mul_base_point(&K256::generate_scalar(&mut rng));
             let mut buffer = Vec::with_capacity(K256::POINT_SIZE);
             K256::serialize_point(&point, &mut buffer);
             assert_eq!(buffer.len(), K256::POINT_SIZE);

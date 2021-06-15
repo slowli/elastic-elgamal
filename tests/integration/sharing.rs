@@ -77,7 +77,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
     let mut rng = thread_rng();
     let rig: Rig<G> = Rig::new(params, &mut rng);
     for _ in 0..20 {
-        let value = G::scalar_mul_basepoint(&G::generate_scalar(&mut rng));
+        let value = G::mul_base_point(&G::generate_scalar(&mut rng));
         let encrypted = Encryption::new(value, rig.info.shared_key(), &mut rng);
         let shares = rig.decryption_shares(encrypted, &mut rng);
         for _ in 0..5 {
@@ -131,83 +131,83 @@ fn test_simple_voting<G: Group>() {
     }
 }
 
-mod edwards {
+mod curve25519 {
     use super::*;
-    use elgamal_with_sharing::group::Edwards;
+    use elgamal_with_sharing::group::Curve25519Subgroup;
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
-        test_group_info_can_be_restored_from_participants::<Edwards>();
+        test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>();
     }
 
     #[test]
     fn fuzz_3_of_5() {
-        tiny_fuzz::<Edwards>(Params::new(5, 3));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 3));
     }
 
     #[test]
     fn fuzz_4_of_5() {
-        tiny_fuzz::<Edwards>(Params::new(5, 4));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 4));
     }
 
     #[test]
     fn fuzz_5_of_5() {
-        tiny_fuzz::<Edwards>(Params::new(5, 5));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 5));
     }
 
     #[test]
     fn fuzz_6_of_10() {
-        tiny_fuzz::<Edwards>(Params::new(10, 6));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 6));
     }
 
     #[test]
     fn fuzz_7_of_10() {
-        tiny_fuzz::<Edwards>(Params::new(10, 7));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 7));
     }
 
     #[test]
     fn fuzz_8_of_10() {
-        tiny_fuzz::<Edwards>(Params::new(10, 8));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 8));
     }
 
     #[test]
     fn fuzz_9_of_10() {
-        tiny_fuzz::<Edwards>(Params::new(10, 9));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 9));
     }
 
     #[test]
     fn fuzz_10_of_10() {
-        tiny_fuzz::<Edwards>(Params::new(10, 10));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 10));
     }
 
     #[test]
     fn fuzz_10_of_15() {
-        tiny_fuzz::<Edwards>(Params::new(15, 10));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(15, 10));
     }
 
     #[test]
     fn fuzz_12_of_15() {
-        tiny_fuzz::<Edwards>(Params::new(15, 12));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(15, 12));
     }
 
     #[test]
     fn fuzz_12_of_20() {
-        tiny_fuzz::<Edwards>(Params::new(20, 12));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(20, 12));
     }
 
     #[test]
     fn fuzz_16_of_20() {
-        tiny_fuzz::<Edwards>(Params::new(20, 16));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(20, 16));
     }
 
     #[test]
     fn fuzz_18_of_20() {
-        tiny_fuzz::<Edwards>(Params::new(20, 18));
+        tiny_fuzz::<Curve25519Subgroup>(Params::new(20, 18));
     }
 
     #[test]
     fn simple_voting() {
-        test_simple_voting::<Edwards>();
+        test_simple_voting::<Curve25519Subgroup>();
     }
 }
 

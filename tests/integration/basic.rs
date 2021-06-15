@@ -12,7 +12,7 @@ use elgamal_with_sharing::{
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = thread_rng();
     let keypair = Keypair::<G>::generate(&mut rng);
-    let message = G::scalar_mul_basepoint(&G::Scalar::from(12345));
+    let message = G::mul_base_point(&G::Scalar::from(12345));
     let encrypted = Encryption::new(message, keypair.public(), &mut rng);
     let decryption = keypair.secret().decrypt(encrypted);
     assert_ct_eq(&decryption, &message);
@@ -27,7 +27,7 @@ fn test_zero_encryption_works<G: Group>() {
     assert_ct_eq(&decrypted, &G::identity());
 
     // The proof should not verify for non-zero messages.
-    let message = G::scalar_mul_basepoint(&G::Scalar::from(123));
+    let message = G::mul_base_point(&G::Scalar::from(123));
     let encryption = Encryption::new(message, keypair.public(), &mut rng);
     assert!(!encryption.verify_zero(keypair.public(), &proof));
 
@@ -127,38 +127,38 @@ fn test_encrypted_choice_works<G: Group>() {
     }
 }
 
-mod edwards {
+mod curve25519 {
     use super::*;
-    use elgamal_with_sharing::group::Edwards;
+    use elgamal_with_sharing::group::Curve25519Subgroup;
 
     #[test]
     fn encryption_roundtrip() {
-        test_encryption_roundtrip::<Edwards>();
+        test_encryption_roundtrip::<Curve25519Subgroup>();
     }
 
     #[test]
     fn zero_encryption_works() {
-        test_zero_encryption_works::<Edwards>();
+        test_zero_encryption_works::<Curve25519Subgroup>();
     }
 
     #[test]
     fn zero_proof_serialization() {
-        test_zero_proof_serialization::<Edwards>();
+        test_zero_proof_serialization::<Curve25519Subgroup>();
     }
 
     #[test]
     fn bool_encryption_works() {
-        test_bool_encryption_works::<Edwards>();
+        test_bool_encryption_works::<Curve25519Subgroup>();
     }
 
     #[test]
     fn bool_proof_serialization() {
-        test_bool_proof_serialization::<Edwards>();
+        test_bool_proof_serialization::<Curve25519Subgroup>();
     }
 
     #[test]
     fn encrypted_choice_works() {
-        test_encrypted_choice_works::<Edwards>();
+        test_encrypted_choice_works::<Curve25519Subgroup>();
     }
 }
 

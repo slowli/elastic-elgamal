@@ -7,7 +7,7 @@ use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
 
 use elgamal_with_sharing::{
-    group::{Edwards, Group, Ristretto},
+    group::{Curve25519Subgroup, Group, Ristretto},
     Keypair, ProofOfPossession,
 };
 
@@ -64,7 +64,7 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     // Spoilers: `pure_varmul` is by far the best method.
     let mut rng = ChaChaRng::from_seed([100; 32]);
     let coefficients: Vec<_> = (0..10)
-        .map(|_| G::scalar_mul_basepoint(&G::generate_scalar(&mut rng)))
+        .map(|_| G::mul_base_point(&G::generate_scalar(&mut rng)))
         .collect();
     let coefficients1 = coefficients.clone();
     let coefficients2 = coefficients.clone();
@@ -86,7 +86,7 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
         b.iter(|| {
             let mut value = G::identity();
             for &coefficient in coefficients1.iter().rev() {
-                value = G::vartime_multiscalar_mul(
+                value = G::vartime_multi_mul(
                     &[variable, G::Scalar::from(1_u64)],
                     [value, coefficient].iter().copied(),
                 );
@@ -104,12 +104,12 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
                 output
             })
             .collect();
-        b.iter(|| G::vartime_multiscalar_mul(&scalars, coefficients2.iter().copied()));
+        b.iter(|| G::vartime_multi_mul(&scalars, coefficients2.iter().copied()));
     });
 }
 
 fn bench_edwards(criterion: &mut Criterion) {
-    bench_group::<Edwards>(&mut criterion.benchmark_group("edwards"));
+    bench_group::<Curve25519Subgroup>(&mut criterion.benchmark_group("edwards"));
 }
 
 fn bench_ristretto(criterion: &mut Criterion) {

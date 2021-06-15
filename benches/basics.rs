@@ -7,21 +7,21 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use elgamal_with_sharing::{
-    group::{Edwards, Group, Ristretto},
+    group::{Curve25519Subgroup, Group, Ristretto},
     EncryptedChoice, Encryption, Keypair, RingProofBuilder,
 };
 
 fn bench_encrypt<G: Group>(b: &mut Bencher) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
-    let message = G::scalar_mul_basepoint(&G::generate_scalar(&mut rng));
+    let message = G::mul_base_point(&G::generate_scalar(&mut rng));
     b.iter(|| Encryption::new(message, keypair.public(), &mut rng));
 }
 
 fn bench_decrypt<G: Group>(b: &mut Bencher) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
-    let message = G::scalar_mul_basepoint(&G::generate_scalar(&mut rng));
+    let message = G::mul_base_point(&G::generate_scalar(&mut rng));
     b.iter_batched(
         || Encryption::new(message, keypair.public(), &mut rng),
         |encrypted| keypair.secret().decrypt(encrypted),
@@ -163,7 +163,7 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
 }
 
 fn bench_edwards(criterion: &mut Criterion) {
-    bench_group::<Edwards>(&mut criterion.benchmark_group("edwards"));
+    bench_group::<Curve25519Subgroup>(&mut criterion.benchmark_group("edwards"));
 }
 
 fn bench_ristretto(criterion: &mut Criterion) {
@@ -174,32 +174,32 @@ fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     group.throughput(Throughput::Elements(1));
 
     let mut rng = ChaChaRng::from_seed([7; 32]);
-    let point = G::scalar_mul_basepoint(&G::generate_scalar(&mut rng));
+    let point = G::mul_base_point(&G::generate_scalar(&mut rng));
     let challenge = G::generate_scalar(&mut rng);
     let response = G::generate_scalar(&mut rng);
 
     // `naive` method seems to be faster (probably due to use of the basepoint
     // multiplication table).
     group.bench_function("double_scalar_mul_basepoint/naive", |b| {
-        b.iter(|| G::scalar_mul_basepoint(&response) - point * &challenge)
+        b.iter(|| G::mul_base_point(&response) - point * &challenge)
     });
     group.bench_function("double_scalar_mul_basepoint/multi", |b| {
         b.iter(|| {
-            G::multiscalar_mul(
+            G::multi_mul(
                 [response, challenge].iter(),
                 [G::base_point(), point].iter().copied(),
             )
         })
     });
 
-    let other_point = G::scalar_mul_basepoint(&G::generate_scalar(&mut rng));
+    let other_point = G::mul_base_point(&G::generate_scalar(&mut rng));
     // As expected, `multi` implementation is faster than the naive one.
     group.bench_function("double_scalar_mul/naive", move |b| {
         b.iter(|| other_point * &response - point * &challenge)
     });
     group.bench_function("double_scalar_mul/multi", move |b| {
         b.iter(|| {
-            G::multiscalar_mul(
+            G::multi_mul(
                 [response, challenge].iter(),
                 [other_point, point].iter().copied(),
             )
@@ -208,7 +208,7 @@ fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
 }
 
 fn bench_edwards_helpers(criterion: &mut Criterion) {
-    bench_helpers::<Edwards>(&mut criterion.benchmark_group("edwards"));
+    bench_helpers::<Curve25519Subgroup>(&mut criterion.benchmark_group("edwards"));
 }
 
 fn bench_ristretto_helpers(criterion: &mut Criterion) {
