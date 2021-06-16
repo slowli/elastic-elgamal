@@ -15,7 +15,7 @@ fn test_encryption_roundtrip<G: Group>() {
     let message = 12_345_u64;
     let encrypted = Encryption::new(message, keypair.public(), &mut rng);
     let decryption = keypair.secret().decrypt_to_element(encrypted);
-    let message = G::mul_base_point(&G::Scalar::from(message));
+    let message = G::mul_generator(&G::Scalar::from(message));
     assert_ct_eq(&decryption, &message);
 }
 
@@ -77,7 +77,7 @@ fn test_bool_encryption_works<G: Group>() {
         Encryption::encrypt_bool(true, keypair.public(), &mut rng);
     assert_ct_eq(
         &keypair.secret().decrypt_to_element(other_encryption),
-        &G::base_point(),
+        &G::generator(),
     );
     assert!(other_encryption.verify_bool(keypair.public(), &other_proof));
 
@@ -89,7 +89,7 @@ fn test_bool_encryption_works<G: Group>() {
     let combined_encryption = encryption + other_encryption;
     assert_ct_eq(
         &keypair.secret().decrypt_to_element(combined_encryption),
-        &G::base_point(),
+        &G::generator(),
     );
     assert!(!combined_encryption.verify_bool(keypair.public(), &proof));
 }
@@ -122,7 +122,7 @@ fn test_encrypted_choice_works<G: Group>() {
     assert_eq!(choice.variants_unchecked().len(), 5);
     for (i, &variant) in choice.variants_unchecked().iter().enumerate() {
         let expected_plaintext = if i == 2 {
-            G::base_point()
+            G::generator()
         } else {
             G::identity()
         };

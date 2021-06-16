@@ -49,10 +49,10 @@ impl<G: Group> SecretKey<G> {
     ///
     /// As the ciphertext does not include a MAC or another way to assert integrity,
     /// this operation cannot fail. If the ciphertext is not produced properly (e.g., it targets
-    /// another receiver), the returned point will be garbage.
-    pub fn decrypt_to_element(&self, encrypted: Encryption<G>) -> G::Point {
-        let dh_point = encrypted.random_point * &self.0;
-        encrypted.blinded_point - dh_point
+    /// another receiver), the returned group element will be garbage.
+    pub fn decrypt_to_element(&self, encrypted: Encryption<G>) -> G::Element {
+        let dh_element = encrypted.random_element * &self.0;
+        encrypted.blinded_element - dh_element
     }
 
     /// Decrypts the provided ciphertext and returns the original encrypted value.
@@ -108,7 +108,7 @@ impl<G: Group> ops::Mul<G::Scalar> for &SecretKey<G> {
 /// This increases the memory footprint, but speeds up arithmetic on the keys.
 pub struct PublicKey<G: Group> {
     pub(crate) bytes: Vec<u8>,
-    pub(crate) full: G::Point,
+    pub(crate) full: G::Element,
 }
 
 impl<G: Group> Clone for PublicKey<G> {
@@ -142,24 +142,24 @@ impl<G: Group> PublicKey<G> {
     /// Deserializes a public key from bytes. If the bytes do not represent a valid [`Group`]
     /// element, returns `None`.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() != G::POINT_SIZE {
+        if bytes.len() != G::ELEMENT_SIZE {
             return None;
         }
 
-        G::deserialize_point(bytes)
-            .filter(|point| !G::is_identity(point))
+        G::deserialize_element(bytes)
+            .filter(|element| !G::is_identity(element))
             .map(|full| PublicKey {
                 bytes: bytes.to_vec(),
                 full,
             })
     }
 
-    pub(crate) fn from_point(full: G::Point) -> Self {
-        let mut point_bytes = Vec::with_capacity(G::POINT_SIZE);
-        G::serialize_point(&full, &mut point_bytes);
+    pub(crate) fn from_element(full: G::Element) -> Self {
+        let mut element_bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+        G::serialize_element(&full, &mut element_bytes);
         PublicKey {
             full,
-            bytes: point_bytes,
+            bytes: element_bytes,
         }
     }
 
@@ -171,8 +171,8 @@ impl<G: Group> PublicKey<G> {
 
 impl<G: Group> From<&SecretKey<G>> for PublicKey<G> {
     fn from(secret_key: &SecretKey<G>) -> Self {
-        let point = G::mul_base_point(&secret_key.0);
-        Self::from_point(point)
+        let element = G::mul_generator(&secret_key.0);
+        Self::from_element(element)
     }
 }
 
@@ -180,8 +180,8 @@ impl<G: Group> ops::Add<Self> for PublicKey<G> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        let point = self.full + rhs.full;
-        Self::from_point(point)
+        let element = self.full + rhs.full;
+        Self::from_element(element)
     }
 }
 
@@ -189,8 +189,8 @@ impl<G: Group> ops::Mul<G::Scalar> for PublicKey<G> {
     type Output = Self;
 
     fn mul(self, k: G::Scalar) -> Self {
-        let point = self.full * &k;
-        Self::from_point(point)
+        let element = self.full * &k;
+        Self::from_element(element)
     }
 }
 

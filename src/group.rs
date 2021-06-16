@@ -1,8 +1,12 @@
-//! Traits for prime-order groups in which discrete log problem is believed to be hard,
+//! Traits for prime-order groups in which [discrete log problem][dlp] and
+//! [computational Diffie–Hellman problem][cdhp] are believed to be hard,
 //! and some implementations of such groups.
 //!
 //! Such groups can be applied for ElGamal [`Encryption`](crate::Encryption)
 //! and other cryptographic protocols from this crate.
+//!
+//! [dlp]: https://en.wikipedia.org/wiki/Discrete_logarithm
+//! [cdhp]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
@@ -80,35 +84,35 @@ pub trait ScalarOps {
 
 /// Helper trait for [`Group`] that describes operations on group elements (i.e., EC points
 /// for elliptic curve groups).
-pub trait PointOps: ScalarOps {
-    /// Member of the group. Arithmetic operations requested here (addition among
-    /// points and multiplication by a `Scalar`) must be constant-time.
-    type Point: Copy // FIXME: rename to `Element`
-        + ops::Add<Output = Self::Point>
-        + ops::Sub<Output = Self::Point>
-        + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Point>
+pub trait ElementOps: ScalarOps {
+    /// Element of the group. Arithmetic operations requested here (addition among
+    /// elements and multiplication by a `Scalar`) must be constant-time.
+    type Element: Copy
+        + ops::Add<Output = Self::Element>
+        + ops::Sub<Output = Self::Element>
+        + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Element>
         + ConditionallySelectable
         + ConstantTimeEq
         + fmt::Debug;
 
-    /// Byte size of a serialized [`Self::Point`].
-    const POINT_SIZE: usize;
+    /// Byte size of a serialized [`Self::Element`].
+    const ELEMENT_SIZE: usize;
 
-    /// Returns the identity of the group (aka point in infinity for EC groups).
-    fn identity() -> Self::Point;
+    /// Returns the identity of the group (aka point at infinity for EC groups).
+    fn identity() -> Self::Element;
 
-    /// Checks if the specified point is the identity.
-    fn is_identity(point: &Self::Point) -> bool;
+    /// Checks if the specified element is the identity.
+    fn is_identity(element: &Self::Element) -> bool;
 
-    /// Returns the agreed-upon generator of the group aka basepoint.
-    fn base_point() -> Self::Point;
+    /// Returns the agreed-upon generator of the group.
+    fn generator() -> Self::Element;
 
-    /// Serializes `point` into a byte buffer.
-    fn serialize_point(point: &Self::Point, output: &mut Vec<u8>);
+    /// Serializes `element` into a byte buffer.
+    fn serialize_element(element: &Self::Element, output: &mut Vec<u8>);
 
-    /// Deserializes a point from the byte buffer, which is guaranteed to have length
-    /// [`Self::POINT_SIZE`].
-    fn deserialize_point(input: &[u8]) -> Option<Self::Point>;
+    /// Deserializes an element from the byte buffer, which is guaranteed to have length
+    /// [`Self::ELEMENT_SIZE`].
+    fn deserialize_element(input: &[u8]) -> Option<Self::Element>;
 }
 
 /// Prime-order group in which discrete log problem is believed to be hard.
@@ -129,64 +133,64 @@ pub trait PointOps: ScalarOps {
 /// [ristretto]: https://ristretto.group/
 /// [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 /// [`k256`]: https://docs.rs/k256/
-pub trait Group: Copy + ScalarOps + PointOps + 'static {
-    /// Multiplies the provided scalar by [`PointOps::base_point()`]. This operation must be
+pub trait Group: Copy + ScalarOps + ElementOps + 'static {
+    /// Multiplies the provided scalar by [`PointOps::generator()`]. This operation must be
     /// constant-time.
     ///
     /// # Default implementation
     ///
     /// Implemented using [`Mul`](ops::Mul) (which is constant-time as per the [`PointOps`]
     /// contract).
-    fn mul_base_point(k: &Self::Scalar) -> Self::Point {
-        Self::base_point() * k
+    fn mul_generator(k: &Self::Scalar) -> Self::Element {
+        Self::generator() * k
     }
 
-    /// Multiplies the provided scalar by [`PointOps::base_point()`].
-    /// Unlike [`Self::mul_base_point()`], this operation does not need to be constant-time;
+    /// Multiplies the provided scalar by [`PointOps::generator()`].
+    /// Unlike [`Self::mul_generator()`], this operation does not need to be constant-time;
     /// thus, it may employ additional optimizations.
     ///
     /// # Default implementation
     ///
-    /// Implemented by calling [`Self::mul_base_point()`].
+    /// Implemented by calling [`Self::mul_generator()`].
     #[inline]
-    fn vartime_mul_base_point(k: &Self::Scalar) -> Self::Point {
-        Self::mul_base_point(k)
+    fn vartime_mul_generator(k: &Self::Scalar) -> Self::Element {
+        Self::mul_generator(k)
     }
 
-    /// Multiplies provided `scalars` by `points`. This operation must be constant-time
+    /// Multiplies provided `scalars` by `elements`. This operation must be constant-time
     /// w.r.t. the given length of elements.
     ///
     /// # Default implementation
     ///
     /// Implemented by straightforward computations, which are constant-time as per
     /// the [`PointOps`] contract.
-    fn multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
-        J: IntoIterator<Item = Self::Point>,
+        J: IntoIterator<Item = Self::Element>,
     {
         let mut output = Self::identity();
-        for (scalar, point) in scalars.into_iter().zip(points) {
-            output = output + point * scalar;
+        for (scalar, element) in scalars.into_iter().zip(elements) {
+            output = output + element * scalar;
         }
         output
     }
 
-    /// Calculates `k * k_point + r * G`, where `G` is the group generator. This operation
+    /// Calculates `k * k_element + r * G`, where `G` is the group generator. This operation
     /// does not need to be constant-time.
     ///
     /// # Default implementation
     ///
     /// Implemented by straightforward arithmetic.
-    fn vartime_double_mul_base_point(
+    fn vartime_double_mul_generator(
         k: &Self::Scalar,
-        k_point: Self::Point,
+        k_element: Self::Element,
         r: &Self::Scalar,
-    ) -> Self::Point {
-        k_point * k + Self::base_point() * r
+    ) -> Self::Element {
+        k_element * k + Self::generator() * r
     }
 
-    /// Multiplies provided `scalars` by `points`. Unlike [`Self::multi_mul()`],
+    /// Multiplies provided `scalars` by `elements`. Unlike [`Self::multi_mul()`],
     /// this operation does not need to be constant-time; thus, it may employ
     /// additional optimizations.
     ///
@@ -194,11 +198,11 @@ pub trait Group: Copy + ScalarOps + PointOps + 'static {
     ///
     /// Implemented by calling [`Self::multi_mul()`].
     #[inline]
-    fn vartime_multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn vartime_multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
-        J: IntoIterator<Item = Self::Point>,
+        J: IntoIterator<Item = Self::Element>,
     {
-        Self::multi_mul(scalars, points)
+        Self::multi_mul(scalars, elements)
     }
 }

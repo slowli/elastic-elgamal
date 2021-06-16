@@ -8,7 +8,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use std::{convert::TryInto, io::Read};
 
-use crate::group::{Group, PointOps, ScalarOps};
+use crate::group::{ElementOps, Group, ScalarOps};
 
 /// Prime-order subgroup of Curve25519 without any transforms performed for EC points.
 ///
@@ -59,28 +59,28 @@ impl ScalarOps for Curve25519Subgroup {
     }
 }
 
-impl PointOps for Curve25519Subgroup {
-    type Point = EdwardsPoint;
+impl ElementOps for Curve25519Subgroup {
+    type Element = EdwardsPoint;
 
-    const POINT_SIZE: usize = 32;
+    const ELEMENT_SIZE: usize = 32;
 
-    fn identity() -> Self::Point {
+    fn identity() -> Self::Element {
         EdwardsPoint::identity()
     }
 
-    fn is_identity(point: &Self::Point) -> bool {
-        point.is_identity()
+    fn is_identity(element: &Self::Element) -> bool {
+        element.is_identity()
     }
 
-    fn base_point() -> Self::Point {
+    fn generator() -> Self::Element {
         ED25519_BASEPOINT_POINT
     }
 
-    fn serialize_point(point: &Self::Point, output: &mut Vec<u8>) {
-        output.extend_from_slice(&point.compress().to_bytes())
+    fn serialize_element(element: &Self::Element, output: &mut Vec<u8>) {
+        output.extend_from_slice(&element.compress().to_bytes())
     }
 
-    fn deserialize_point(input: &[u8]) -> Option<Self::Point> {
+    fn deserialize_element(input: &[u8]) -> Option<Self::Element> {
         CompressedEdwardsY::from_slice(input)
             .decompress()
             .filter(EdwardsPoint::is_torsion_free)
@@ -88,11 +88,11 @@ impl PointOps for Curve25519Subgroup {
 }
 
 impl Group for Curve25519Subgroup {
-    fn mul_base_point(k: &Scalar) -> Self::Point {
+    fn mul_generator(k: &Scalar) -> Self::Element {
         k * &ED25519_BASEPOINT_TABLE
     }
 
-    fn vartime_mul_base_point(k: &Scalar) -> Self::Point {
+    fn vartime_mul_generator(k: &Scalar) -> Self::Element {
         EdwardsPoint::vartime_double_scalar_mul_basepoint(
             &Scalar::zero(),
             &EdwardsPoint::identity(),
@@ -100,24 +100,28 @@ impl Group for Curve25519Subgroup {
         )
     }
 
-    fn multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
-        J: IntoIterator<Item = Self::Point>,
+        J: IntoIterator<Item = Self::Element>,
     {
-        EdwardsPoint::multiscalar_mul(scalars, points)
+        EdwardsPoint::multiscalar_mul(scalars, elements)
     }
 
-    fn vartime_double_mul_base_point(k: &Scalar, k_point: Self::Point, r: &Scalar) -> Self::Point {
-        EdwardsPoint::vartime_double_scalar_mul_basepoint(k, &k_point, r)
+    fn vartime_double_mul_generator(
+        k: &Scalar,
+        k_element: Self::Element,
+        r: &Scalar,
+    ) -> Self::Element {
+        EdwardsPoint::vartime_double_scalar_mul_basepoint(k, &k_element, r)
     }
 
-    fn vartime_multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn vartime_multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
-        J: IntoIterator<Item = Self::Point>,
+        J: IntoIterator<Item = Self::Element>,
     {
-        EdwardsPoint::vartime_multiscalar_mul(scalars, points)
+        EdwardsPoint::vartime_multiscalar_mul(scalars, elements)
     }
 }
 
@@ -135,7 +139,7 @@ mod tests {
         let mut rng = thread_rng();
         for _ in 0..100 {
             let mut point =
-                Curve25519Subgroup::mul_base_point(&Curve25519Subgroup::generate_scalar(&mut rng));
+                Curve25519Subgroup::mul_generator(&Curve25519Subgroup::generate_scalar(&mut rng));
             point += EIGHT_TORSION[1];
             assert!(!point.is_torsion_free());
             let bytes = point.compress().to_bytes();

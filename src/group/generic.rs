@@ -12,7 +12,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use std::{marker::PhantomData, ops};
 
-use super::{Group, PointOps, ScalarOps};
+use super::{ElementOps, Group, ScalarOps};
 
 /// Generic [`Group`] implementation for elliptic curves defined in terms of the traits
 /// from the [`elliptic-curve`] crate.
@@ -57,38 +57,38 @@ impl<C: ProjectiveArithmetic> ScalarOps for Generic<C> {
     }
 }
 
-impl<C> PointOps for Generic<C>
+impl<C> ElementOps for Generic<C>
 where
     C: ProjectiveArithmetic + WeierstrassCurve,
     UntaggedPointSize<C>: ops::Add<U1> + ArrayLength<u8>,
     UncompressedPointSize<C>: ArrayLength<u8>,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
 {
-    type Point = ProjectivePoint<C>;
+    type Element = ProjectivePoint<C>;
 
-    const POINT_SIZE: usize = <FieldSize<C> as Unsigned>::USIZE + 1;
+    const ELEMENT_SIZE: usize = <FieldSize<C> as Unsigned>::USIZE + 1;
 
     #[inline]
-    fn identity() -> Self::Point {
+    fn identity() -> Self::Element {
         C::ProjectivePoint::identity()
     }
 
     #[inline]
-    fn is_identity(point: &Self::Point) -> bool {
-        point.is_identity().into()
+    fn is_identity(element: &Self::Element) -> bool {
+        element.is_identity().into()
     }
 
     #[inline]
-    fn base_point() -> Self::Point {
+    fn generator() -> Self::Element {
         C::ProjectivePoint::generator()
     }
 
-    fn serialize_point(point: &Self::Point, output: &mut Vec<u8>) {
-        let encoded_point = point.to_encoded_point(true);
+    fn serialize_element(element: &Self::Element, output: &mut Vec<u8>) {
+        let encoded_point = element.to_encoded_point(true);
         output.extend_from_slice(encoded_point.as_bytes())
     }
 
-    fn deserialize_point(input: &[u8]) -> Option<Self::Point> {
+    fn deserialize_element(input: &[u8]) -> Option<Self::Element> {
         let encoded_point = EncodedPoint::<C>::from_bytes(input).ok()?;
         ProjectivePoint::<C>::from_encoded_point(&encoded_point)
     }
@@ -128,11 +128,11 @@ mod tests {
     fn point_roundtrip() {
         let mut rng = thread_rng();
         for _ in 0..100 {
-            let point = K256::mul_base_point(&K256::generate_scalar(&mut rng));
-            let mut buffer = Vec::with_capacity(K256::POINT_SIZE);
-            K256::serialize_point(&point, &mut buffer);
-            assert_eq!(buffer.len(), K256::POINT_SIZE);
-            assert_eq!(K256::deserialize_point(&buffer).unwrap(), point);
+            let point = K256::mul_generator(&K256::generate_scalar(&mut rng));
+            let mut buffer = Vec::with_capacity(K256::ELEMENT_SIZE);
+            K256::serialize_element(&point, &mut buffer);
+            assert_eq!(buffer.len(), K256::ELEMENT_SIZE);
+            assert_eq!(K256::deserialize_element(&buffer).unwrap(), point);
         }
     }
 }

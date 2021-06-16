@@ -8,7 +8,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use std::{convert::TryInto, io::Read};
 
-use crate::group::{Group, PointOps, ScalarOps};
+use crate::group::{ElementOps, Group, ScalarOps};
 
 /// [Ristretto](https://ristretto.group/) transform of Curve25519.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -49,38 +49,38 @@ impl ScalarOps for Ristretto {
     }
 }
 
-impl PointOps for Ristretto {
-    type Point = RistrettoPoint;
+impl ElementOps for Ristretto {
+    type Element = RistrettoPoint;
 
-    const POINT_SIZE: usize = 32;
+    const ELEMENT_SIZE: usize = 32;
 
-    fn identity() -> Self::Point {
+    fn identity() -> Self::Element {
         RistrettoPoint::identity()
     }
 
-    fn is_identity(point: &Self::Point) -> bool {
-        point.is_identity()
+    fn is_identity(element: &Self::Element) -> bool {
+        element.is_identity()
     }
 
-    fn base_point() -> Self::Point {
+    fn generator() -> Self::Element {
         RISTRETTO_BASEPOINT_POINT
     }
 
-    fn serialize_point(point: &Self::Point, output: &mut Vec<u8>) {
-        output.extend_from_slice(&point.compress().to_bytes());
+    fn serialize_element(element: &Self::Element, output: &mut Vec<u8>) {
+        output.extend_from_slice(&element.compress().to_bytes());
     }
 
-    fn deserialize_point(input: &[u8]) -> Option<Self::Point> {
+    fn deserialize_element(input: &[u8]) -> Option<Self::Element> {
         CompressedRistretto::from_slice(input).decompress()
     }
 }
 
 impl Group for Ristretto {
-    fn mul_base_point(k: &Scalar) -> Self::Point {
+    fn mul_generator(k: &Scalar) -> Self::Element {
         k * &RISTRETTO_BASEPOINT_TABLE
     }
 
-    fn vartime_mul_base_point(k: &Scalar) -> Self::Point {
+    fn vartime_mul_generator(k: &Scalar) -> Self::Element {
         RistrettoPoint::vartime_double_scalar_mul_basepoint(
             &Scalar::zero(),
             &RistrettoPoint::identity(),
@@ -88,24 +88,28 @@ impl Group for Ristretto {
         )
     }
 
-    fn multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
-        J: IntoIterator<Item = Self::Point>,
+        J: IntoIterator<Item = Self::Element>,
     {
-        RistrettoPoint::multiscalar_mul(scalars, points)
+        RistrettoPoint::multiscalar_mul(scalars, elements)
     }
 
-    fn vartime_double_mul_base_point(k: &Scalar, k_point: Self::Point, r: &Scalar) -> Self::Point {
-        RistrettoPoint::vartime_double_scalar_mul_basepoint(k, &k_point, r)
+    fn vartime_double_mul_generator(
+        k: &Scalar,
+        k_element: Self::Element,
+        r: &Scalar,
+    ) -> Self::Element {
+        RistrettoPoint::vartime_double_scalar_mul_basepoint(k, &k_element, r)
     }
 
-    fn vartime_multi_mul<'a, I, J>(scalars: I, points: J) -> Self::Point
+    fn vartime_multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element
     where
         I: IntoIterator<Item = &'a Self::Scalar>,
-        J: IntoIterator<Item = Self::Point>,
+        J: IntoIterator<Item = Self::Element>,
     {
-        RistrettoPoint::vartime_multiscalar_mul(scalars, points)
+        RistrettoPoint::vartime_multiscalar_mul(scalars, elements)
     }
 }
 
@@ -126,7 +130,7 @@ mod tests {
         let value = Ristretto::generate_scalar(&mut rng);
         let encrypted = Encryption::new(value, keypair.public(), &mut rng);
         let decryption = keypair.secret().decrypt_to_element(encrypted);
-        assert_eq!(decryption, Ristretto::vartime_mul_base_point(&value));
+        assert_eq!(decryption, Ristretto::vartime_mul_generator(&value));
     }
 
     #[test]

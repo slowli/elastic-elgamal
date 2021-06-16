@@ -88,7 +88,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
                 .choose_multiple(&mut rng, params.threshold);
             let decrypted = DecryptionShare::combine(params, encrypted, chosen_shares);
 
-            assert_ct_eq(&decrypted.unwrap(), &G::vartime_mul_base_point(&value));
+            assert_ct_eq(&decrypted.unwrap(), &G::vartime_mul_generator(&value));
         }
     }
 }

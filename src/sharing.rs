@@ -14,7 +14,7 @@
 //!
 //! # Distributed key generation
 //!
-//! **1.** Each participant in the `(n, t)` scheme generates a polynomial of degree `t`
+//! **1.** Each participant in the `(n, t)` scheme generates a *secret polynomial* of degree `t`
 //! with random scalar coefficients:
 //!
 //! ```text
@@ -23,8 +23,8 @@
 //!
 //! where `1 <= i <= n` is the participant's index.
 //!
-//! Each participant then broadcasts the EC points corresponding
-//! to her coefficients:
+//! Each participant then broadcasts their *public polynomial*, i.e., the group elements
+//! corresponding to partipant's coefficients:
 //!
 //! ```text
 //! Q_i(x) = [a_i0]G + [x][a_i1]G + ... + [x^t][a_it]G,
@@ -184,8 +184,8 @@ use crate::{
     Encryption, Keypair, PublicKey, SecretKey,
 };
 
-/// Computes value of EC polynomial at the specified point in variable time.
-fn polynomial_value<G: Group>(coefficients: &[G::Point], x: G::Scalar) -> G::Point {
+/// Computes value of a public polynomial at the specified point in variable time.
+fn polynomial_value<G: Group>(coefficients: &[G::Element], x: G::Scalar) -> G::Element {
     let mut val = G::Scalar::from(1_u64);
     let scalars: Vec<_> = (0..coefficients.len())
         .map(|_| {
@@ -280,7 +280,7 @@ impl Params {
 #[derive(Debug)]
 pub struct PartialPublicKeySet<G: Group> {
     params: Params,
-    received_polynomials: BTreeMap<usize, Vec<G::Point>>,
+    received_polynomials: BTreeMap<usize, Vec<G::Element>>,
 }
 
 impl<G: Group> PartialPublicKeySet<G> {
@@ -321,13 +321,13 @@ impl<G: Group> PartialPublicKeySet<G> {
         );
 
         // The shared public key is the value of the resulting polynomial at `0`.
-        let shared_key = PublicKey::from_point(coefficients[0]);
+        let shared_key = PublicKey::from_element(coefficients[0]);
         // A participant's public key is the value of the resulting polynomial at their index
         // (1-based).
         let participant_keys: Vec<_> = (0..self.params.shares)
             .map(|index| {
                 let x = G::Scalar::from(index as u64 + 1);
-                PublicKey::from_point(polynomial_value::<G>(&coefficients, x))
+                PublicKey::from_element(polynomial_value::<G>(&coefficients, x))
             })
             .collect();
 
@@ -354,7 +354,7 @@ impl<G: Group> PartialPublicKeySet<G> {
     pub fn add_participant(
         &mut self,
         index: usize,
-        polynomial: Vec<G::Point>,
+        polynomial: Vec<G::Element>,
         proof_of_possession: &ProofOfPossession<G>,
     ) -> Result<(), Error> {
         assert!(
@@ -381,7 +381,7 @@ impl<G: Group> PartialPublicKeySet<G> {
         let public_keys: Vec<_> = polynomial
             .iter()
             .copied()
-            .map(PublicKey::from_point)
+            .map(PublicKey::from_element)
             .collect();
         if proof_of_possession.verify(public_keys.iter(), &mut transcript) {
             self.received_polynomials.insert(index, polynomial);
@@ -391,7 +391,7 @@ impl<G: Group> PartialPublicKeySet<G> {
         }
     }
 
-    fn references_for_participant(&self, participant_index: usize) -> Option<Vec<G::Point>> {
+    fn references_for_participant(&self, participant_index: usize) -> Option<Vec<G::Element>> {
         assert!(participant_index < self.params.shares);
         if !self.is_complete() {
             return None;
@@ -438,7 +438,7 @@ impl<G: Group> PublicKeySet<G> {
 
         Self {
             params,
-            shared_key: PublicKey::from_point(shared_key * &scale),
+            shared_key: PublicKey::from_element(shared_key * &scale),
             participant_keys,
         }
     }
@@ -467,7 +467,7 @@ impl<G: Group> PublicKeySet<G> {
     fn commit(&self, transcript: &mut Transcript) {
         transcript.append_u64(b"n", self.params.shares as u64);
         transcript.append_u64(b"t", self.params.threshold as u64);
-        transcript.append_point_bytes(b"K", &self.shared_key.bytes);
+        transcript.append_element_bytes(b"K", &self.shared_key.bytes);
     }
 
     /// Verifies a proof of possession of the participant's secret key.
@@ -503,19 +503,19 @@ impl<G: Group> PublicKeySet<G> {
         proof: &LogEqualityProof<G>,
     ) -> Option<DecryptionShare<G>> {
         let key_share = self.participant_keys[index].full;
-        let dh_point = candidate_share.inner.dh_point;
+        let dh_element = candidate_share.inner.dh_element;
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.commit(&mut transcript);
         transcript.append_u64(b"i", index as u64);
 
         let is_valid = proof.verify(
-            &PublicKey::from_point(encryption.random_point),
-            (key_share, dh_point),
+            &PublicKey::from_element(encryption.random_element),
+            (key_share, dh_element),
             &mut transcript,
         );
 
         if is_valid {
-            Some(DecryptionShare { dh_point })
+            Some(DecryptionShare { dh_element })
         } else {
             None
         }
@@ -570,7 +570,7 @@ impl<G: Group> StartingParticipant<G> {
 
     /// Returns public participant information: participant's public polynomial and proof
     /// of possession for the corresponding secret polynomial.
-    pub fn public_info(&self) -> (Vec<G::Point>, &ProofOfPossession<G>) {
+    pub fn public_info(&self) -> (Vec<G::Element>, &ProofOfPossession<G>) {
         let public_polynomial = self
             .polynomial
             .iter()
@@ -627,7 +627,7 @@ pub struct ParticipantExchangingSecrets<G: Group> {
     index: usize,
     messages_to_others: HashMap<usize, SecretKey<G>>,
     secret_share: SecretKey<G>,
-    references: Vec<G::Point>,
+    references: Vec<G::Element>,
     received_messages: HashSet<usize>,
 }
 
@@ -652,12 +652,12 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
     ///
     /// # Panics
     ///
-    /// Panics if the protocol cannot be completed at this point, i.e., [`Self::is_complete()`]
+    /// Panics if the protocol cannot be completed at this element, i.e., [`Self::is_complete()`]
     /// returns `false`.
     pub fn complete(self) -> ActiveParticipant<G> {
         assert!(self.is_complete(), "cannot complete protocol at this point");
         debug_assert!(bool::from(
-            G::mul_base_point(&self.secret_share.0)
+            G::mul_generator(&self.secret_share.0)
                 .ct_eq(&self.key_set.participant_keys[self.index].full)
         ));
 
@@ -697,7 +697,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
 
         // Check that the received value is valid.
         let expected_value = &self.references[participant_index];
-        if !bool::from(expected_value.ct_eq(&G::mul_base_point(&message.0))) {
+        if !bool::from(expected_value.ct_eq(&G::mul_generator(&message.0))) {
             return Err(Error::InvalidSecret);
         }
 
@@ -728,7 +728,7 @@ impl<G: Group> ActiveParticipant<G> {
     pub fn new(key_set: PublicKeySet<G>, index: usize, secret_share: SecretKey<G>) -> Self {
         assert!(
             bool::from(
-                G::mul_base_point(&secret_share.0).ct_eq(&key_set.participant_keys[index].full)
+                G::mul_generator(&secret_share.0).ct_eq(&key_set.participant_keys[index].full)
             ),
             "Secret key share does not correspond to public key share"
         );
@@ -786,28 +786,27 @@ impl<G: Group> ActiveParticipant<G> {
     where
         R: CryptoRng + RngCore,
     {
-        let dh_point = encryption.random_point * &self.secret_share.0;
+        let dh_element = encryption.random_element * &self.secret_share.0;
         let our_public_key = self.key_set.participant_keys[self.index].full;
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.key_set.commit(&mut transcript);
         transcript.append_u64(b"i", self.index as u64);
 
         let proof = LogEqualityProof::new(
-            &PublicKey::from_point(encryption.random_point),
-            (our_public_key, dh_point),
+            &PublicKey::from_element(encryption.random_element),
+            (our_public_key, dh_element),
             &self.secret_share.0,
             &mut transcript,
             rng,
         );
-        (DecryptionShare { dh_point }, proof)
+        (DecryptionShare { dh_element }, proof)
     }
 }
 
-/// Decryption share for a certain encryption in a shared ElGamal encryption scheme.
-// TODO: embed params into share?
+/// Decryption share for a certain [`Encryption`] in a shared ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy)]
 pub struct DecryptionShare<G: Group> {
-    dh_point: G::Point,
+    dh_element: G::Element,
 }
 
 impl<G: Group> DecryptionShare<G> {
@@ -823,11 +822,11 @@ impl<G: Group> DecryptionShare<G> {
         params: Params,
         encryption: Encryption<G>,
         shares: impl IntoIterator<Item = (usize, Self)>,
-    ) -> Option<G::Point> {
+    ) -> Option<G::Element> {
         let (indexes, shares): (Vec<_>, Vec<_>) = shares
             .into_iter()
             .take(params.threshold)
-            .map(|(index, share)| (index, share.dh_point))
+            .map(|(index, share)| (index, share.dh_element))
             .unzip();
         if shares.len() < params.threshold {
             return None;
@@ -841,14 +840,14 @@ impl<G: Group> DecryptionShare<G> {
 
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
         let restored_value = G::vartime_multi_mul(&denominators, shares);
-        let dh_point = restored_value * &scale;
-        Some(encryption.blinded_point - dh_point)
+        let dh_element = restored_value * &scale;
+        Some(encryption.blinded_element - dh_element)
     }
 
     /// Serializes this share into bytes.
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(G::POINT_SIZE);
-        G::serialize_point(&self.dh_point, &mut bytes);
+        let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+        G::serialize_element(&self.dh_element, &mut bytes);
         bytes
     }
 }
@@ -863,10 +862,10 @@ pub struct CandidateShare<G: Group> {
 impl<G: Group> CandidateShare<G> {
     /// Deserializes a share from `bytes`. Returns `None` if the share is malformed.
     pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() == G::POINT_SIZE {
-            let dh_point = G::deserialize_point(bytes)?;
+        if bytes.len() == G::ELEMENT_SIZE {
+            let dh_element = G::deserialize_element(bytes)?;
             Some(Self {
-                inner: DecryptionShare { dh_point },
+                inner: DecryptionShare { dh_element },
             })
         } else {
             None
@@ -899,13 +898,13 @@ mod tests {
         let (alice_poly, alice_proof) = alice.public_info();
         assert_eq!(
             alice_poly,
-            [Ristretto::mul_base_point(&alice.polynomial[0].secret().0)]
+            [Ristretto::mul_generator(&alice.polynomial[0].secret().0)]
         );
         let bob: StartingParticipant<Ristretto> = StartingParticipant::new(params, 1, &mut rng);
         let (bob_poly, bob_proof) = bob.public_info();
         assert_eq!(
             bob_poly,
-            [Ristretto::mul_base_point(&bob.polynomial[0].secret().0)]
+            [Ristretto::mul_generator(&bob.polynomial[0].secret().0)]
         );
 
         let mut group_info = PartialPublicKeySet::new(params);
@@ -916,7 +915,7 @@ mod tests {
         assert!(group_info.is_complete());
 
         let joint_secret = alice.polynomial[0].secret().0 + bob.polynomial[0].secret().0;
-        let joint_pt = Ristretto::mul_base_point(&joint_secret);
+        let joint_pt = Ristretto::mul_generator(&joint_secret);
 
         let mut alice = alice.finalize_key_set(&group_info).unwrap();
         let a2b_message = alice.message(1);
@@ -934,7 +933,7 @@ mod tests {
         assert_eq!(group_info.shared_key.full, joint_pt);
         assert_eq!(
             group_info.participant_keys,
-            vec![PublicKey::from_point(joint_pt); 2]
+            vec![PublicKey::from_element(joint_pt); 2]
         );
 
         let encryption = Encryption::new(5_u64, &group_info.shared_key, &mut rng);
@@ -948,9 +947,9 @@ mod tests {
             .verify_share(bob_share.to_candidate(), encryption, 1, &proof)
             .unwrap();
 
-        let message = Ristretto::mul_base_point(&Scalar25519::from(5_u64));
-        assert_eq!(alice_share.dh_point, encryption.blinded_point - message);
-        assert_eq!(alice_share.dh_point, bob_share.dh_point);
+        let message = Ristretto::mul_generator(&Scalar25519::from(5_u64));
+        assert_eq!(alice_share.dh_element, encryption.blinded_element - message);
+        assert_eq!(alice_share.dh_element, bob_share.dh_element);
     }
 
     #[test]
@@ -974,11 +973,11 @@ mod tests {
         let secret0 = alice.polynomial[0].secret().0
             + bob.polynomial[0].secret().0
             + carol.polynomial[0].secret().0;
-        let pt0 = Ristretto::mul_base_point(&secret0);
+        let pt0 = Ristretto::mul_generator(&secret0);
         let secret1 = alice.polynomial[1].secret().0
             + bob.polynomial[1].secret().0
             + carol.polynomial[1].secret().0;
-        let pt1 = Ristretto::mul_base_point(&secret1);
+        let pt1 = Ristretto::mul_generator(&secret1);
 
         let mut alice = alice.finalize_key_set(&key_set).unwrap();
         let mut bob = bob.finalize_key_set(&key_set).unwrap();
@@ -999,9 +998,9 @@ mod tests {
         assert_eq!(
             key_set.participant_keys,
             vec![
-                PublicKey::from_point(pt0 + pt1),
-                PublicKey::from_point(pt0 + pt1 * Scalar25519::from(2_u32)),
-                PublicKey::from_point(pt0 + pt1 * Scalar25519::from(3_u32)),
+                PublicKey::from_element(pt0 + pt1),
+                PublicKey::from_element(pt0 + pt1 * Scalar25519::from(2_u32)),
+                PublicKey::from_element(pt0 + pt1 * Scalar25519::from(3_u32)),
             ]
         );
 
@@ -1035,12 +1034,12 @@ mod tests {
             .is_some());
 
         // We need to find `a0` from the following equations:
-        // a0 +   a1 = alice_share.dh_point;
-        // a0 + 2*a1 = bob_share.dh_point;
-        let composite_dh_point =
-            alice_share.dh_point * Scalar25519::from(2_u64) - bob_share.dh_point;
-        let message = Ristretto::mul_base_point(&Scalar25519::from(15_u64));
-        assert_eq!(composite_dh_point, encryption.blinded_point - message);
+        // a0 +   a1 = alice_share.dh_element;
+        // a0 + 2*a1 = bob_share.dh_element;
+        let composite_dh_element =
+            alice_share.dh_element * Scalar25519::from(2_u64) - bob_share.dh_element;
+        let message = Ristretto::mul_generator(&Scalar25519::from(15_u64));
+        assert_eq!(composite_dh_element, encryption.blinded_element - message);
     }
 
     #[test]

@@ -50,16 +50,16 @@ use crate::{
 /// ```
 #[derive(Clone, Copy)]
 pub struct Encryption<G: Group> {
-    pub(crate) random_point: G::Point,
-    pub(crate) blinded_point: G::Point,
+    pub(crate) random_element: G::Element,
+    pub(crate) blinded_element: G::Element,
 }
 
 impl<G: Group> fmt::Debug for Encryption<G> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("Encryption")
-            .field("random_point", &self.random_point)
-            .field("blinded_point", &self.blinded_point)
+            .field("random_element", &self.random_element)
+            .field("blinded_element", &self.blinded_element)
             .finish()
     }
 }
@@ -71,24 +71,24 @@ impl<G: Group> Encryption<G> {
         G::Scalar: From<T>,
     {
         let scalar = G::Scalar::from(value);
-        let point = G::mul_base_point(&scalar);
-        EncryptionWithLog::new(point, receiver, rng).inner
+        let element = G::mul_generator(&scalar);
+        EncryptionWithLog::new(element, receiver, rng).inner
     }
 
     /// Represents encryption of zero value without the blinding factor.
     pub fn zero() -> Self {
         Self {
-            random_point: G::identity(),
-            blinded_point: G::identity(),
+            random_element: G::identity(),
+            blinded_element: G::identity(),
         }
     }
 
-    /// Serializes this encryption as two compressed EC points (the random point,
+    /// Serializes this encryption as two group elements (the random element,
     /// then the blinded value).
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(2 * G::POINT_SIZE);
-        G::serialize_point(&self.random_point, &mut bytes);
-        G::serialize_point(&self.blinded_point, &mut bytes);
+        let mut bytes = Vec::with_capacity(2 * G::ELEMENT_SIZE);
+        G::serialize_element(&self.random_element, &mut bytes);
+        G::serialize_element(&self.blinded_element, &mut bytes);
         bytes
     }
 
@@ -98,16 +98,16 @@ impl<G: Group> Encryption<G> {
         R: CryptoRng + RngCore,
     {
         let random_scalar = SecretKey::<G>::generate(rng);
-        let random_point = G::mul_base_point(&random_scalar.0);
-        let blinded_point = receiver.full * &random_scalar.0;
+        let random_element = G::mul_generator(&random_scalar.0);
+        let blinded_element = receiver.full * &random_scalar.0;
         let encryption = Self {
-            random_point,
-            blinded_point,
+            random_element,
+            blinded_element,
         };
 
         let proof = LogEqualityProof::new(
             receiver,
-            (random_point, blinded_point),
+            (random_element, blinded_element),
             &random_scalar.0,
             &mut Transcript::new(b"zero_encryption"),
             rng,
@@ -120,7 +120,7 @@ impl<G: Group> Encryption<G> {
     pub fn verify_zero(&self, receiver: &PublicKey<G>, proof: &LogEqualityProof<G>) -> bool {
         proof.verify(
             receiver,
-            (self.random_point, self.blinded_point),
+            (self.random_element, self.blinded_element),
             &mut Transcript::new(b"zero_encryption"),
         )
     }
@@ -136,7 +136,7 @@ impl<G: Group> Encryption<G> {
         R: CryptoRng + RngCore,
     {
         let mut transcript = Transcript::new(b"bool_encryption");
-        let admissible_values = [G::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::generator()];
         let mut builder = RingProofBuilder::new(&receiver, &mut transcript, rng);
         let encryption = builder.add_value(&admissible_values, value as usize);
         (encryption.inner, builder.build())
@@ -145,7 +145,7 @@ impl<G: Group> Encryption<G> {
     /// Verifies a proof of encryption correctness of a boolean value, which was presumably
     /// obtained via [`Self::encrypt_bool()`].
     pub fn verify_bool(&self, receiver: &PublicKey<G>, proof: &RingProof<G>) -> bool {
-        let admissible_values = [G::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::generator()];
         proof.verify(
             receiver,
             &[&admissible_values],
@@ -160,8 +160,8 @@ impl<G: Group> ops::Add for Encryption<G> {
 
     fn add(self, rhs: Self) -> Self {
         Self {
-            random_point: self.random_point + rhs.random_point,
-            blinded_point: self.blinded_point + rhs.blinded_point,
+            random_element: self.random_element + rhs.random_element,
+            blinded_element: self.blinded_element + rhs.blinded_element,
         }
     }
 }
@@ -177,8 +177,8 @@ impl<G: Group> ops::Sub for Encryption<G> {
 
     fn sub(self, rhs: Self) -> Self {
         Self {
-            random_point: self.random_point - rhs.random_point,
-            blinded_point: self.blinded_point - rhs.blinded_point,
+            random_element: self.random_element - rhs.random_element,
+            blinded_element: self.blinded_element - rhs.blinded_element,
         }
     }
 }
@@ -194,8 +194,8 @@ impl<G: Group> ops::Mul<&G::Scalar> for Encryption<G> {
 
     fn mul(self, rhs: &G::Scalar) -> Self {
         Self {
-            random_point: self.random_point * rhs,
-            blinded_point: self.blinded_point * rhs,
+            random_element: self.random_element * rhs,
+            blinded_element: self.blinded_element * rhs,
         }
     }
 }
@@ -213,7 +213,7 @@ impl<G: Group> ops::Mul<u64> for Encryption<G> {
 ///
 /// For ElGamal [`Encryption`] to be partially homomorphic, the encrypted values must be
 /// group scalars linearly mapped to group elements: `x -> [x]G`, where `G` is the group
-/// generator. After decryption it is necessary to map the decrypted point back to a scalar
+/// generator. After decryption it is necessary to map the decrypted group element back to a scalar
 /// (i.e., get its discrete logarithm with base `G`). By definition of the group,
 /// this task is computationally infeasible in the general case; however, if the possible range
 /// of encrypted values is small, it is possible to "cheat" by precomputing mapping `[x]G -> x`
@@ -254,9 +254,9 @@ impl<G: Group> DiscreteLogTable<G> {
             .into_iter()
             .filter(|&value| value != 0)
             .map(|i| {
-                let point = G::vartime_mul_base_point(&G::Scalar::from(i));
-                let mut bytes = Vec::with_capacity(G::POINT_SIZE);
-                G::serialize_point(&point, &mut bytes);
+                let element = G::vartime_mul_generator(&G::Scalar::from(i));
+                let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+                G::serialize_element(&element, &mut bytes);
                 (bytes, i)
             })
             .collect();
@@ -267,16 +267,16 @@ impl<G: Group> DiscreteLogTable<G> {
         }
     }
 
-    /// Gets the discrete log of `decrypted_point`, or `None` if it is not present among `values`
+    /// Gets the discrete log of `decrypted_element`, or `None` if it is not present among `values`
     /// stored in this table.
-    pub fn get(&self, decrypted_point: &G::Point) -> Option<u64> {
-        if G::is_identity(decrypted_point) {
-            // The identity point may have a special serialization (e.g., in SEC standard),
-            // so we check it separately.
+    pub fn get(&self, decrypted_element: &G::Element) -> Option<u64> {
+        if G::is_identity(decrypted_element) {
+            // The identity element may have a special serialization (e.g., in SEC standard
+            // for elliptic curves), so we check it separately.
             Some(0)
         } else {
-            let mut bytes = Vec::with_capacity(G::POINT_SIZE);
-            G::serialize_point(decrypted_point, &mut bytes);
+            let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+            G::serialize_element(decrypted_element, &mut bytes);
             self.inner.get(&bytes).copied()
         }
     }
@@ -293,19 +293,19 @@ pub struct EncryptionWithLog<G: Group> {
 impl<G: Group> EncryptionWithLog<G> {
     /// Creates an encryption of `value` for the specified `receiver`.
     pub fn new<R: CryptoRng + RngCore>(
-        value: G::Point,
+        value: G::Element,
         receiver: &PublicKey<G>,
         rng: &mut R,
     ) -> Self {
         let random_scalar = SecretKey::<G>::generate(rng);
-        let random_point = G::mul_base_point(&random_scalar.0);
-        let dh_point = receiver.full * &random_scalar.0;
-        let blinded_point = value + dh_point;
+        let random_element = G::mul_generator(&random_scalar.0);
+        let dh_element = receiver.full * &random_scalar.0;
+        let blinded_element = value + dh_element;
 
         Self {
             inner: Encryption {
-                random_point,
-                blinded_point,
+                random_element,
+                blinded_element,
             },
             random_scalar,
         }
@@ -385,7 +385,7 @@ impl<G: Group> EncryptedChoice<G> {
             number_of_variants
         );
 
-        let admissible_values = [G::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::generator()];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");
         let mut proof_builder = RingProofBuilder::new(receiver, &mut transcript, rng);
 
@@ -404,8 +404,8 @@ impl<G: Group> EncryptedChoice<G> {
         let sum_proof = LogEqualityProof::new(
             receiver,
             (
-                sum_encryption.random_point,
-                sum_encryption.blinded_point - G::base_point(),
+                sum_encryption.random_element,
+                sum_encryption.blinded_element - G::generator(),
             ),
             &sum_log.0,
             &mut Transcript::new(b"choice_encryption_sum"),
@@ -453,8 +453,8 @@ impl<G: Group> EncryptedChoice<G> {
         }
 
         let powers = (
-            sum_encryption.random_point,
-            sum_encryption.blinded_point - G::base_point(),
+            sum_encryption.random_element,
+            sum_encryption.blinded_element - G::generator(),
         );
         if !self.sum_proof.verify(
             receiver,
@@ -464,7 +464,7 @@ impl<G: Group> EncryptedChoice<G> {
             return None;
         }
 
-        let admissible_values = [G::identity(), G::base_point()];
+        let admissible_values = [G::identity(), G::generator()];
         let admissible_values = vec![&admissible_values as &[_]; self.variants.len()];
         if self.range_proof.verify(
             receiver,
@@ -504,10 +504,10 @@ mod tests {
         assert!(choice.verify(keypair.public()).is_none());
 
         let mut choice = EncryptedChoice::new(5, 4, keypair.public(), &mut rng);
-        choice.variants[4].blinded_point =
-            choice.variants[4].blinded_point + G::mul_base_point(&G::Scalar::from(10));
-        choice.variants[3].blinded_point =
-            choice.variants[3].blinded_point - G::mul_base_point(&G::Scalar::from(10));
+        choice.variants[4].blinded_element =
+            choice.variants[4].blinded_element + G::mul_generator(&G::Scalar::from(10));
+        choice.variants[3].blinded_element =
+            choice.variants[3].blinded_element - G::mul_generator(&G::Scalar::from(10));
         // These modifications leave `choice.sum_proof` correct, but the range proofs
         // for the last 2 variants should no longer verify.
         assert!(choice.verify(keypair.public()).is_none());
