@@ -127,10 +127,10 @@ mod tests {
     fn encrypt_and_decrypt() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let value = Ristretto::mul_base_point(&Ristretto::generate_scalar(&mut rng));
+        let value = Ristretto::generate_scalar(&mut rng);
         let encrypted = Encryption::new(value, keypair.public(), &mut rng);
-        let decryption = keypair.secret().decrypt(encrypted);
-        assert_eq!(decryption, value);
+        let decryption = keypair.secret().decrypt_to_element(encrypted);
+        assert_eq!(decryption, Ristretto::vartime_mul_base_point(&value));
     }
 
     #[test]
@@ -141,10 +141,10 @@ mod tests {
             EncryptedChoice::new(5, 3, keypair.public(), &mut rng);
         assert!(encrypted_choice.verify(keypair.public()).is_some());
 
-        let lookup_table = DiscreteLogLookupTable::<Ristretto>::new(0..=1);
+        let lookup_table = DiscreteLogLookupTable::new(0..=1);
         for (i, &variant) in encrypted_choice.variants_unchecked().iter().enumerate() {
-            let decryption = keypair.secret().decrypt(variant);
-            assert_eq!(lookup_table.get(&decryption).unwrap(), (i == 3) as u64);
+            let decryption = keypair.secret().decrypt(variant, &lookup_table);
+            assert_eq!(decryption.unwrap(), (i == 3) as u64);
         }
     }
 

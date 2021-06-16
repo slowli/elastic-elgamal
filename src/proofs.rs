@@ -69,6 +69,39 @@ impl TranscriptForGroup for Transcript {
 /// # Implementation notes
 ///
 /// - Proof generation is constant-time. Verification is **not** constant-time.
+///
+/// # Examples
+///
+/// ```
+/// # use elgamal_with_sharing::{group::Ristretto, Keypair, ProofOfPossession};
+/// # use merlin::Transcript;
+/// # use rand::thread_rng;
+/// let mut rng = thread_rng();
+/// let keypairs: Vec<_> =
+///     (0..5).map(|_| Keypair::<Ristretto>::generate(&mut rng)).collect();
+///
+/// // Prove possession of the generated key pairs.
+/// let proof = ProofOfPossession::new(
+///     &keypairs,
+///     &mut Transcript::new(b"custom_proof"),
+///     &mut rng,
+/// );
+/// assert!(proof.verify(
+///     keypairs.iter().map(Keypair::public),
+///     &mut Transcript::new(b"custom_proof"),
+/// ));
+///
+/// // If we change the context of the `Transcript`, the proof will not verify.
+/// assert!(!proof.verify(
+///     keypairs.iter().map(Keypair::public),
+///     &mut Transcript::new(b"other_proof"),
+/// ));
+/// // Likewise if the public keys are reordered.
+/// assert!(!proof.verify(
+///     keypairs.iter().rev().map(Keypair::public),
+///     &mut Transcript::new(b"custom_proof"),
+/// ));
+/// ```
 // TODO: serialization?
 #[derive(Debug, Clone)]
 pub struct ProofOfPossession<G: Group> {
@@ -577,6 +610,7 @@ impl<'a, G: Group> Ring<'a, G> {
 /// [ring]: https://link.springer.com/content/pdf/10.1007/3-540-36178-2_26.pdf
 /// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 #[derive(Debug, Clone)]
+// TODO: range proof (think about base etc.)
 pub struct RingProof<G: Group> {
     common_challenge: G::Scalar,
     ring_responses: Vec<G::Scalar>,

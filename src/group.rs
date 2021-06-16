@@ -83,7 +83,7 @@ pub trait ScalarOps {
 pub trait PointOps: ScalarOps {
     /// Member of the group. Arithmetic operations requested here (addition among
     /// points and multiplication by a `Scalar`) must be constant-time.
-    type Point: Copy
+    type Point: Copy // FIXME: rename to `Element`
         + ops::Add<Output = Self::Point>
         + ops::Sub<Output = Self::Point>
         + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Point>

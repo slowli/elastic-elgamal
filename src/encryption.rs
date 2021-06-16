@@ -13,8 +13,41 @@ use crate::{
 
 /// ElGamal asymmetric encryption.
 ///
-/// Ciphertexts are partially homomorphic: they can be added together or multiplied by a scalar
+/// Encryptions are partially homomorphic: they can be added together or multiplied by a scalar
 /// value.
+///
+/// # Examples
+///
+/// Basic usage and arithmetic for encryptions:
+///
+/// ```
+/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogLookupTable, Encryption, Keypair};
+/// # use rand::thread_rng;
+/// // Generate a keypair for the ciphertext recipient.
+/// let mut rng = thread_rng();
+/// let recipient = Keypair::<Ristretto>::generate(&mut rng);
+/// // Create a couple of ciphertexts.
+/// let mut enc = Encryption::new(2_u64, recipient.public(), &mut rng);
+/// enc += Encryption::new(3_u64, recipient.public(), &mut rng) * 4;
+/// // Check that the ciphertext decrypts to 2 + 3 * 4 = 14.
+/// let lookup_table = DiscreteLogLookupTable::new(0..20);
+/// let decrypted = recipient.secret().decrypt(enc, &lookup_table);
+/// assert_eq!(decrypted, Some(14));
+/// ```
+///
+/// Creating an encryption of a boolean value together with a proof:
+///
+/// ```
+/// # use elgamal_with_sharing::{group::Ristretto, Encryption, Keypair};
+/// # use rand::thread_rng;
+/// // Generate a keypair for the ciphertext recipient.
+/// let mut rng = thread_rng();
+/// let recipient = Keypair::<Ristretto>::generate(&mut rng);
+/// // Create and verify a boolean encryption.
+/// let (enc, proof) =
+///     Encryption::encrypt_bool(false, recipient.public(), &mut rng);
+/// assert!(enc.verify_bool(recipient.public(), &proof));
+/// ```
 #[derive(Clone, Copy)]
 pub struct Encryption<G: Group> {
     pub(crate) random_point: G::Point,
@@ -32,13 +65,18 @@ impl<G: Group> fmt::Debug for Encryption<G> {
 }
 
 impl<G: Group> Encryption<G> {
-    /// Encrypts a value given as an EC point for the specified `receiver`.
-    pub fn new<R: CryptoRng + RngCore>(
-        value: G::Point,
+    /// Encrypts a value for the specified `receiver`.
+    pub fn new<T, R: CryptoRng + RngCore>(
+        value: T,
         receiver: &PublicKey<G>,
         rng: &mut R,
-    ) -> Self {
-        EncryptionWithLog::new(value, receiver, rng).inner
+    ) -> Self
+    where
+        G::Scalar: From<T>,
+    {
+        let scalar = G::Scalar::from(value);
+        let point = G::mul_base_point(&scalar);
+        EncryptionWithLog::new(point, receiver, rng).inner
     }
 
     /// Represents encryption of zero value without the blinding factor.
@@ -149,6 +187,12 @@ impl<G: Group> ops::Sub for Encryption<G> {
     }
 }
 
+impl<G: Group> ops::SubAssign for Encryption<G> {
+    fn sub_assign(&mut self, rhs: Self) {
+        *self = *self - rhs;
+    }
+}
+
 impl<G: Group> ops::Mul<&G::Scalar> for Encryption<G> {
     type Output = Self;
 
@@ -160,17 +204,56 @@ impl<G: Group> ops::Mul<&G::Scalar> for Encryption<G> {
     }
 }
 
+impl<G: Group> ops::Mul<u64> for Encryption<G> {
+    type Output = Self;
+
+    fn mul(self, rhs: u64) -> Self {
+        let scalar = G::Scalar::from(rhs);
+        self * &scalar
+    }
+}
+
 /// Lookup table for discrete logarithms.
 ///
-/// FIXME: explain why it's necessary.
+/// For ElGamal [`Encryption`] to be partially homomorphic, the encrypted values must be
+/// group scalars linearly mapped to group elements: `x -> [x]G`, where `G` is the group
+/// generator. After decryption it is necessary to map the decrypted point back to a scalar
+/// (i.e., get its discrete logarithm with base `G`). By definition of the group,
+/// this task is computationally infeasible in the general case; however, if the possible range
+/// of encrypted values is small, it is possible to "cheat" by precomputing mapping `[x]G -> x`
+/// for all allowed `x` ahead of time. This is exactly what `DiscreteLogLookupTable` does.
+///
+/// # Examples
+///
+/// ```
+/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogLookupTable, Encryption, Keypair};
+/// # use rand::thread_rng;
+/// let mut rng = thread_rng();
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
+/// let encryptions = (0_u64..16)
+///     .map(|i| Encryption::new(i, receiver.public(), &mut rng));
+/// // Assume that we know that the encryption in range 0..16,
+/// // e.g., via a zero-knowledge proof.
+/// let lookup_table = DiscreteLogLookupTable::new(0..16);
+/// // Then, we can use the lookup table to decrypt values.
+/// // A single table may be shared for multiple decryptions
+/// // (i.e., it may be constructed ahead of time).
+/// for (i, enc) in encryptions.enumerate() {
+///     assert_eq!(
+///         receiver.secret().decrypt(enc, &lookup_table),
+///         Some(i as u64)
+///     );
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct DiscreteLogLookupTable<G: Group> {
-    inner: HashMap<[u8; 8], u64>,
+    inner: HashMap<[u8; 8], u64>, // TODO: make length const param (or revert to `Vec<u8>`?)
     _t: PhantomData<G>,
 }
 
 impl<G: Group> DiscreteLogLookupTable<G> {
     /// Creates a lookup table for the specified `values`.
+    // FIXME: handle collisions (panic?)
     pub fn new(values: impl IntoIterator<Item = u64>) -> Self {
         let lookup_table = values
             .into_iter()
@@ -192,7 +275,7 @@ impl<G: Group> DiscreteLogLookupTable<G> {
     }
 
     /// Gets the discrete log of `decrypted_point`, or `None` if it is not present among `values`
-    /// supplied when constructing this table.
+    /// stored in this table.
     pub fn get(&self, decrypted_point: &G::Point) -> Option<u64> {
         if G::is_identity(decrypted_point) {
             // The identity point may have a special serialization (e.g., in SEC standard),
@@ -255,6 +338,28 @@ impl<G: Group> EncryptionWithLog<G> {
 /// - A [`LogEqualityProof`] attesting that the encrypted values sum up to 1. Combined with
 ///   the range proof, this means that exactly one of encryptions is 1, and all others are 0.
 ///   This proof can be obtained via [`Self::sum_proof()`].
+///
+/// # Examples
+///
+/// ```
+/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogLookupTable, EncryptedChoice, Keypair};
+/// # use rand::thread_rng;
+/// let mut rng = thread_rng();
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
+/// let choice = 2;
+/// let enc = EncryptedChoice::new(5, choice, receiver.public(), &mut rng);
+/// let variants = enc.verify(receiver.public()).unwrap();
+///
+/// // `variants` is a slice of 5 Boolean value encryptions
+/// assert_eq!(variants.len(), 5);
+/// let lookup_table = DiscreteLogLookupTable::new(0..=1);
+/// for (idx, &v) in variants.iter().enumerate() {
+///     assert_eq!(
+///         receiver.secret().decrypt(v, &lookup_table),
+///         Some((idx == choice) as u64)
+///     );
+/// }
+/// ```
 #[derive(Debug, Clone)]
 pub struct EncryptedChoice<G: Group> {
     variants: Vec<Encryption<G>>,

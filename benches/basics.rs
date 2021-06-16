@@ -14,17 +14,17 @@ use elgamal_with_sharing::{
 fn bench_encrypt<G: Group>(b: &mut Bencher) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
-    let message = G::mul_base_point(&G::generate_scalar(&mut rng));
+    let message = G::generate_scalar(&mut rng);
     b.iter(|| Encryption::new(message, keypair.public(), &mut rng));
 }
 
 fn bench_decrypt<G: Group>(b: &mut Bencher) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
-    let message = G::mul_base_point(&G::generate_scalar(&mut rng));
+    let message = G::generate_scalar(&mut rng);
     b.iter_batched(
         || Encryption::new(message, keypair.public(), &mut rng),
-        |encrypted| keypair.secret().decrypt(encrypted),
+        |encrypted| keypair.secret().decrypt_to_element(encrypted),
         BatchSize::SmallInput,
     );
 }

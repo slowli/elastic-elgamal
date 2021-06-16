@@ -12,9 +12,10 @@ use elgamal_with_sharing::{
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = thread_rng();
     let keypair = Keypair::<G>::generate(&mut rng);
-    let message = G::mul_base_point(&G::Scalar::from(12345));
+    let message = 12_345_u64;
     let encrypted = Encryption::new(message, keypair.public(), &mut rng);
-    let decryption = keypair.secret().decrypt(encrypted);
+    let decryption = keypair.secret().decrypt_to_element(encrypted);
+    let message = G::mul_base_point(&G::Scalar::from(message));
     assert_ct_eq(&decryption, &message);
 }
 
@@ -23,12 +24,11 @@ fn test_zero_encryption_works<G: Group>() {
     let keypair = Keypair::<G>::generate(&mut rng);
     let (zero_encryption, proof) = Encryption::encrypt_zero(keypair.public(), &mut rng);
     assert!(zero_encryption.verify_zero(keypair.public(), &proof));
-    let decrypted = keypair.secret().decrypt(zero_encryption);
+    let decrypted = keypair.secret().decrypt_to_element(zero_encryption);
     assert_ct_eq(&decrypted, &G::identity());
 
     // The proof should not verify for non-zero messages.
-    let message = G::mul_base_point(&G::Scalar::from(123));
-    let encryption = Encryption::new(message, keypair.public(), &mut rng);
+    let encryption = Encryption::new(123_u64, keypair.public(), &mut rng);
     assert!(!encryption.verify_zero(keypair.public(), &proof));
 
     // ...or for another receiver key
@@ -67,13 +67,13 @@ fn test_bool_encryption_works<G: Group>() {
     let keypair = Keypair::<G>::generate(&mut rng);
 
     let (encryption, proof) = Encryption::encrypt_bool(false, keypair.public(), &mut rng);
-    assert_ct_eq(&keypair.secret().decrypt(encryption), &G::identity());
+    assert_ct_eq(&keypair.secret().decrypt_to_element(encryption), &G::identity());
     assert!(encryption.verify_bool(keypair.public(), &proof));
 
     let (other_encryption, other_proof) =
         Encryption::encrypt_bool(true, keypair.public(), &mut rng);
     assert_ct_eq(
-        &keypair.secret().decrypt(other_encryption),
+        &keypair.secret().decrypt_to_element(other_encryption),
         &G::base_point(),
     );
     assert!(other_encryption.verify_bool(keypair.public(), &other_proof));
@@ -85,7 +85,7 @@ fn test_bool_encryption_works<G: Group>() {
     // ...even if the encryption is obtained from the "correct" value.
     let combined_encryption = encryption + other_encryption;
     assert_ct_eq(
-        &keypair.secret().decrypt(combined_encryption),
+        &keypair.secret().decrypt_to_element(combined_encryption),
         &G::base_point(),
     );
     assert!(!combined_encryption.verify_bool(keypair.public(), &proof));
@@ -123,7 +123,7 @@ fn test_encrypted_choice_works<G: Group>() {
         } else {
             G::identity()
         };
-        assert_ct_eq(&keypair.secret().decrypt(variant), &expected_plaintext);
+        assert_ct_eq(&keypair.secret().decrypt_to_element(variant), &expected_plaintext);
     }
 }
 

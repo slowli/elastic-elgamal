@@ -77,7 +77,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
     let mut rng = thread_rng();
     let rig: Rig<G> = Rig::new(params, &mut rng);
     for _ in 0..20 {
-        let value = G::mul_base_point(&G::generate_scalar(&mut rng));
+        let value = G::generate_scalar(&mut rng);
         let encrypted = Encryption::new(value, rig.info.shared_key(), &mut rng);
         let shares = rig.decryption_shares(encrypted, &mut rng);
         for _ in 0..5 {
@@ -87,7 +87,8 @@ fn tiny_fuzz<G: Group>(params: Params) {
                 .enumerate()
                 .choose_multiple(&mut rng, params.threshold);
             let decrypted = DecryptionShare::combine(params, encrypted, chosen_shares);
-            assert_ct_eq(&decrypted.unwrap(), &value);
+
+            assert_ct_eq(&decrypted.unwrap(), &G::vartime_mul_base_point(&value));
         }
     }
 }

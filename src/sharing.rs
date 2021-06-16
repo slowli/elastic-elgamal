@@ -96,6 +96,77 @@
 //! are to `x`.) Once we have `D`, the encrypted value is restored as `[m]G = B - D`.
 //!
 //! [Gennaro et al.]: https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf
+//!
+//! # Examples
+//!
+//! Threshold encryption scheme requiring 2 of 3 participants.
+//!
+//! ```
+//! # use elgamal_with_sharing::{group::Ristretto, sharing::*, Encryption, DiscreteLogLookupTable};
+//! # use rand::thread_rng;
+//! let mut rng = thread_rng();
+//! let params = Params::new(3, 2);
+//!
+//! // Initialize participants of the scheme.
+//! let participants: Vec<_> = (0..3)
+//!     .map(|i| StartingParticipant::<Ristretto>::new(params, i, &mut rng))
+//!     .collect();
+//!
+//! // Get public info from all participants. This info should be broadcast.
+//! let public_infos = participants.iter().map(StartingParticipant::public_info);
+//! let mut key_set = PartialPublicKeySet::new(params);
+//! for (i, (poly, proof)) in public_infos.enumerate() {
+//!     key_set.add_participant(i, poly, proof);
+//! }
+//! assert!(key_set.is_complete());
+//!
+//! // Once all commitments are collected, all participants may proceed
+//! // to the next stage: P2P secret share exchange.
+//! let mut participants: Vec<_> = participants
+//!     .into_iter()
+//!     .map(|p| p.finalize_key_set(&key_set).unwrap())
+//!     .collect();
+//! let key_set = key_set.complete().unwrap();
+//!
+//! // Exchange P2P messages. In real setting, this should be performed
+//! // via secure channels.
+//! for i in 0..3 {
+//!     for j in 0..3 {
+//!         if j != i {
+//!              let message = participants[i].message(j);
+//!              participants[j].process_message(i, message).unwrap();
+//!         }
+//!     }
+//! }
+//!
+//! let participants: Vec<_> = participants
+//!     .into_iter()
+//!     .map(ParticipantExchangingSecrets::complete)
+//!     .collect();
+//!
+//! // At last, participants can decrypt messages!
+//! let encrypted_value = 5_u64;
+//! let enc = Encryption::new(encrypted_value, key_set.shared_key(), &mut rng);
+//! let shares_with_proofs = participants
+//!     .iter()
+//!     .map(|p| p.decrypt_share(enc, &mut rng))
+//!     .take(2); // emulate the 3rd participant dropping off
+//!
+//! // Emulate share transfer via untrusted network.
+//! let dec_shares = shares_with_proofs
+//!     .enumerate()
+//!     .map(|(i, (share, proof))| {
+//!         let share = CandidateShare::from_bytes(&share.to_bytes()).unwrap();
+//!         key_set.verify_share(share, enc, i, &proof).unwrap()
+//!     });
+//!
+//! // Reconstruct decryption from the shares.
+//! let dec = DecryptionShare::combine(params, enc, dec_shares.enumerate())
+//!     .unwrap();
+//! // Use lookup table to map decryption back to scalar.
+//! let lookup_table = DiscreteLogLookupTable::<Ristretto>::new(0..10);
+//! assert_eq!(lookup_table.get(&dec), Some(encrypted_value));
+//! ```
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
@@ -871,8 +942,7 @@ mod tests {
             vec![PublicKey::from_point(joint_pt); 2]
         );
 
-        let message = Ristretto::mul_base_point(&Scalar25519::from(5_u32));
-        let encryption = Encryption::new(message, &group_info.shared_key, &mut rng);
+        let encryption = Encryption::new(5_u64, &group_info.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         let alice_share = group_info
             .verify_share(alice_share.to_candidate(), encryption, 0, &proof)
@@ -882,6 +952,8 @@ mod tests {
         let bob_share = group_info
             .verify_share(bob_share.to_candidate(), encryption, 1, &proof)
             .unwrap();
+
+        let message = Ristretto::mul_base_point(&Scalar25519::from(5_u64));
         assert_eq!(alice_share.dh_point, encryption.blinded_point - message);
         assert_eq!(alice_share.dh_point, bob_share.dh_point);
     }
@@ -956,8 +1028,7 @@ mod tests {
         assert!(key_set.verify_participant(2, &carol.proof_of_possession(&mut rng)));
         assert!(!key_set.verify_participant(1, &alice.proof_of_possession(&mut rng)));
 
-        let message = Ristretto::mul_base_point(&Scalar25519::from(15_u32));
-        let encryption = Encryption::new(message, &key_set.shared_key, &mut rng);
+        let encryption = Encryption::new(15_u64, &key_set.shared_key, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
         assert!(key_set
             .verify_share(alice_share.to_candidate(), encryption, 0, &proof,)
@@ -972,7 +1043,8 @@ mod tests {
         // a0 +   a1 = alice_share.dh_point;
         // a0 + 2*a1 = bob_share.dh_point;
         let composite_dh_point =
-            alice_share.dh_point * Scalar25519::from(2_u32) - bob_share.dh_point;
+            alice_share.dh_point * Scalar25519::from(2_u64) - bob_share.dh_point;
+        let message = Ristretto::mul_base_point(&Scalar25519::from(15_u64));
         assert_eq!(composite_dh_point, encryption.blinded_point - message);
     }
 

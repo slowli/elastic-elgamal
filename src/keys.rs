@@ -2,7 +2,7 @@
 
 use rand_core::{CryptoRng, RngCore};
 
-use crate::{group::Group, Encryption};
+use crate::{group::Group, DiscreteLogLookupTable, Encryption};
 
 use std::{fmt, ops};
 
@@ -50,9 +50,22 @@ impl<G: Group> SecretKey<G> {
     /// As the ciphertext does not include a MAC or another way to assert integrity,
     /// this operation cannot fail. If the ciphertext is not produced properly (e.g., it targets
     /// another receiver), the returned point will be garbage.
-    pub fn decrypt(&self, encrypted: Encryption<G>) -> G::Point {
+    pub fn decrypt_to_element(&self, encrypted: Encryption<G>) -> G::Point {
         let dh_point = encrypted.random_point * &self.0;
         encrypted.blinded_point - dh_point
+    }
+
+    /// Decrypts the provided ciphertext and returns the original encrypted value.
+    ///
+    /// `lookup_table` is used to find encrypted values based on the original decrypted
+    /// group element. That is, it must contain all valid plaintext values. If the value
+    /// is not in the table, this method will return `None`.
+    pub fn decrypt(
+        &self,
+        encrypted: Encryption<G>,
+        lookup_table: &DiscreteLogLookupTable<G>,
+    ) -> Option<u64> {
+        lookup_table.get(&self.decrypt_to_element(encrypted))
     }
 }
 
