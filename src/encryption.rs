@@ -21,7 +21,7 @@ use crate::{
 /// Basic usage and arithmetic for encryptions:
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogLookupTable, Encryption, Keypair};
+/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
 /// # use rand::thread_rng;
 /// // Generate a keypair for the ciphertext recipient.
 /// let mut rng = thread_rng();
@@ -30,7 +30,7 @@ use crate::{
 /// let mut enc = Encryption::new(2_u64, recipient.public(), &mut rng);
 /// enc += Encryption::new(3_u64, recipient.public(), &mut rng) * 4;
 /// // Check that the ciphertext decrypts to 2 + 3 * 4 = 14.
-/// let lookup_table = DiscreteLogLookupTable::new(0..20);
+/// let lookup_table = DiscreteLogTable::new(0..20);
 /// let decrypted = recipient.secret().decrypt(enc, &lookup_table);
 /// assert_eq!(decrypted, Some(14));
 /// ```
@@ -66,11 +66,7 @@ impl<G: Group> fmt::Debug for Encryption<G> {
 
 impl<G: Group> Encryption<G> {
     /// Encrypts a value for the specified `receiver`.
-    pub fn new<T, R: CryptoRng + RngCore>(
-        value: T,
-        receiver: &PublicKey<G>,
-        rng: &mut R,
-    ) -> Self
+    pub fn new<T, R: CryptoRng + RngCore>(value: T, receiver: &PublicKey<G>, rng: &mut R) -> Self
     where
         G::Scalar: From<T>,
     {
@@ -221,12 +217,12 @@ impl<G: Group> ops::Mul<u64> for Encryption<G> {
 /// (i.e., get its discrete logarithm with base `G`). By definition of the group,
 /// this task is computationally infeasible in the general case; however, if the possible range
 /// of encrypted values is small, it is possible to "cheat" by precomputing mapping `[x]G -> x`
-/// for all allowed `x` ahead of time. This is exactly what `DiscreteLogLookupTable` does.
+/// for all allowed `x` ahead of time. This is exactly what `DiscreteLogTable` does.
 ///
 /// # Examples
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogLookupTable, Encryption, Keypair};
+/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
 /// # use rand::thread_rng;
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
@@ -234,7 +230,7 @@ impl<G: Group> ops::Mul<u64> for Encryption<G> {
 ///     .map(|i| Encryption::new(i, receiver.public(), &mut rng));
 /// // Assume that we know that the encryption in range 0..16,
 /// // e.g., via a zero-knowledge proof.
-/// let lookup_table = DiscreteLogLookupTable::new(0..16);
+/// let lookup_table = DiscreteLogTable::new(0..16);
 /// // Then, we can use the lookup table to decrypt values.
 /// // A single table may be shared for multiple decryptions
 /// // (i.e., it may be constructed ahead of time).
@@ -246,14 +242,13 @@ impl<G: Group> ops::Mul<u64> for Encryption<G> {
 /// }
 /// ```
 #[derive(Debug, Clone)]
-pub struct DiscreteLogLookupTable<G: Group> {
-    inner: HashMap<[u8; 8], u64>, // TODO: make length const param (or revert to `Vec<u8>`?)
+pub struct DiscreteLogTable<G: Group> {
+    inner: HashMap<Vec<u8>, u64>,
     _t: PhantomData<G>,
 }
 
-impl<G: Group> DiscreteLogLookupTable<G> {
+impl<G: Group> DiscreteLogTable<G> {
     /// Creates a lookup table for the specified `values`.
-    // FIXME: handle collisions (panic?)
     pub fn new(values: impl IntoIterator<Item = u64>) -> Self {
         let lookup_table = values
             .into_iter()
@@ -262,9 +257,7 @@ impl<G: Group> DiscreteLogLookupTable<G> {
                 let point = G::vartime_mul_base_point(&G::Scalar::from(i));
                 let mut bytes = Vec::with_capacity(G::POINT_SIZE);
                 G::serialize_point(&point, &mut bytes);
-                let mut initial_bytes = [0_u8; 8];
-                initial_bytes.copy_from_slice(&bytes[..8]);
-                (initial_bytes, i)
+                (bytes, i)
             })
             .collect();
 
@@ -284,9 +277,7 @@ impl<G: Group> DiscreteLogLookupTable<G> {
         } else {
             let mut bytes = Vec::with_capacity(G::POINT_SIZE);
             G::serialize_point(decrypted_point, &mut bytes);
-            let mut initial_bytes = [0_u8; 8];
-            initial_bytes.copy_from_slice(&bytes[..8]);
-            self.inner.get(&initial_bytes).copied()
+            self.inner.get(&bytes).copied()
         }
     }
 }
@@ -342,7 +333,7 @@ impl<G: Group> EncryptionWithLog<G> {
 /// # Examples
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogLookupTable, EncryptedChoice, Keypair};
+/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogTable, EncryptedChoice, Keypair};
 /// # use rand::thread_rng;
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
@@ -352,7 +343,7 @@ impl<G: Group> EncryptionWithLog<G> {
 ///
 /// // `variants` is a slice of 5 Boolean value encryptions
 /// assert_eq!(variants.len(), 5);
-/// let lookup_table = DiscreteLogLookupTable::new(0..=1);
+/// let lookup_table = DiscreteLogTable::new(0..=1);
 /// for (idx, &v) in variants.iter().enumerate() {
 ///     assert_eq!(
 ///         receiver.secret().decrypt(v, &lookup_table),

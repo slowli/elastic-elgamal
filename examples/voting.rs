@@ -9,7 +9,7 @@ use elgamal_with_sharing::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
         PublicKeySet, StartingParticipant,
     },
-    DiscreteLogLookupTable, EncryptedChoice, Encryption,
+    DiscreteLogTable, EncryptedChoice, Encryption,
 };
 
 /// Number of options in the poll.
@@ -133,7 +133,7 @@ fn vote<G: Group>() {
     );
 
     // After polling, talliers submit decryption shares together with proof of their correctness.
-    let lookup_table = DiscreteLogLookupTable::<G>::new(0..=(VOTES as u64));
+    let lookup_table = DiscreteLogTable::<G>::new(0..=(VOTES as u64));
     for (i, (&variant_totals, &expected)) in
         encrypted_totals.iter().zip(&expected_totals).enumerate()
     {

@@ -18,7 +18,7 @@ mod proofs;
 pub mod sharing;
 
 pub use crate::{
-    encryption::{DiscreteLogLookupTable, EncryptedChoice, Encryption},
+    encryption::{DiscreteLogTable, EncryptedChoice, Encryption},
     keys::{Keypair, PublicKey, SecretKey},
     proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder},
 };

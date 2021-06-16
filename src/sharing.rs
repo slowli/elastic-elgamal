@@ -102,7 +102,7 @@
 //! Threshold encryption scheme requiring 2 of 3 participants.
 //!
 //! ```
-//! # use elgamal_with_sharing::{group::Ristretto, sharing::*, Encryption, DiscreteLogLookupTable};
+//! # use elgamal_with_sharing::{group::Ristretto, sharing::*, Encryption, DiscreteLogTable};
 //! # use rand::thread_rng;
 //! let mut rng = thread_rng();
 //! let params = Params::new(3, 2);
@@ -164,7 +164,7 @@
 //! let dec = DecryptionShare::combine(params, enc, dec_shares.enumerate())
 //!     .unwrap();
 //! // Use lookup table to map decryption back to scalar.
-//! let lookup_table = DiscreteLogLookupTable::<Ristretto>::new(0..10);
+//! let lookup_table = DiscreteLogTable::<Ristretto>::new(0..10);
 //! assert_eq!(lookup_table.get(&dec), Some(encrypted_value));
 //! ```
 
@@ -728,8 +728,7 @@ impl<G: Group> ActiveParticipant<G> {
     pub fn new(key_set: PublicKeySet<G>, index: usize, secret_share: SecretKey<G>) -> Self {
         assert!(
             bool::from(
-                G::mul_base_point(&secret_share.0)
-                    .ct_eq(&key_set.participant_keys[index].full)
+                G::mul_base_point(&secret_share.0).ct_eq(&key_set.participant_keys[index].full)
             ),
             "Secret key share does not correspond to public key share"
         );
@@ -900,17 +899,13 @@ mod tests {
         let (alice_poly, alice_proof) = alice.public_info();
         assert_eq!(
             alice_poly,
-            [Ristretto::mul_base_point(
-                &alice.polynomial[0].secret().0
-            )]
+            [Ristretto::mul_base_point(&alice.polynomial[0].secret().0)]
         );
         let bob: StartingParticipant<Ristretto> = StartingParticipant::new(params, 1, &mut rng);
         let (bob_poly, bob_proof) = bob.public_info();
         assert_eq!(
             bob_poly,
-            [Ristretto::mul_base_point(
-                &bob.polynomial[0].secret().0
-            )]
+            [Ristretto::mul_base_point(&bob.polynomial[0].secret().0)]
         );
 
         let mut group_info = PartialPublicKeySet::new(params);

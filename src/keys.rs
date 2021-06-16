@@ -2,7 +2,7 @@
 
 use rand_core::{CryptoRng, RngCore};
 
-use crate::{group::Group, DiscreteLogLookupTable, Encryption};
+use crate::{group::Group, DiscreteLogTable, Encryption};
 
 use std::{fmt, ops};
 
@@ -63,7 +63,7 @@ impl<G: Group> SecretKey<G> {
     pub fn decrypt(
         &self,
         encrypted: Encryption<G>,
-        lookup_table: &DiscreteLogLookupTable<G>,
+        lookup_table: &DiscreteLogTable<G>,
     ) -> Option<u64> {
         lookup_table.get(&self.decrypt_to_element(encrypted))
     }

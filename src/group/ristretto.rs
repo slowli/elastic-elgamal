@@ -96,11 +96,7 @@ impl Group for Ristretto {
         RistrettoPoint::multiscalar_mul(scalars, points)
     }
 
-    fn vartime_double_mul_base_point(
-        k: &Scalar,
-        k_point: Self::Point,
-        r: &Scalar,
-    ) -> Self::Point {
+    fn vartime_double_mul_base_point(k: &Scalar, k_point: Self::Point, r: &Scalar) -> Self::Point {
         RistrettoPoint::vartime_double_scalar_mul_basepoint(k, &k_point, r)
     }
 
@@ -118,7 +114,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{group::Curve25519Subgroup, DiscreteLogLookupTable, EncryptedChoice, Encryption};
+    use crate::{group::Curve25519Subgroup, DiscreteLogTable, EncryptedChoice, Encryption};
 
     type SecretKey = crate::SecretKey<Ristretto>;
     type Keypair = crate::Keypair<Ristretto>;
@@ -141,7 +137,7 @@ mod tests {
             EncryptedChoice::new(5, 3, keypair.public(), &mut rng);
         assert!(encrypted_choice.verify(keypair.public()).is_some());
 
-        let lookup_table = DiscreteLogLookupTable::new(0..=1);
+        let lookup_table = DiscreteLogTable::new(0..=1);
         for (i, &variant) in encrypted_choice.variants_unchecked().iter().enumerate() {
             let decryption = keypair.secret().decrypt(variant, &lookup_table);
             assert_eq!(decryption.unwrap(), (i == 3) as u64);

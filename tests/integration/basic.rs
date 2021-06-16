@@ -67,7 +67,10 @@ fn test_bool_encryption_works<G: Group>() {
     let keypair = Keypair::<G>::generate(&mut rng);
 
     let (encryption, proof) = Encryption::encrypt_bool(false, keypair.public(), &mut rng);
-    assert_ct_eq(&keypair.secret().decrypt_to_element(encryption), &G::identity());
+    assert_ct_eq(
+        &keypair.secret().decrypt_to_element(encryption),
+        &G::identity(),
+    );
     assert!(encryption.verify_bool(keypair.public(), &proof));
 
     let (other_encryption, other_proof) =
@@ -123,7 +126,10 @@ fn test_encrypted_choice_works<G: Group>() {
         } else {
             G::identity()
         };
-        assert_ct_eq(&keypair.secret().decrypt_to_element(variant), &expected_plaintext);
+        assert_ct_eq(
+            &keypair.secret().decrypt_to_element(variant),
+            &expected_plaintext,
+        );
     }
 }
 

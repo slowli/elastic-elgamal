@@ -108,11 +108,7 @@ impl Group for Curve25519Subgroup {
         EdwardsPoint::multiscalar_mul(scalars, points)
     }
 
-    fn vartime_double_mul_base_point(
-        k: &Scalar,
-        k_point: Self::Point,
-        r: &Scalar,
-    ) -> Self::Point {
+    fn vartime_double_mul_base_point(k: &Scalar, k_point: Self::Point, r: &Scalar) -> Self::Point {
         EdwardsPoint::vartime_double_scalar_mul_basepoint(k, &k_point, r)
     }
 
@@ -138,7 +134,8 @@ mod tests {
     fn mangled_point_is_invalid_public_key() {
         let mut rng = thread_rng();
         for _ in 0..100 {
-            let mut point = Curve25519Subgroup::mul_base_point(&Curve25519Subgroup::generate_scalar(&mut rng));
+            let mut point =
+                Curve25519Subgroup::mul_base_point(&Curve25519Subgroup::generate_scalar(&mut rng));
             point += EIGHT_TORSION[1];
             assert!(!point.is_torsion_free());
             let bytes = point.compress().to_bytes();
