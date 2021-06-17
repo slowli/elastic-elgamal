@@ -1,16 +1,16 @@
 //! Traits and implementations for prime-order groups in which
-//! the [decisional Diffie–Hellman][DDH] (DDH), [computational Diffie–Hellman][coDH] (coDH)
-//! and [discrete log][dlp] (DL) problems are believed to be hard.
+//! the [decisional Diffie–Hellman][DDH] (DDH), [computational Diffie–Hellman][CDH] (CDH)
+//! and [discrete log][DLP] (DL) problems are believed to be hard.
 //!
-//! (Decisional Diffie–Hellman assumption is considered stronger than both coDH and DL,
+//! (Decisional Diffie–Hellman assumption is considered stronger than both CDH and DL,
 //! so if DDH is believed to hold for a certain group, it should be good to go.)
 //!
 //! Such groups can be applied for ElGamal [`Encryption`](crate::Encryption)
 //! and other cryptographic protocols from this crate.
 //!
 //! [DDH]: https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption
-//! [coDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
-//! [dlp]: https://en.wikipedia.org/wiki/Discrete_logarithm
+//! [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
+//! [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm
 
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
@@ -121,7 +121,8 @@ pub trait ElementOps: ScalarOps {
     fn deserialize_element(input: &[u8]) -> Option<Self::Element>;
 }
 
-/// Prime-order group in which discrete log problem is believed to be hard.
+/// Prime-order group in which the discrete log problem and decisional / computational
+/// Diffie–Hellman problems are believed to be hard.
 ///
 /// Groups conforming to this trait can be used for ElGamal [`Encryption`] and other
 /// cryptographic protocols defined in this crate.
