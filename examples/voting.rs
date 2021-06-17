@@ -3,7 +3,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use std::{collections::HashMap, env, iter::FromIterator};
 
-use elgamal_with_sharing::{
+use elastic_elgamal::{
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
     sharing::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,

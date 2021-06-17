@@ -4,7 +4,7 @@ use rand::{seq::IteratorRandom, thread_rng, Rng};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::assert_ct_eq;
-use elgamal_with_sharing::{
+use elastic_elgamal::{
     group::Group,
     sharing::{
         ActiveParticipant, DecryptionShare, Params, PartialPublicKeySet, PublicKeySet,
@@ -134,7 +134,7 @@ fn test_simple_voting<G: Group>() {
 
 mod curve25519 {
     use super::*;
-    use elgamal_with_sharing::group::Curve25519Subgroup;
+    use elastic_elgamal::group::Curve25519Subgroup;
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
@@ -214,7 +214,7 @@ mod curve25519 {
 
 mod ristretto {
     use super::*;
-    use elgamal_with_sharing::group::Ristretto;
+    use elastic_elgamal::group::Ristretto;
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
@@ -294,7 +294,7 @@ mod ristretto {
 
 mod k256 {
     use super::*;
-    use elgamal_with_sharing::group::Generic;
+    use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

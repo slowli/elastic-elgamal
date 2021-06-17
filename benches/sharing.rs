@@ -6,7 +6,7 @@ use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
 
-use elgamal_with_sharing::{
+use elastic_elgamal::{
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
     Keypair, ProofOfPossession,
 };

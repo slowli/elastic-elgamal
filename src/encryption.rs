@@ -21,7 +21,7 @@ use crate::{
 /// Basic usage and arithmetic for encryptions:
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
+/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
 /// # use rand::thread_rng;
 /// // Generate a keypair for the ciphertext recipient.
 /// let mut rng = thread_rng();
@@ -38,7 +38,7 @@ use crate::{
 /// Creating an encryption of a boolean value together with a proof:
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, Encryption, Keypair};
+/// # use elastic_elgamal::{group::Ristretto, Encryption, Keypair};
 /// # use rand::thread_rng;
 /// // Generate a keypair for the ciphertext recipient.
 /// let mut rng = thread_rng();
@@ -222,7 +222,7 @@ impl<G: Group> ops::Mul<u64> for Encryption<G> {
 /// # Examples
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
+/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
 /// # use rand::thread_rng;
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
@@ -333,7 +333,7 @@ impl<G: Group> EncryptionWithLog<G> {
 /// # Examples
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, DiscreteLogTable, EncryptedChoice, Keypair};
+/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, EncryptedChoice, Keypair};
 /// # use rand::thread_rng;
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);

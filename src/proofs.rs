@@ -73,7 +73,7 @@ impl TranscriptForGroup for Transcript {
 /// # Examples
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, Keypair, ProofOfPossession};
+/// # use elastic_elgamal::{group::Ristretto, Keypair, ProofOfPossession};
 /// # use merlin::Transcript;
 /// # use rand::thread_rng;
 /// let mut rng = thread_rng();
@@ -233,7 +233,7 @@ impl<G: Group> ProofOfPossession<G> {
 /// # Examples
 ///
 /// ```
-/// # use elgamal_with_sharing::{group::Ristretto, Keypair, SecretKey, LogEqualityProof};
+/// # use elastic_elgamal::{group::Ristretto, Keypair, SecretKey, LogEqualityProof};
 /// # use merlin::Transcript;
 /// # use rand::thread_rng;
 /// let mut rng = thread_rng();

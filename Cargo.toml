@@ -1,5 +1,5 @@
 [package]
-name = "elgamal-with-sharing"
+name = "elastic-elgamal"
 version = "0.1.0"
 authors = ["Alex Ostrovski <ostrovski.alex@gmail.com>"]
 edition = "2018"

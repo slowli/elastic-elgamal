@@ -5,7 +5,7 @@ use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 
 use crate::assert_ct_eq;
-use elgamal_with_sharing::{
+use elastic_elgamal::{
     group::Group, EncryptedChoice, Encryption, Keypair, LogEqualityProof, RingProof,
 };
 
@@ -135,7 +135,7 @@ fn test_encrypted_choice_works<G: Group>() {
 
 mod curve25519 {
     use super::*;
-    use elgamal_with_sharing::group::Curve25519Subgroup;
+    use elastic_elgamal::group::Curve25519Subgroup;
 
     #[test]
     fn encryption_roundtrip() {
@@ -170,7 +170,7 @@ mod curve25519 {
 
 mod ristretto {
     use super::*;
-    use elgamal_with_sharing::group::Ristretto;
+    use elastic_elgamal::group::Ristretto;
 
     #[test]
     fn encryption_roundtrip() {
@@ -205,7 +205,7 @@ mod ristretto {
 
 mod k256 {
     use super::*;
-    use elgamal_with_sharing::group::Generic;
+    use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

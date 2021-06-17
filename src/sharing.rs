@@ -1,4 +1,4 @@
-//! Shamir's secret sharing for ElGamal encryption.
+//! [Shamir's secret sharing][sss] for ElGamal encryption.
 //!
 //! # Problem
 //!
@@ -95,6 +95,7 @@
 //! interpolation. (Indeed, `D_i` are tied to `D` by the same relations as key shares `x_i`
 //! are to `x`.) Once we have `D`, the encrypted value is restored as `[m]G = B - D`.
 //!
+//! [sss]: https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing
 //! [Gennaro et al.]: https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf
 //!
 //! # Examples
@@ -102,7 +103,7 @@
 //! Threshold encryption scheme requiring 2 of 3 participants.
 //!
 //! ```
-//! # use elgamal_with_sharing::{group::Ristretto, sharing::*, Encryption, DiscreteLogTable};
+//! # use elastic_elgamal::{group::Ristretto, sharing::*, Encryption, DiscreteLogTable};
 //! # use rand::thread_rng;
 //! let mut rng = thread_rng();
 //! let params = Params::new(3, 2);
