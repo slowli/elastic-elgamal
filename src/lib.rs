@@ -1,17 +1,21 @@
-//! [ElGamal encryption] and related cryptographic protocols with pluggable crypto backends.
+//! [ElGamal encryption] and related cryptographic protocols with pluggable crypto backend.
 //!
-//! # ⚠ Warning
+//! # ⚠ Warnings
 //!
 //! While the logic in this crate relies on standard cryptographic assumptions
-//! (complexity of discrete log and computational Diffie – Hellman problems in certain groups),
-//! it has not been independently verified for correctness or absence of side-channel attack
-//! vectors. **Use at your own risk.**
+//! (complexity of discrete log and computational / decisional Diffie–Hellman problems
+//! in certain groups), it has not been independently verified for correctness or absence
+//! of side-channel attack vectors. **Use at your own risk.**
+//!
+//! ElGamal encryption is not a good choice for general-purpose public-key encryption
+//! since it is vulnerable to [chosen-ciphertext attacks][CCA]. For security,
+//! decryption operations should be limited on the application level.
 //!
 //! # Overview
 //!
 //! - [`Encryption`] provides ElGamal encryption, i.e., public-key encryption using a prime-order
-//!   group with discrete log / computation Diffie – Hellman assumptions. This and other protocols
-//!   use [`PublicKey`], [`SecretKey`] and [`Keypair`] to represent participants' keys.
+//!   group. This and other protocols use [`PublicKey`], [`SecretKey`] and [`Keypair`]
+//!   to represent participants' keys.
 //! - Besides basic encryption, `Encryption` also provides zero-knowledge proofs of
 //!   [zero encryption](Encryption::encrypt_zero()) and of
 //!   [Boolean value encryption](Encryption::encrypt_bool()). These are useful in higher-level
@@ -34,6 +38,7 @@
 //!   the secp256k1 curve can be used via the [`k256`] crate.
 //!
 //! [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
+//! [CCA]: https://en.wikipedia.org/wiki/Chosen-ciphertext_attack
 //! [`Group`]: crate::group::Group
 //! [`Ristretto`]: crate::group::Ristretto
 //! [`Curve25519Subgroup`]: crate::group::Curve25519Subgroup
