@@ -7,9 +7,11 @@ use rand::{Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use elgamal_with_sharing::{
-    group::{Curve25519Subgroup, Group, Ristretto},
+    group::{Curve25519Subgroup, Generic, Group, Ristretto},
     EncryptedChoice, Encryption, Keypair, RingProofBuilder,
 };
+
+type K256 = Generic<k256::Secp256k1>;
 
 fn bench_encrypt<G: Group>(b: &mut Bencher) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
@@ -99,9 +101,9 @@ fn bench_ring<G: Group>(b: &mut Bencher, chosen_values: Option<[usize; 5]>) {
 
     let admissible_values = [
         G::identity(),
-        G::base_point(),
-        G::base_point() + G::base_point(),
-        G::base_point() + G::base_point() + G::base_point(),
+        G::generator(),
+        G::generator() + G::generator(),
+        G::generator() + G::generator() + G::generator(),
     ];
     b.iter(|| {
         let mut transcript = Transcript::new(b"bench_ring");
@@ -162,64 +164,74 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     }
 }
 
-fn bench_edwards(criterion: &mut Criterion) {
-    bench_group::<Curve25519Subgroup>(&mut criterion.benchmark_group("edwards"));
+fn bench_curve25519(criterion: &mut Criterion) {
+    bench_group::<Curve25519Subgroup>(&mut criterion.benchmark_group("curve25519"));
 }
 
 fn bench_ristretto(criterion: &mut Criterion) {
     bench_group::<Ristretto>(&mut criterion.benchmark_group("ristretto"));
 }
 
+fn bench_k256(criterion: &mut Criterion) {
+    bench_group::<K256>(&mut criterion.benchmark_group("k256"));
+}
+
 fn bench_helpers<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     group.throughput(Throughput::Elements(1));
 
     let mut rng = ChaChaRng::from_seed([7; 32]);
-    let point = G::mul_base_point(&G::generate_scalar(&mut rng));
+    let element = G::mul_generator(&G::generate_scalar(&mut rng));
     let challenge = G::generate_scalar(&mut rng);
     let response = G::generate_scalar(&mut rng);
 
-    // `naive` method seems to be faster (probably due to use of the basepoint
-    // multiplication table).
-    group.bench_function("double_scalar_mul_basepoint/naive", |b| {
-        b.iter(|| G::mul_base_point(&response) - point * &challenge)
+    // `naive` method seems to be faster for `Curve25519Subgroup` / `Ristretto`
+    // (probably due to use of the dedicated basepoint multiplication tables).
+    group.bench_function("double_scalar_mul_generator/naive", |b| {
+        b.iter(|| G::mul_generator(&response) - element * &challenge)
     });
-    group.bench_function("double_scalar_mul_basepoint/multi", |b| {
+    group.bench_function("double_scalar_mul_generator/multi", |b| {
         b.iter(|| {
             G::multi_mul(
                 [response, challenge].iter(),
-                [G::base_point(), point].iter().copied(),
+                [G::generator(), element].iter().copied(),
             )
         })
     });
 
-    let other_point = G::mul_base_point(&G::generate_scalar(&mut rng));
+    let other_element = G::mul_generator(&G::generate_scalar(&mut rng));
     // As expected, `multi` implementation is faster than the naive one.
     group.bench_function("double_scalar_mul/naive", move |b| {
-        b.iter(|| other_point * &response - point * &challenge)
+        b.iter(|| other_element * &response - element * &challenge)
     });
     group.bench_function("double_scalar_mul/multi", move |b| {
         b.iter(|| {
             G::multi_mul(
                 [response, challenge].iter(),
-                [other_point, point].iter().copied(),
+                [other_element, element].iter().copied(),
             )
         })
     });
 }
 
-fn bench_edwards_helpers(criterion: &mut Criterion) {
-    bench_helpers::<Curve25519Subgroup>(&mut criterion.benchmark_group("edwards"));
+fn bench_curve25519_helpers(criterion: &mut Criterion) {
+    bench_helpers::<Curve25519Subgroup>(&mut criterion.benchmark_group("curve25519"));
 }
 
 fn bench_ristretto_helpers(criterion: &mut Criterion) {
     bench_helpers::<Ristretto>(&mut criterion.benchmark_group("ristretto"));
 }
 
+fn bench_k256_helpers(criterion: &mut Criterion) {
+    bench_helpers::<K256>(&mut criterion.benchmark_group("k256"));
+}
+
 criterion_group!(
     benches,
-    bench_edwards_helpers,
+    bench_curve25519_helpers,
     bench_ristretto_helpers,
-    bench_edwards,
+    bench_k256_helpers,
+    bench_curve25519,
     bench_ristretto,
+    bench_k256,
 );
 criterion_main!(benches);

@@ -1,15 +1,17 @@
 use criterion::{
     criterion_group, criterion_main, measurement::WallTime, BatchSize, Bencher, BenchmarkGroup,
-    Criterion, Throughput,
+    BenchmarkId, Criterion, Throughput,
 };
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
 
 use elgamal_with_sharing::{
-    group::{Curve25519Subgroup, Group, Ristretto},
+    group::{Curve25519Subgroup, Generic, Group, Ristretto},
     Keypair, ProofOfPossession,
 };
+
+type K256 = Generic<k256::Secp256k1>;
 
 fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
@@ -45,14 +47,18 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
 
     // Proof of polynomial possession.
     for &participants in PARTICIPANTS {
-        group.bench_with_input("pop_prove", &participants, |b, &degree| {
-            bench_proof_of_possession::<G>(b, degree)
-        });
+        group.bench_with_input(
+            BenchmarkId::new("pop_prove", participants),
+            &participants,
+            |b, &degree| bench_proof_of_possession::<G>(b, degree),
+        );
     }
     for &participants in PARTICIPANTS {
-        group.bench_with_input("pop_verify", &participants, |b, &degree| {
-            bench_proof_of_possession_verification::<G>(b, degree)
-        });
+        group.bench_with_input(
+            BenchmarkId::new("pop_verify", participants),
+            &participants,
+            |b, &degree| bench_proof_of_possession_verification::<G>(b, degree),
+        );
     }
 
     // Helpers: bench different methods to compute polynomials of form
@@ -64,7 +70,7 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     // Spoilers: `pure_varmul` is by far the best method.
     let mut rng = ChaChaRng::from_seed([100; 32]);
     let coefficients: Vec<_> = (0..10)
-        .map(|_| G::mul_base_point(&G::generate_scalar(&mut rng)))
+        .map(|_| G::mul_generator(&G::generate_scalar(&mut rng)))
         .collect();
     let coefficients1 = coefficients.clone();
     let coefficients2 = coefficients.clone();
@@ -108,13 +114,17 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     });
 }
 
-fn bench_edwards(criterion: &mut Criterion) {
-    bench_group::<Curve25519Subgroup>(&mut criterion.benchmark_group("edwards"));
+fn bench_curve25519(criterion: &mut Criterion) {
+    bench_group::<Curve25519Subgroup>(&mut criterion.benchmark_group("curve25519"));
 }
 
 fn bench_ristretto(criterion: &mut Criterion) {
     bench_group::<Ristretto>(&mut criterion.benchmark_group("ristretto"));
 }
 
-criterion_group!(benches, bench_edwards, bench_ristretto);
+fn bench_k256(criterion: &mut Criterion) {
+    bench_group::<K256>(&mut criterion.benchmark_group("k256"));
+}
+
+criterion_group!(benches, bench_curve25519, bench_ristretto, bench_k256);
 criterion_main!(benches);
