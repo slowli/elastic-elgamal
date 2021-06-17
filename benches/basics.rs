@@ -8,7 +8,7 @@ use rand_chacha::ChaChaRng;
 
 use elastic_elgamal::{
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
-    EncryptedChoice, Keypair, RingProofBuilder,
+    Keypair, RingProofBuilder,
 };
 
 type K256 = Generic<k256::Secp256k1>;
@@ -70,7 +70,9 @@ fn bench_choice_creation<G: Group>(b: &mut Bencher, number_of_variants: usize) {
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter(|| {
         let choice = rng.gen_range(0..number_of_variants);
-        EncryptedChoice::<G>::new(number_of_variants, choice, keypair.public(), &mut rng)
+        keypair
+            .public()
+            .encrypt_choice(number_of_variants, choice, &mut rng)
     })
 }
 
@@ -80,10 +82,12 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher, number_of_variants: usiz
     b.iter_batched(
         || {
             let choice = rng.gen_range(0..number_of_variants);
-            EncryptedChoice::<G>::new(number_of_variants, choice, keypair.public(), &mut rng)
+            keypair
+                .public()
+                .encrypt_choice(number_of_variants, choice, &mut rng)
         },
         |encrypted| {
-            assert!(encrypted.verify(keypair.public()).is_some());
+            assert!(keypair.public().verify_choice(&encrypted).is_some());
         },
         BatchSize::SmallInput,
     )

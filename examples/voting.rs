@@ -9,7 +9,7 @@ use elastic_elgamal::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
         PublicKeySet, StartingParticipant,
     },
-    Ciphertext, DiscreteLogTable, EncryptedChoice,
+    Ciphertext, DiscreteLogTable,
 };
 
 /// Number of options in the poll.
@@ -95,7 +95,9 @@ fn vote<G: Group>() {
         let choice = rng.gen_range(0..OPTIONS_COUNT);
         println!("\nVoter #{} making choice #{}", i + 1, choice + 1);
         expected_totals[choice] += 1;
-        let choice = EncryptedChoice::new(OPTIONS_COUNT, choice, key_set.shared_key(), &mut rng);
+        let choice = key_set
+            .shared_key()
+            .encrypt_choice(OPTIONS_COUNT, choice, &mut rng);
 
         println!(
             "Encrypted choice variants: {:#?}",
@@ -114,13 +116,9 @@ fn vote<G: Group>() {
             hex::encode(&choice.sum_proof().to_bytes()[..])
         );
 
-        for (i, variant) in choice
-            .verify(key_set.shared_key())
-            .unwrap()
-            .iter()
-            .enumerate()
-        {
-            encrypted_totals[i] += *variant;
+        let variants = key_set.shared_key().verify_choice(&choice).unwrap();
+        for (i, &variant) in variants.iter().enumerate() {
+            encrypted_totals[i] += variant;
         }
     }
 

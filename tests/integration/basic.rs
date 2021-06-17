@@ -5,7 +5,7 @@ use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 
 use crate::assert_ct_eq;
-use elastic_elgamal::{group::Group, EncryptedChoice, Keypair, LogEqualityProof, RingProof};
+use elastic_elgamal::{group::Group, Keypair, LogEqualityProof, RingProof};
 
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = thread_rng();
@@ -115,10 +115,10 @@ fn test_encrypted_choice_works<G: Group>() {
     let mut rng = thread_rng();
     let keypair = Keypair::<G>::generate(&mut rng);
 
-    let choice = EncryptedChoice::new(5, 2, keypair.public(), &mut rng);
-    assert!(choice.verify(keypair.public()).is_some());
-    assert_eq!(choice.variants_unchecked().len(), 5);
-    for (i, &variant) in choice.variants_unchecked().iter().enumerate() {
+    let choice = keypair.public().encrypt_choice(5, 2, &mut rng);
+    let variants = keypair.public().verify_choice(&choice).unwrap();
+    assert_eq!(variants.len(), 5);
+    for (i, &variant) in variants.iter().enumerate() {
         let expected_plaintext = if i == 2 {
             G::generator()
         } else {

@@ -118,7 +118,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{group::Curve25519Subgroup, DiscreteLogTable, EncryptedChoice};
+    use crate::{group::Curve25519Subgroup, DiscreteLogTable};
 
     type SecretKey = crate::SecretKey<Ristretto>;
     type Keypair = crate::Keypair<Ristretto>;
@@ -137,12 +137,11 @@ mod tests {
     fn encrypt_choice() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
-        let encrypted_choice: EncryptedChoice<Ristretto> =
-            EncryptedChoice::new(5, 3, keypair.public(), &mut rng);
-        assert!(encrypted_choice.verify(keypair.public()).is_some());
+        let encrypted_choice = keypair.public().encrypt_choice(5, 3, &mut rng);
+        let variant_ciphertexts = keypair.public().verify_choice(&encrypted_choice).unwrap();
 
         let lookup_table = DiscreteLogTable::new(0..=1);
-        for (i, &variant) in encrypted_choice.variants_unchecked().iter().enumerate() {
+        for (i, &variant) in variant_ciphertexts.iter().enumerate() {
             let decryption = keypair.secret().decrypt(variant, &lookup_table);
             assert_eq!(decryption.unwrap(), (i == 3) as u64);
         }

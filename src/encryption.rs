@@ -152,6 +152,100 @@ impl<G: Group> PublicKey<G> {
             &mut Transcript::new(b"bool_encryption"),
         )
     }
+
+    /// Creates an [`EncryptedChoice`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if `number_of_variants` is zero, or if `choice` is not in `0..number_of_variants`.
+    pub fn encrypt_choice<R: CryptoRng + RngCore>(
+        &self,
+        number_of_variants: usize,
+        choice: usize,
+        rng: &mut R,
+    ) -> EncryptedChoice<G> {
+        assert!(
+            number_of_variants > 0,
+            "`number_of_variants` must be positive"
+        );
+        assert!(
+            choice < number_of_variants,
+            "invalid choice {}; expected a value in 0..{}",
+            choice,
+            number_of_variants
+        );
+
+        let admissible_values = [G::identity(), G::generator()];
+        let mut transcript = Transcript::new(b"encrypted_choice_ranges");
+        let mut proof_builder = RingProofBuilder::new(self, &mut transcript, rng);
+
+        let variants: Vec<_> = (0..number_of_variants)
+            .map(|i| proof_builder.add_value(&admissible_values, (i == choice) as usize))
+            .collect();
+        let range_proofs = proof_builder.build();
+
+        let mut sum_log = variants[0].random_scalar.clone();
+        let mut sum_ciphertext = variants[0].inner;
+        for variant in variants.iter().skip(1) {
+            sum_log += variant.random_scalar.clone();
+            sum_ciphertext += variant.inner;
+        }
+
+        let sum_proof = LogEqualityProof::new(
+            self,
+            &sum_log,
+            (
+                sum_ciphertext.random_element,
+                sum_ciphertext.blinded_element - G::generator(),
+            ),
+            &mut Transcript::new(b"choice_encryption_sum"),
+            rng,
+        );
+
+        EncryptedChoice {
+            variants: variants.into_iter().map(|variant| variant.inner).collect(),
+            range_proof: range_proofs,
+            sum_proof,
+        }
+    }
+
+    /// Verifies the range and sum proofs in this choice and returns variant ciphertexts
+    /// if they check out. Otherwise, returns `None`.
+    pub fn verify_choice<'a>(&self, choice: &'a EncryptedChoice<G>) -> Option<&'a [Ciphertext<G>]> {
+        // Some sanity checks.
+        if choice.len() == 0 || choice.range_proof.total_rings_size() != 2 * choice.variants.len() {
+            return None;
+        }
+
+        let mut sum_ciphertexts = choice.variants[0];
+        for &variant in choice.variants.iter().skip(1) {
+            sum_ciphertexts += variant;
+        }
+
+        let powers = (
+            sum_ciphertexts.random_element,
+            sum_ciphertexts.blinded_element - G::generator(),
+        );
+        if !choice
+            .sum_proof
+            .verify(self, powers, &mut Transcript::new(b"choice_encryption_sum"))
+        {
+            return None;
+        }
+
+        let admissible_values = [G::identity(), G::generator()];
+        let admissible_values = vec![&admissible_values as &[_]; choice.variants.len()];
+        if choice.range_proof.verify(
+            self,
+            &admissible_values,
+            &choice.variants,
+            &mut Transcript::new(b"encrypted_choice_ranges"),
+        ) {
+            Some(&choice.variants)
+        } else {
+            None
+        }
+    }
 }
 
 impl<G: Group> SecretKey<G> {
@@ -384,65 +478,6 @@ pub struct EncryptedChoice<G: Group> {
 
 #[allow(clippy::len_without_is_empty)] // `is_empty()` would always be false
 impl<G: Group> EncryptedChoice<G> {
-    /// Creates an encrypted choice.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `number_of_variants` is zero, or if `choice` is not in `0..number_of_variants`.
-    pub fn new<R>(
-        number_of_variants: usize,
-        choice: usize,
-        receiver: &PublicKey<G>,
-        rng: &mut R,
-    ) -> Self
-    where
-        R: CryptoRng + RngCore,
-    {
-        assert!(
-            number_of_variants > 0,
-            "`number_of_variants` must be positive"
-        );
-        assert!(
-            choice < number_of_variants,
-            "invalid choice {}; expected a value in 0..{}",
-            choice,
-            number_of_variants
-        );
-
-        let admissible_values = [G::identity(), G::generator()];
-        let mut transcript = Transcript::new(b"encrypted_choice_ranges");
-        let mut proof_builder = RingProofBuilder::new(receiver, &mut transcript, rng);
-
-        let variants: Vec<_> = (0..number_of_variants)
-            .map(|i| proof_builder.add_value(&admissible_values, (i == choice) as usize))
-            .collect();
-        let range_proofs = proof_builder.build();
-
-        let mut sum_log = variants[0].random_scalar.clone();
-        let mut sum_ciphertext = variants[0].inner;
-        for variant in variants.iter().skip(1) {
-            sum_log += variant.random_scalar.clone();
-            sum_ciphertext += variant.inner;
-        }
-
-        let sum_proof = LogEqualityProof::new(
-            receiver,
-            &sum_log,
-            (
-                sum_ciphertext.random_element,
-                sum_ciphertext.blinded_element - G::generator(),
-            ),
-            &mut Transcript::new(b"choice_encryption_sum"),
-            rng,
-        );
-
-        Self {
-            variants: variants.into_iter().map(|variant| variant.inner).collect(),
-            range_proof: range_proofs,
-            sum_proof,
-        }
-    }
-
     /// Returns the number of variants in this choice.
     pub fn len(&self) -> usize {
         self.variants.len()
@@ -462,45 +497,6 @@ impl<G: Group> EncryptedChoice<G> {
     pub fn sum_proof(&self) -> &LogEqualityProof<G> {
         &self.sum_proof
     }
-
-    /// Verifies the range and sum proofs in this choice and returns variant ciphertexts
-    /// if they check out. Otherwise, returns `None`.
-    pub fn verify(&self, receiver: &PublicKey<G>) -> Option<&[Ciphertext<G>]> {
-        // Some sanity checks.
-        if self.len() == 0 || self.range_proof.total_rings_size() != 2 * self.variants.len() {
-            return None;
-        }
-
-        let mut sum_ciphertexts = self.variants[0];
-        for &variant in self.variants.iter().skip(1) {
-            sum_ciphertexts += variant;
-        }
-
-        let powers = (
-            sum_ciphertexts.random_element,
-            sum_ciphertexts.blinded_element - G::generator(),
-        );
-        if !self.sum_proof.verify(
-            receiver,
-            powers,
-            &mut Transcript::new(b"choice_encryption_sum"),
-        ) {
-            return None;
-        }
-
-        let admissible_values = [G::identity(), G::generator()];
-        let admissible_values = vec![&admissible_values as &[_]; self.variants.len()];
-        if self.range_proof.verify(
-            receiver,
-            &admissible_values,
-            &self.variants,
-            &mut Transcript::new(b"encrypted_choice_ranges"),
-        ) {
-            Some(&self.variants)
-        } else {
-            None
-        }
-    }
 }
 
 #[cfg(test)]
@@ -517,24 +513,24 @@ mod tests {
         let mut rng = thread_rng();
         let keypair = Keypair::<G>::generate(&mut rng);
 
-        let mut choice = EncryptedChoice::new(5, 2, keypair.public(), &mut rng);
+        let mut choice = keypair.public().encrypt_choice(5, 2, &mut rng);
         let (encrypted_one, _) = keypair.public().encrypt_bool(true, &mut rng);
         choice.variants[0] = encrypted_one;
-        assert!(choice.verify(keypair.public()).is_none());
+        assert!(keypair.public().verify_choice(&choice).is_none());
 
-        let mut choice = EncryptedChoice::new(5, 4, keypair.public(), &mut rng);
+        let mut choice = keypair.public().encrypt_choice(5, 4, &mut rng);
         let (encrypted_zero, _) = keypair.public().encrypt_bool(false, &mut rng);
         choice.variants[4] = encrypted_zero;
-        assert!(choice.verify(keypair.public()).is_none());
+        assert!(keypair.public().verify_choice(&choice).is_none());
 
-        let mut choice = EncryptedChoice::new(5, 4, keypair.public(), &mut rng);
+        let mut choice = keypair.public().encrypt_choice(5, 4, &mut rng);
         choice.variants[4].blinded_element =
             choice.variants[4].blinded_element + G::mul_generator(&G::Scalar::from(10));
         choice.variants[3].blinded_element =
             choice.variants[3].blinded_element - G::mul_generator(&G::Scalar::from(10));
         // These modifications leave `choice.sum_proof` correct, but the range proofs
         // for the last 2 variants should no longer verify.
-        assert!(choice.verify(keypair.public()).is_none());
+        assert!(keypair.public().verify_choice(&choice).is_none());
     }
 
     #[test]
