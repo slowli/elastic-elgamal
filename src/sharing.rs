@@ -350,7 +350,7 @@ impl<G: Group> PartialPublicKeySet<G> {
     /// - `index` must be within the bounds determined by the scheme parameters.
     /// - The participant with this index must not be added previously.
     ///
-    /// [`public_info()`]: struct.StartingParticipant.html#fn.public_info
+    /// [`public_info()`]: StartingParticipant::public_info()
     pub fn add_participant(
         &mut self,
         index: usize,

@@ -134,18 +134,18 @@ pub trait ElementOps: ScalarOps {
 /// [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 /// [`k256`]: https://docs.rs/k256/
 pub trait Group: Copy + ScalarOps + ElementOps + 'static {
-    /// Multiplies the provided scalar by [`PointOps::generator()`]. This operation must be
+    /// Multiplies the provided scalar by [`ElementOps::generator()`]. This operation must be
     /// constant-time.
     ///
     /// # Default implementation
     ///
-    /// Implemented using [`Mul`](ops::Mul) (which is constant-time as per the [`PointOps`]
+    /// Implemented using [`Mul`](ops::Mul) (which is constant-time as per the [`ElementOps`]
     /// contract).
     fn mul_generator(k: &Self::Scalar) -> Self::Element {
         Self::generator() * k
     }
 
-    /// Multiplies the provided scalar by [`PointOps::generator()`].
+    /// Multiplies the provided scalar by [`ElementOps::generator()`].
     /// Unlike [`Self::mul_generator()`], this operation does not need to be constant-time;
     /// thus, it may employ additional optimizations.
     ///
@@ -163,7 +163,7 @@ pub trait Group: Copy + ScalarOps + ElementOps + 'static {
     /// # Default implementation
     ///
     /// Implemented by straightforward computations, which are constant-time as per
-    /// the [`PointOps`] contract.
+    /// the [`ElementOps`] contract.
     fn multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element
     where
         I: IntoIterator<Item = &'a Self::Scalar>,

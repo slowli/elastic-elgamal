@@ -186,7 +186,7 @@ impl<G: Group> ProofOfPossession<G> {
 }
 
 /// Zero-knowledge proof of equality of two discrete logarithms in different bases,
-/// aka Chaum - Pedersen protocol.
+/// aka Chaum–Pedersen protocol.
 ///
 /// # Construction
 ///
@@ -232,9 +232,6 @@ impl<G: Group> ProofOfPossession<G> {
 ///
 /// [fst]: https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic
 /// [this course]: http://www.cs.au.dk/~ivan/Sigma.pdf
-/// [serialized encryption]: struct.Encrypted.html#method.to_bytes
-/// [`EncryptedChoice`]: struct.EncryptedChoice.html
-/// [`DecryptionShare`]: shared/struct.DecryptionShare.html
 #[derive(Debug, Clone, Copy)]
 pub struct LogEqualityProof<G: Group> {
     challenge: G::Scalar,
@@ -269,8 +266,8 @@ impl<G: Group> LogEqualityProof<G> {
         }
     }
 
-    /// Attempts to parse the proof from `bytes`. Parsing will fail if the proof components
-    /// (specifically, the response scalar `s`) do not have the canonical form.
+    /// Attempts to parse the proof from `bytes`. Returns `None` if `bytes` do not represent
+    /// a well-formed proof.
     pub fn from_slice(bytes: &[u8]) -> Option<Self> {
         if bytes.len() != 2 * G::SCALAR_SIZE {
             return None;
@@ -541,10 +538,10 @@ impl<'a, G: Group> Ring<'a, G> {
 ///
 /// Here, `H` is a cryptographic hash function. The ring is valid if `e_0 = e_{n+1}`.
 ///
-/// This construction is almost identical to [Abe-Ohkubo-Suzuki ring signatures][ring],
+/// This construction is almost identical to [Abe–Ohkubo–Suzuki ring signatures][ring],
 /// with the only difference that two group elements are hashed on each iteration instead of one.
 /// Also, if admissible values consist of a single value, this protocol reduces to
-/// [`LogEqualityProof`] / Chaum-Pedersen protocol.
+/// [`LogEqualityProof`] / Chaum–Pedersen protocol.
 ///
 /// As with "ordinary" ring signatures, constructing a ring is only feasible when knowing
 /// additional *trapdoor information*. Namely, the prover must know
@@ -584,7 +581,7 @@ impl<'a, G: Group> Ring<'a, G> {
 /// 1. Represent the value in base 2: `n = n_0 + n_1 * 2 + n_2 * 4 + ...`, where `n_i in {0, 1}`.
 ///   (Other bases are applicable as well.)
 /// 2. Split the encryption correspondingly: `E = E_0 + E_1 + ...`, where `E_i` is an encryption
-///   of `n_i * 2^i`. That is, `E_0` encrypts 0 or 1, `E_1` encrypts 0 or 2, `E_2` - 0 or 4, etc.
+///   of `n_i * 2^i`. That is, `E_0` encrypts 0 or 1, `E_1` encrypts 0 or 2, `E_2` – 0 or 4, etc.
 /// 3. Produce a `RingProof` that `E_i` is valid for all `i`.
 ///
 /// As with "ordinary" range proofs, this construction is not optimal in terms of space

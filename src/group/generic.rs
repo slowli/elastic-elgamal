@@ -19,7 +19,7 @@ use super::{ElementOps, Group, ScalarOps};
 ///
 /// # Assumptions
 ///
-/// - Arithmetic operations required to be constant-time as per [`ScalarOps`] and [`PointOps`]
+/// - Arithmetic operations required to be constant-time as per [`ScalarOps`] and [`ElementOps`]
 ///   contracts are indeed constant-time.
 ///
 /// [`elliptic-curve`]: https://docs.rs/elliptic-curve/

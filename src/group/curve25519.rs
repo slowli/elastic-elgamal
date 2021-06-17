@@ -12,9 +12,10 @@ use crate::group::{ElementOps, Group, ScalarOps};
 
 /// Prime-order subgroup of Curve25519 without any transforms performed for EC points.
 ///
-/// Since the curve has cofactor 8, [`PointOps::deserialize_point()`] implementation
+/// Since the curve has cofactor 8, [`ElementOps::deserialize_element()`] implementation
 /// explicitly checks on deserializing each EC point that the point is torsion-free
-/// (belongs to the prime-order subgroup), which is moderately slow (takes ~0.1ms).
+/// (belongs to the prime-order subgroup), which is moderately slow (takes ~0.1ms on
+/// a laptop).
 ///
 /// Prefer using [`Ristretto`] if compatibility with other Curve25519 applications is not a concern.
 /// (If it *is* a concern, beware of [pitfalls]!)
