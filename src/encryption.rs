@@ -65,16 +65,6 @@ impl<G: Group> fmt::Debug for Ciphertext<G> {
 }
 
 impl<G: Group> Ciphertext<G> {
-    /// Encrypts a value for the specified `receiver`.
-    pub fn new<T, R: CryptoRng + RngCore>(value: T, receiver: &PublicKey<G>, rng: &mut R) -> Self
-    where
-        G::Scalar: From<T>,
-    {
-        let scalar = G::Scalar::from(value);
-        let element = G::mul_generator(&scalar);
-        ExtendedCiphertext::new(element, receiver, rng).inner
-    }
-
     /// Represents encryption of zero value without the blinding factor.
     pub fn zero() -> Self {
         Self {
@@ -91,22 +81,34 @@ impl<G: Group> Ciphertext<G> {
         G::serialize_element(&self.blinded_element, &mut bytes);
         bytes
     }
+}
+
+impl<G: Group> PublicKey<G> {
+    /// Encrypts a value for this key.
+    pub fn encrypt<T, R: CryptoRng + RngCore>(&self, value: T, rng: &mut R) -> Ciphertext<G>
+    where
+        G::Scalar: From<T>,
+    {
+        let scalar = G::Scalar::from(value);
+        let element = G::mul_generator(&scalar);
+        ExtendedCiphertext::new(element, self, rng).inner
+    }
 
     /// Encrypts zero value and provides a zero-knowledge proof of encryption correctness.
-    pub fn encrypt_zero<R>(receiver: &PublicKey<G>, rng: &mut R) -> (Self, LogEqualityProof<G>)
+    pub fn encrypt_zero<R>(&self, rng: &mut R) -> (Ciphertext<G>, LogEqualityProof<G>)
     where
         R: CryptoRng + RngCore,
     {
         let random_scalar = SecretKey::<G>::generate(rng);
         let random_element = G::mul_generator(&random_scalar.0);
-        let blinded_element = receiver.full * &random_scalar.0;
-        let ciphertext = Self {
+        let blinded_element = self.full * &random_scalar.0;
+        let ciphertext = Ciphertext {
             random_element,
             blinded_element,
         };
 
         let proof = LogEqualityProof::new(
-            receiver,
+            self,
             &random_scalar,
             (random_element, blinded_element),
             &mut Transcript::new(b"zero_encryption"),
@@ -117,41 +119,63 @@ impl<G: Group> Ciphertext<G> {
     }
 
     /// Verifies that this is an encryption of a zero value.
-    pub fn verify_zero(&self, receiver: &PublicKey<G>, proof: &LogEqualityProof<G>) -> bool {
+    pub fn verify_zero(&self, ciphertext: Ciphertext<G>, proof: &LogEqualityProof<G>) -> bool {
         proof.verify(
-            receiver,
-            (self.random_element, self.blinded_element),
+            self,
+            (ciphertext.random_element, ciphertext.blinded_element),
             &mut Transcript::new(b"zero_encryption"),
         )
     }
 
     /// Encrypts a boolean value (0 or 1) and provides a zero-knowledge proof of encryption
     /// correctness.
-    pub fn encrypt_bool<R>(
+    pub fn encrypt_bool<R: CryptoRng + RngCore>(
+        &self,
         value: bool,
-        receiver: &PublicKey<G>,
         rng: &mut R,
-    ) -> (Self, RingProof<G>)
-    where
-        R: CryptoRng + RngCore,
-    {
+    ) -> (Ciphertext<G>, RingProof<G>) {
         let mut transcript = Transcript::new(b"bool_encryption");
         let admissible_values = [G::identity(), G::generator()];
-        let mut builder = RingProofBuilder::new(&receiver, &mut transcript, rng);
+        let mut builder = RingProofBuilder::new(self, &mut transcript, rng);
         let ciphertext = builder.add_value(&admissible_values, value as usize);
         (ciphertext.inner, builder.build())
     }
 
     /// Verifies a proof of encryption correctness of a boolean value, which was presumably
     /// obtained via [`Self::encrypt_bool()`].
-    pub fn verify_bool(&self, receiver: &PublicKey<G>, proof: &RingProof<G>) -> bool {
+    pub fn verify_bool(&self, ciphertext: Ciphertext<G>, proof: &RingProof<G>) -> bool {
         let admissible_values = [G::identity(), G::generator()];
         proof.verify(
-            receiver,
+            self,
             &[&admissible_values],
-            &[*self],
+            &[ciphertext],
             &mut Transcript::new(b"bool_encryption"),
         )
+    }
+}
+
+impl<G: Group> SecretKey<G> {
+    /// Decrypts the provided ciphertext and returns the produced group element.
+    ///
+    /// As the ciphertext does not include a MAC or another way to assert integrity,
+    /// this operation cannot fail. If the ciphertext is not produced properly (e.g., it targets
+    /// another receiver), the returned group element will be garbage.
+    pub fn decrypt_to_element(&self, encrypted: Ciphertext<G>) -> G::Element {
+        let dh_element = encrypted.random_element * &self.0;
+        encrypted.blinded_element - dh_element
+    }
+
+    /// Decrypts the provided ciphertext and returns the original encrypted value.
+    ///
+    /// `lookup_table` is used to find encrypted values based on the original decrypted
+    /// group element. That is, it must contain all valid plaintext values. If the value
+    /// is not in the table, this method will return `None`.
+    pub fn decrypt(
+        &self,
+        encrypted: Ciphertext<G>,
+        lookup_table: &DiscreteLogTable<G>,
+    ) -> Option<u64> {
+        lookup_table.get(&self.decrypt_to_element(encrypted))
     }
 }
 
@@ -494,12 +518,12 @@ mod tests {
         let keypair = Keypair::<G>::generate(&mut rng);
 
         let mut choice = EncryptedChoice::new(5, 2, keypair.public(), &mut rng);
-        let (encrypted_one, _) = Ciphertext::encrypt_bool(true, keypair.public(), &mut rng);
+        let (encrypted_one, _) = keypair.public().encrypt_bool(true, &mut rng);
         choice.variants[0] = encrypted_one;
         assert!(choice.verify(keypair.public()).is_none());
 
         let mut choice = EncryptedChoice::new(5, 4, keypair.public(), &mut rng);
-        let (encrypted_zero, _) = Ciphertext::encrypt_bool(false, keypair.public(), &mut rng);
+        let (encrypted_zero, _) = keypair.public().encrypt_bool(false, &mut rng);
         choice.variants[4] = encrypted_zero;
         assert!(choice.verify(keypair.public()).is_none());
 

@@ -2,13 +2,12 @@
 
 use rand_core::{CryptoRng, RngCore};
 
-use crate::{group::Group, Ciphertext, DiscreteLogTable};
+use crate::group::Group;
 
 use std::{fmt, ops};
 
 /// Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
 /// the [`Group`] scalar.
-// TODO: zeroize?
 pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
 
 impl<G: Group> fmt::Debug for SecretKey<G> {
@@ -48,31 +47,6 @@ impl<G: Group> SecretKey<G> {
     /// Exposes the scalar equivalent to this key.
     pub fn expose_scalar(&self) -> &G::Scalar {
         &self.0
-    }
-
-    /// Decrypts the provided ciphertext and returns the produced group element.
-    ///
-    /// As the ciphertext does not include a MAC or another way to assert integrity,
-    /// this operation cannot fail. If the ciphertext is not produced properly (e.g., it targets
-    /// another receiver), the returned group element will be garbage.
-    // FIXME: move to `Encryption`?
-    pub fn decrypt_to_element(&self, encrypted: Ciphertext<G>) -> G::Element {
-        let dh_element = encrypted.random_element * &self.0;
-        encrypted.blinded_element - dh_element
-    }
-
-    /// Decrypts the provided ciphertext and returns the original encrypted value.
-    ///
-    /// `lookup_table` is used to find encrypted values based on the original decrypted
-    /// group element. That is, it must contain all valid plaintext values. If the value
-    /// is not in the table, this method will return `None`.
-    // FIXME: move to `Encryption`?
-    pub fn decrypt(
-        &self,
-        encrypted: Ciphertext<G>,
-        lookup_table: &DiscreteLogTable<G>,
-    ) -> Option<u64> {
-        lookup_table.get(&self.decrypt_to_element(encrypted))
     }
 }
 

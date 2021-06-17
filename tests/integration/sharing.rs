@@ -78,7 +78,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
     let rig: Rig<G> = Rig::new(params, &mut rng);
     for _ in 0..20 {
         let value = G::generate_scalar(&mut rng);
-        let encrypted = Ciphertext::new(value, rig.info.shared_key(), &mut rng);
+        let encrypted = rig.info.shared_key().encrypt(value, &mut rng);
         let shares = rig.decryption_shares(encrypted, &mut rng);
         for _ in 0..5 {
             let chosen_shares = shares

@@ -30,6 +30,7 @@ pub trait ScalarOps {
     type Scalar: Copy
         + Default
         + From<u64>
+        + From<Self::Scalar> // `PublicKey::encrypt()` doesn't work without this
         + ops::Neg<Output = Self::Scalar>
         + ops::Add<Output = Self::Scalar>
         + ops::Sub<Output = Self::Scalar>

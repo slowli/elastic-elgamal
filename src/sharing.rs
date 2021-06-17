@@ -937,7 +937,7 @@ mod tests {
             vec![PublicKey::from_element(joint_pt); 2]
         );
 
-        let ciphertext = Ciphertext::new(5_u64, &group_info.shared_key, &mut rng);
+        let ciphertext = group_info.shared_key.encrypt(5_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         let alice_share = group_info
             .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof)
@@ -1023,7 +1023,7 @@ mod tests {
         assert!(key_set.verify_participant(2, &carol.proof_of_possession(&mut rng)));
         assert!(!key_set.verify_participant(1, &alice.proof_of_possession(&mut rng)));
 
-        let ciphertext = Ciphertext::new(15_u64, &key_set.shared_key, &mut rng);
+        let ciphertext = key_set.shared_key.encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         assert!(key_set
             .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof,)
