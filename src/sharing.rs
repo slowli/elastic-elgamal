@@ -600,7 +600,7 @@ impl<G: Group> StartingParticipant<G> {
                 let power = G::Scalar::from(index as u64 + 1);
                 let mut poly_value = SecretKey::new(G::Scalar::from(0));
                 for keypair in self.polynomial.iter().rev() {
-                    poly_value = poly_value * power + keypair.secret().clone();
+                    poly_value = poly_value * &power + keypair.secret().clone();
                 }
                 (index, poly_value)
             })
@@ -794,8 +794,8 @@ impl<G: Group> ActiveParticipant<G> {
 
         let proof = LogEqualityProof::new(
             &PublicKey::from_element(encryption.random_element),
+            &self.secret_share,
             (our_public_key, dh_element),
-            &self.secret_share.0,
             &mut transcript,
             rng,
         );

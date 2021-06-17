@@ -107,8 +107,8 @@ impl<G: Group> Encryption<G> {
 
         let proof = LogEqualityProof::new(
             receiver,
+            &random_scalar,
             (random_element, blinded_element),
-            &random_scalar.0,
             &mut Transcript::new(b"zero_encryption"),
             rng,
         );
@@ -403,11 +403,11 @@ impl<G: Group> EncryptedChoice<G> {
 
         let sum_proof = LogEqualityProof::new(
             receiver,
+            &sum_log,
             (
                 sum_encryption.random_element,
                 sum_encryption.blinded_element - G::generator(),
             ),
-            &sum_log.0,
             &mut Transcript::new(b"choice_encryption_sum"),
             rng,
         );

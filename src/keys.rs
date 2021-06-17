@@ -45,11 +45,17 @@ impl<G: Group> SecretKey<G> {
         G::deserialize_scalar(bytes).map(SecretKey)
     }
 
+    /// Exposes the scalar equivalent to this key.
+    pub fn expose_scalar(&self) -> &G::Scalar {
+        &self.0
+    }
+
     /// Decrypts the provided ciphertext and returns the produced group element.
     ///
     /// As the ciphertext does not include a MAC or another way to assert integrity,
     /// this operation cannot fail. If the ciphertext is not produced properly (e.g., it targets
     /// another receiver), the returned group element will be garbage.
+    // FIXME: move to `Encryption`?
     pub fn decrypt_to_element(&self, encrypted: Encryption<G>) -> G::Element {
         let dh_element = encrypted.random_element * &self.0;
         encrypted.blinded_element - dh_element
@@ -60,6 +66,7 @@ impl<G: Group> SecretKey<G> {
     /// `lookup_table` is used to find encrypted values based on the original decrypted
     /// group element. That is, it must contain all valid plaintext values. If the value
     /// is not in the table, this method will return `None`.
+    // FIXME: move to `Encryption`?
     pub fn decrypt(
         &self,
         encrypted: Encryption<G>,
@@ -83,18 +90,18 @@ impl<G: Group> ops::AddAssign for SecretKey<G> {
     }
 }
 
-impl<G: Group> ops::Mul<G::Scalar> for SecretKey<G> {
+impl<G: Group> ops::Mul<&G::Scalar> for SecretKey<G> {
     type Output = Self;
 
-    fn mul(self, k: G::Scalar) -> Self {
+    fn mul(self, &k: &G::Scalar) -> Self {
         SecretKey(self.0 * k)
     }
 }
 
-impl<G: Group> ops::Mul<G::Scalar> for &SecretKey<G> {
+impl<G: Group> ops::Mul<&G::Scalar> for &SecretKey<G> {
     type Output = SecretKey<G>;
 
-    fn mul(self, k: G::Scalar) -> SecretKey<G> {
+    fn mul(self, &k: &G::Scalar) -> SecretKey<G> {
         SecretKey(self.0 * k)
     }
 }
@@ -105,7 +112,7 @@ impl<G: Group> ops::Mul<G::Scalar> for &SecretKey<G> {
 ///
 /// We store both the original bytes (which are used in zero-knowledge proofs)
 /// and its decompression into a group element.
-/// This increases the memory footprint, but speeds up arithmetic on the keys.
+/// This increases the memory footprint, but speeds up generating / verifying proofs.
 pub struct PublicKey<G: Group> {
     pub(crate) bytes: Vec<u8>,
     pub(crate) full: G::Element,
@@ -167,6 +174,11 @@ impl<G: Group> PublicKey<G> {
     pub fn as_bytes(&self) -> &[u8] {
         &self.bytes
     }
+
+    /// Returns the group element equivalent to this key.
+    pub fn as_element(&self) -> G::Element {
+        self.full
+    }
 }
 
 impl<G: Group> From<&SecretKey<G>> for PublicKey<G> {
@@ -185,11 +197,11 @@ impl<G: Group> ops::Add<Self> for PublicKey<G> {
     }
 }
 
-impl<G: Group> ops::Mul<G::Scalar> for PublicKey<G> {
+impl<G: Group> ops::Mul<&G::Scalar> for PublicKey<G> {
     type Output = Self;
 
-    fn mul(self, k: G::Scalar) -> Self {
-        let element = self.full * &k;
+    fn mul(self, k: &G::Scalar) -> Self {
+        let element = self.full * k;
         Self::from_element(element)
     }
 }
@@ -254,10 +266,10 @@ impl<G: Group> From<SecretKey<G>> for Keypair<G> {
     }
 }
 
-impl<G: Group> ops::Mul<G::Scalar> for Keypair<G> {
+impl<G: Group> ops::Mul<&G::Scalar> for Keypair<G> {
     type Output = Self;
 
-    fn mul(self, k: G::Scalar) -> Self {
+    fn mul(self, k: &G::Scalar) -> Self {
         Keypair {
             secret: self.secret * k,
             public: self.public * k,

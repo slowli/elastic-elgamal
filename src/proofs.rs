@@ -148,7 +148,7 @@ impl<G: Group> ProofOfPossession<G> {
 
         let challenge = transcript.challenge_scalar::<G>(b"c");
         for (secret, response) in secrets.zip(&mut random_scalars) {
-            *response += secret.clone() * challenge;
+            *response += secret * &challenge;
         }
 
         Self {
@@ -214,7 +214,7 @@ impl<G: Group> ProofOfPossession<G> {
 /// [s]K ?= X_K + [c]B.
 /// ```
 ///
-/// In the non-interactive version of the proof, `c` is derived from `hash(M)`,
+/// In the non-interactive version of the proof, challenge `c` is derived from `hash(M)`,
 /// where `hash()` is a cryptographically secure hash function, and `M` is an optional message
 /// verified together with the proof (cf. public-key digital signatures). If `M` is set, we
 /// use a proof as a *signature of knowledge*. This allows to tie the proof to the context,
@@ -228,7 +228,34 @@ impl<G: Group> ProofOfPossession<G> {
 ///
 /// - The proof is serialized as 2 scalars: `(c, s)`.
 /// - Proof generation is constant-time. Verification is **not** constant-time.
-/// - The context of the proof (i.e., `M`) is set via [`Transcript`] API.
+/// - Challenge `c` is derived using [`Transcript`] API.
+///
+/// # Examples
+///
+/// ```
+/// # use elgamal_with_sharing::{group::Ristretto, Keypair, SecretKey, LogEqualityProof};
+/// # use merlin::Transcript;
+/// # use rand::thread_rng;
+/// let mut rng = thread_rng();
+/// let (log_base, _) =
+///     Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+/// let (power_g, discrete_log) =
+///     Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+/// let power_k = log_base.as_element() * discrete_log.expose_scalar();
+///
+/// let proof = LogEqualityProof::new(
+///     &log_base,
+///     &discrete_log,
+///     (power_g.as_element(), power_k),
+///     &mut Transcript::new(b"custom_proof"),
+///     &mut rng,
+/// );
+/// assert!(proof.verify(
+///     &log_base,
+///     (power_g.as_element(), power_k),
+///     &mut Transcript::new(b"custom_proof"),
+/// ));
+/// ```
 ///
 /// [fst]: https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic
 /// [this course]: http://www.cs.au.dk/~ivan/Sigma.pdf
@@ -239,26 +266,33 @@ pub struct LogEqualityProof<G: Group> {
 }
 
 impl<G: Group> LogEqualityProof<G> {
-    pub(crate) fn new<R>(
+    /// Creates a new proof.
+    ///
+    /// # Parameters
+    ///
+    /// - `log_base` is the second discrete log base (`K` in the notation above). The first
+    ///   log base is always the [`Group`] generator.
+    /// - `secret` is the discrete log (`r` in the notation above).
+    /// - `powers` are `[r]G` and `[r]K`, respectively. It is **not** checked whether `r`
+    ///   is a discrete log of these powers; if this is not the case, the constructed proof
+    ///   will not [`verify`](Self::verify()).
+    pub fn new<R: CryptoRng + RngCore>(
         log_base: &PublicKey<G>,
+        secret: &SecretKey<G>,
         powers: (G::Element, G::Element),
-        secret: &G::Scalar,
         transcript: &mut Transcript,
         rng: &mut R,
-    ) -> Self
-    where
-        R: CryptoRng + RngCore,
-    {
+    ) -> Self {
         transcript.start_proof(b"log_eq");
         transcript.append_element_bytes(b"K", &log_base.bytes);
-        transcript.append_element::<G>(b"[x]G", &powers.0);
-        transcript.append_element::<G>(b"[x]K", &powers.1);
+        transcript.append_element::<G>(b"[r]G", &powers.0);
+        transcript.append_element::<G>(b"[r]K", &powers.1);
 
         let random_scalar = SecretKey::<G>::generate(rng);
-        transcript.append_element::<G>(b"[r]G", &G::mul_generator(&random_scalar.0));
-        transcript.append_element::<G>(b"[r]K", &(log_base.full * &random_scalar.0));
+        transcript.append_element::<G>(b"[x]G", &G::mul_generator(&random_scalar.0));
+        transcript.append_element::<G>(b"[x]K", &(log_base.full * &random_scalar.0));
         let challenge = transcript.challenge_scalar::<G>(b"c");
-        let response = random_scalar.0 + challenge * (*secret);
+        let response = random_scalar.0 + challenge * secret.0;
 
         Self {
             challenge,
@@ -281,8 +315,15 @@ impl<G: Group> LogEqualityProof<G> {
         })
     }
 
-    /// Verifies this proof against a given encryption and its intended receiver.
-    pub(crate) fn verify(
+    /// Verifies this proof.
+    ///
+    /// # Parameters
+    ///
+    /// - `log_base` is the second discrete log base (`K` in the notation above). The first
+    ///   log base is always the [`Group`] generator.
+    /// - `powers` are group elements presumably equal to `[r]G` and `[r]K` respectively,
+    ///   where `r` is a secret scalar.
+    pub fn verify(
         &self,
         log_base: &PublicKey<G>,
         powers: (G::Element, G::Element),
@@ -298,10 +339,10 @@ impl<G: Group> LogEqualityProof<G> {
 
         transcript.start_proof(b"log_eq");
         transcript.append_element_bytes(b"K", &log_base.bytes);
-        transcript.append_element::<G>(b"[x]G", &powers.0);
-        transcript.append_element::<G>(b"[x]K", &powers.1);
-        transcript.append_element::<G>(b"[r]G", &commitments.0);
-        transcript.append_element::<G>(b"[r]K", &commitments.1);
+        transcript.append_element::<G>(b"[r]G", &powers.0);
+        transcript.append_element::<G>(b"[r]K", &powers.1);
+        transcript.append_element::<G>(b"[x]G", &commitments.0);
+        transcript.append_element::<G>(b"[x]K", &commitments.1);
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
         bool::from(expected_challenge.ct_eq(&self.challenge))
     }
@@ -797,7 +838,7 @@ mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
-    use crate::group::{ElementOps, Ristretto, ScalarOps};
+    use crate::group::{ElementOps, Ristretto};
 
     type Keypair = crate::Keypair<Ristretto>;
 
@@ -817,22 +858,21 @@ mod tests {
     #[test]
     fn log_equality_basics() {
         let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
+        let log_base = Keypair::generate(&mut rng).public().clone();
 
         for _ in 0..100 {
-            let secret = Ristretto::generate_scalar(&mut rng);
-            let generator_val = Ristretto::mul_generator(&secret);
-            let key_val = keypair.public().full * secret;
+            let (generator_val, secret) = Keypair::generate(&mut rng).into_tuple();
+            let key_val = log_base.full * secret.expose_scalar();
             let proof = LogEqualityProof::new(
-                keypair.public(),
-                (generator_val, key_val),
+                &log_base,
                 &secret,
+                (generator_val.as_element(), key_val),
                 &mut Transcript::new(b"testing_log_equality"),
                 &mut rng,
             );
             assert!(proof.verify(
-                keypair.public(),
-                (generator_val, key_val),
+                &log_base,
+                (generator_val.as_element(), key_val),
                 &mut Transcript::new(b"testing_log_equality")
             ));
         }
