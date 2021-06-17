@@ -10,7 +10,7 @@ use elastic_elgamal::{
         ActiveParticipant, DecryptionShare, Params, PartialPublicKeySet, PublicKeySet,
         StartingParticipant,
     },
-    DiscreteLogTable, EncryptedChoice, Encryption,
+    Ciphertext, DiscreteLogTable, EncryptedChoice,
 };
 
 struct Rig<G: Group> {
@@ -54,12 +54,12 @@ impl<G: Group> Rig<G> {
 
     fn decryption_shares(
         &self,
-        encryption: Encryption<G>,
+        ciphertext: Ciphertext<G>,
         rng: &mut (impl RngCore + CryptoRng),
     ) -> Vec<DecryptionShare<G>> {
         self.participants
             .iter()
-            .map(|participant| participant.decrypt_share(encryption, rng).0)
+            .map(|participant| participant.decrypt_share(ciphertext, rng).0)
             .collect()
     }
 }
@@ -78,7 +78,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
     let rig: Rig<G> = Rig::new(params, &mut rng);
     for _ in 0..20 {
         let value = G::generate_scalar(&mut rng);
-        let encrypted = Encryption::new(value, rig.info.shared_key(), &mut rng);
+        let encrypted = Ciphertext::new(value, rig.info.shared_key(), &mut rng);
         let shares = rig.decryption_shares(encrypted, &mut rng);
         for _ in 0..5 {
             let chosen_shares = shares
@@ -104,7 +104,7 @@ fn test_simple_voting<G: Group>() {
     let shared_key = rig.info.shared_key();
 
     let mut expected_totals = [0; CHOICE_COUNT];
-    let mut encrypted_totals = [Encryption::zero(); CHOICE_COUNT];
+    let mut encrypted_totals = [Ciphertext::zero(); CHOICE_COUNT];
 
     for _ in 0..VOTES {
         let choice = rng.gen_range(0..CHOICE_COUNT);

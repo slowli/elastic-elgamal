@@ -9,7 +9,7 @@ use elastic_elgamal::{
         ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
         PublicKeySet, StartingParticipant,
     },
-    DiscreteLogTable, EncryptedChoice, Encryption,
+    Ciphertext, DiscreteLogTable, EncryptedChoice,
 };
 
 /// Number of options in the poll.
@@ -90,7 +90,7 @@ fn vote<G: Group>() {
 
     // During polling, voters submit votes together with the proof of correctness.
     let mut expected_totals = [0; OPTIONS_COUNT];
-    let mut encrypted_totals = [Encryption::zero(); OPTIONS_COUNT];
+    let mut encrypted_totals = [Ciphertext::zero(); OPTIONS_COUNT];
     for i in 0..VOTES {
         let choice = rng.gen_range(0..OPTIONS_COUNT);
         println!("\nVoter #{} making choice #{}", i + 1, choice + 1);

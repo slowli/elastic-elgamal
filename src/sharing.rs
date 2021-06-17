@@ -82,9 +82,9 @@
 //!
 //! # Verifiable decryption
 //!
-//! Assume `(R, B) = ([r]G, [m]G + [r]K)` is an encryption of scalar `m` for the shared key `K`.
+//! Assume `(R, B) = ([r]G, [m]G + [r]K)` encrypts scalar `m` for the shared key `K`.
 //! In order to decrypt it, participants perform Diffie - Hellman exchange with the random part
-//! of the encryption: `D_i = [x_i]R`. Validity of this *decryption share* can be verified
+//! of the ciphertext: `D_i = [x_i]R`. Validity of this *decryption share* can be verified
 //! via a ZKP of discrete log equality:
 //!
 //! ```text
@@ -103,7 +103,7 @@
 //! Threshold encryption scheme requiring 2 of 3 participants.
 //!
 //! ```
-//! # use elastic_elgamal::{group::Ristretto, sharing::*, Encryption, DiscreteLogTable};
+//! # use elastic_elgamal::{group::Ristretto, sharing::*, Ciphertext, DiscreteLogTable};
 //! # use rand::thread_rng;
 //! let mut rng = thread_rng();
 //! let params = Params::new(3, 2);
@@ -147,7 +147,7 @@
 //!
 //! // At last, participants can decrypt messages!
 //! let encrypted_value = 5_u64;
-//! let enc = Encryption::new(encrypted_value, key_set.shared_key(), &mut rng);
+//! let enc = Ciphertext::new(encrypted_value, key_set.shared_key(), &mut rng);
 //! let shares_with_proofs = participants
 //!     .iter()
 //!     .map(|p| p.decrypt_share(enc, &mut rng))
@@ -182,7 +182,7 @@ use std::{
 use crate::{
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
-    Encryption, Keypair, PublicKey, SecretKey,
+    Ciphertext, Keypair, PublicKey, SecretKey,
 };
 
 /// Computes value of a public polynomial at the specified point in variable time.
@@ -254,7 +254,7 @@ pub enum Error {
     InvalidProofOfPossession,
 }
 
-/// Parameters of a shared ElGamal encryption scheme.
+/// Parameters of a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Params {
     /// Total number of shares / participants.
@@ -276,7 +276,7 @@ impl Params {
     }
 }
 
-/// In-progress information about the participants of a shared ElGamal encryption scheme
+/// In-progress information about the participants of a threshold ElGamal encryption scheme
 /// before all participants' commitments are collected.
 #[derive(Debug)]
 pub struct PartialPublicKeySet<G: Group> {
@@ -408,7 +408,7 @@ impl<G: Group> PartialPublicKeySet<G> {
     }
 }
 
-/// Full public information about the participants of a shared ElGamal encryption scheme
+/// Full public information about the participants of a threshold ElGamal encryption scheme
 /// after all participants' commitments are collected.
 #[derive(Debug, Clone)]
 pub struct PublicKeySet<G: Group> {
@@ -494,12 +494,12 @@ impl<G: Group> PublicKeySet<G> {
         proof.verify(iter::once(participant_key), &mut transcript)
     }
 
-    /// Verifies a candidate decryption share for `encryption` provided by a participant
+    /// Verifies a candidate decryption share for `ciphertext` provided by a participant
     /// with the specified `index`.
     pub fn verify_share(
         &self,
         candidate_share: CandidateShare<G>,
-        encryption: Encryption<G>,
+        ciphertext: Ciphertext<G>,
         index: usize,
         proof: &LogEqualityProof<G>,
     ) -> Option<DecryptionShare<G>> {
@@ -510,7 +510,7 @@ impl<G: Group> PublicKeySet<G> {
         transcript.append_u64(b"i", index as u64);
 
         let is_valid = proof.verify(
-            &PublicKey::from_element(encryption.random_element),
+            &PublicKey::from_element(ciphertext.random_element),
             (key_share, dh_element),
             &mut transcript,
         );
@@ -523,7 +523,7 @@ impl<G: Group> PublicKeySet<G> {
     }
 }
 
-/// Personalized state of a participant of a shared ElGamal encryption scheme
+/// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// at the initial step of the protocol, before the [`PublicKeySet`] is determined.
 #[derive(Debug)]
 pub struct StartingParticipant<G: Group> {
@@ -619,7 +619,7 @@ impl<G: Group> StartingParticipant<G> {
     }
 }
 
-/// Personalized state of a participant of a shared ElGamal encryption scheme
+/// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// at the intermediate step of the protocol, after the [`PublicKeySet`] is determined
 /// but before the participant gets messages from all other participants.
 #[derive(Debug)]
@@ -708,7 +708,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
     }
 }
 
-/// Personalized state of a participant of a shared ElGamal encryption scheme once the participant
+/// Personalized state of a participant of a threshold ElGamal encryption scheme once the participant
 /// receives all necessary messages. At this point, the participant can produce
 /// [`DecryptionShare`]s.
 #[derive(Debug)]
@@ -741,7 +741,7 @@ impl<G: Group> ActiveParticipant<G> {
         }
     }
 
-    /// Returns the public key set for the shared ElGamal encryption scheme this participant
+    /// Returns the public key set for the threshold ElGamal encryption scheme this participant
     /// is a part of.
     pub fn key_set(&self) -> &PublicKeySet<G> {
         &self.key_set
@@ -777,24 +777,24 @@ impl<G: Group> ActiveParticipant<G> {
         )
     }
 
-    /// Creates a [`DecryptionShare`] for the specified `encryption` together with a proof
+    /// Creates a [`DecryptionShare`] for the specified `ciphertext` together with a proof
     /// of its validity. `rng` is used to generate the proof.
     pub fn decrypt_share<R>(
         &self,
-        encryption: Encryption<G>,
+        ciphertext: Ciphertext<G>,
         rng: &mut R,
     ) -> (DecryptionShare<G>, LogEqualityProof<G>)
     where
         R: CryptoRng + RngCore,
     {
-        let dh_element = encryption.random_element * &self.secret_share.0;
+        let dh_element = ciphertext.random_element * &self.secret_share.0;
         let our_public_key = self.key_set.participant_keys[self.index].full;
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.key_set.commit(&mut transcript);
         transcript.append_u64(b"i", self.index as u64);
 
         let proof = LogEqualityProof::new(
-            &PublicKey::from_element(encryption.random_element),
+            &PublicKey::from_element(ciphertext.random_element),
             &self.secret_share,
             (our_public_key, dh_element),
             &mut transcript,
@@ -804,14 +804,14 @@ impl<G: Group> ActiveParticipant<G> {
     }
 }
 
-/// Decryption share for a certain [`Encryption`] in a shared ElGamal encryption scheme.
+/// Decryption share for a certain [`Ciphertext`] in a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy)]
 pub struct DecryptionShare<G: Group> {
     dh_element: G::Element,
 }
 
 impl<G: Group> DecryptionShare<G> {
-    /// Combines shares decrypting the specified `encryption`. The shares must be provided
+    /// Combines shares decrypting the specified `ciphertext`. The shares must be provided
     /// together with the 0-based indexes of the participants they are coming from.
     ///
     /// Returns the decrypted value, or `None` if the number of shares is insufficient.
@@ -821,7 +821,7 @@ impl<G: Group> DecryptionShare<G> {
     /// Panics if any index in `shares` exceeds the maximum participant's index as per `params`.
     pub fn combine(
         params: Params,
-        encryption: Encryption<G>,
+        ciphertext: Ciphertext<G>,
         shares: impl IntoIterator<Item = (usize, Self)>,
     ) -> Option<G::Element> {
         let (indexes, shares): (Vec<_>, Vec<_>) = shares
@@ -842,7 +842,7 @@ impl<G: Group> DecryptionShare<G> {
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
         let restored_value = G::vartime_multi_mul(&denominators, shares);
         let dh_element = restored_value * &scale;
-        Some(encryption.blinded_element - dh_element)
+        Some(ciphertext.blinded_element - dh_element)
     }
 
     /// Serializes this share into bytes.
@@ -937,19 +937,19 @@ mod tests {
             vec![PublicKey::from_element(joint_pt); 2]
         );
 
-        let encryption = Encryption::new(5_u64, &group_info.shared_key, &mut rng);
-        let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
+        let ciphertext = Ciphertext::new(5_u64, &group_info.shared_key, &mut rng);
+        let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         let alice_share = group_info
-            .verify_share(alice_share.to_candidate(), encryption, 0, &proof)
+            .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof)
             .unwrap();
 
-        let (bob_share, proof) = bob.decrypt_share(encryption, &mut rng);
+        let (bob_share, proof) = bob.decrypt_share(ciphertext, &mut rng);
         let bob_share = group_info
-            .verify_share(bob_share.to_candidate(), encryption, 1, &proof)
+            .verify_share(bob_share.to_candidate(), ciphertext, 1, &proof)
             .unwrap();
 
         let message = Ristretto::mul_generator(&Scalar25519::from(5_u64));
-        assert_eq!(alice_share.dh_element, encryption.blinded_element - message);
+        assert_eq!(alice_share.dh_element, ciphertext.blinded_element - message);
         assert_eq!(alice_share.dh_element, bob_share.dh_element);
     }
 
@@ -1023,15 +1023,15 @@ mod tests {
         assert!(key_set.verify_participant(2, &carol.proof_of_possession(&mut rng)));
         assert!(!key_set.verify_participant(1, &alice.proof_of_possession(&mut rng)));
 
-        let encryption = Encryption::new(15_u64, &key_set.shared_key, &mut rng);
-        let (alice_share, proof) = alice.decrypt_share(encryption, &mut rng);
+        let ciphertext = Ciphertext::new(15_u64, &key_set.shared_key, &mut rng);
+        let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         assert!(key_set
-            .verify_share(alice_share.to_candidate(), encryption, 0, &proof,)
+            .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof,)
             .is_some());
 
-        let (bob_share, proof) = bob.decrypt_share(encryption, &mut rng);
+        let (bob_share, proof) = bob.decrypt_share(ciphertext, &mut rng);
         assert!(key_set
-            .verify_share(bob_share.to_candidate(), encryption, 1, &proof,)
+            .verify_share(bob_share.to_candidate(), ciphertext, 1, &proof,)
             .is_some());
 
         // We need to find `a0` from the following equations:
@@ -1040,7 +1040,7 @@ mod tests {
         let composite_dh_element =
             alice_share.dh_element * Scalar25519::from(2_u64) - bob_share.dh_element;
         let message = Ristretto::mul_generator(&Scalar25519::from(15_u64));
-        assert_eq!(composite_dh_element, encryption.blinded_element - message);
+        assert_eq!(composite_dh_element, ciphertext.blinded_element - message);
     }
 
     #[test]

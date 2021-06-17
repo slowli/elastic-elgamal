@@ -5,8 +5,7 @@
 //! (Decisional Diffie–Hellman assumption is considered stronger than both CDH and DL,
 //! so if DDH is believed to hold for a certain group, it should be good to go.)
 //!
-//! Such groups can be applied for ElGamal [`Encryption`](crate::Encryption)
-//! and other cryptographic protocols from this crate.
+//! Such groups can be applied for ElGamal encryption and other cryptographic protocols from this crate.
 //!
 //! [DDH]: https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption
 //! [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
@@ -124,7 +123,7 @@ pub trait ElementOps: ScalarOps {
 /// Prime-order group in which the discrete log problem and decisional / computational
 /// Diffie–Hellman problems are believed to be hard.
 ///
-/// Groups conforming to this trait can be used for ElGamal [`Encryption`] and other
+/// Groups conforming to this trait can be used for ElGamal encryption and other
 /// cryptographic protocols defined in this crate.
 ///
 /// This crate provides the following implementations of this trait:
@@ -136,7 +135,6 @@ pub trait ElementOps: ScalarOps {
 /// - [`Generic`] implementation defined in terms of traits from the [`elliptic-curve`] crate.
 ///   (For example, this means secp256k1 support via the [`k256`] crate.)
 ///
-/// [`Encryption`]: crate::Encryption
 /// [ristretto]: https://ristretto.group/
 /// [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 /// [`k256`]: https://docs.rs/k256/

@@ -8,7 +8,7 @@ use subtle::ConstantTimeEq;
 use std::{fmt, io};
 
 use crate::{
-    encryption::EncryptionWithLog, group::Group, Encryption, Keypair, PublicKey, SecretKey,
+    encryption::ExtendedCiphertext, group::Group, Ciphertext, Keypair, PublicKey, SecretKey,
 };
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
@@ -190,7 +190,7 @@ impl<G: Group> ProofOfPossession<G> {
 ///
 /// # Construction
 ///
-/// This proof is a result of the [Fiat – Shamir transform][fst] applied to a standard
+/// This proof is a result of the [Fiat–Shamir transform][fst] applied to a standard
 /// ZKP of equality of the two discrete logs in different bases.
 ///
 /// - Public parameters of the proof are the two bases `G` and `K` in a prime-order group
@@ -363,7 +363,7 @@ struct Ring<'a, G: Group> {
     // Public parameters of the ring.
     index: usize,
     admissible_values: &'a [G::Element],
-    encryption: Encryption<G>,
+    ciphertext: Ciphertext<G>,
 
     // ZKP-related public values.
     transcript: Transcript,
@@ -382,7 +382,7 @@ impl<G: Group> fmt::Debug for Ring<'_, G> {
             .debug_struct("Ring")
             .field("index", &self.index)
             .field("admissible_values", &self.admissible_values)
-            .field("encryption", &self.encryption)
+            .field("ciphertext", &self.ciphertext)
             .field("responses", &self.responses)
             .field("terminal_commitments", &self.terminal_commitments)
             .finish()
@@ -393,7 +393,7 @@ impl<'a, G: Group> Ring<'a, G> {
     fn new<R>(
         index: usize,
         log_base: G::Element,
-        encryption_with_log: EncryptionWithLog<G>,
+        ciphertext: ExtendedCiphertext<G>,
         admissible_values: &'a [G::Element],
         value_index: usize,
         transcript: &Transcript,
@@ -411,20 +411,20 @@ impl<'a, G: Group> Ring<'a, G> {
             "Specified value index is out of bounds"
         );
 
-        let random_element = encryption_with_log.inner.random_element;
-        let blinded_value = encryption_with_log.inner.blinded_element;
+        let random_element = ciphertext.inner.random_element;
+        let blinded_value = ciphertext.inner.blinded_element;
         debug_assert!(
             {
-                let expected_blinded_value = log_base * &encryption_with_log.random_scalar.0
-                    + admissible_values[value_index];
+                let expected_blinded_value =
+                    log_base * &ciphertext.random_scalar.0 + admissible_values[value_index];
                 bool::from(expected_blinded_value.ct_eq(&blinded_value))
             },
-            "Specified encryption does not match the specified `value_index`"
+            "Specified ciphertext does not match the specified `value_index`"
         );
 
         let mut transcript = transcript.clone();
         transcript.start_proof(b"ring_enc");
-        transcript.append_message(b"enc", &encryption_with_log.inner.to_bytes());
+        transcript.append_message(b"enc", &ciphertext.inner.to_bytes());
         // NB: we don't add `admissible_values` to the transcript since we assume that
         // they are fixed in the higher-level protocol.
         transcript.append_u64(b"i", index as u64);
@@ -463,11 +463,11 @@ impl<'a, G: Group> Ring<'a, G> {
             index,
             value_index,
             admissible_values,
-            encryption: encryption_with_log.inner,
+            ciphertext: ciphertext.inner,
             transcript,
             responses,
             terminal_commitments: commitments,
-            discrete_log: encryption_with_log.random_scalar,
+            discrete_log: ciphertext.random_scalar,
             random_scalar,
         }
     }
@@ -523,9 +523,9 @@ impl<'a, G: Group> Ring<'a, G> {
         for (eq_index, &admissible_value) in it {
             let response = G::generate_scalar(rng);
             self.responses[eq_index] = response;
-            let dh_element = self.encryption.blinded_element - admissible_value;
+            let dh_element = self.ciphertext.blinded_element - admissible_value;
             let commitments = (
-                G::mul_generator(&response) - self.encryption.random_element * &challenge,
+                G::mul_generator(&response) - self.ciphertext.random_element * &challenge,
                 G::multi_mul(
                     [response, -challenge].iter(),
                     [log_base, dh_element].iter().copied(),
@@ -555,12 +555,12 @@ impl<'a, G: Group> Ring<'a, G> {
 /// # Construction
 ///
 /// In short, a proof is constructed almost identically to [Borromean ring signatures] by
-/// Maxwell and Poelstra, with the only major difference being that we work on encryptions
+/// Maxwell and Poelstra, with the only major difference being that we work on ciphertexts
 /// instead of group elements (= public keys).
 ///
 /// A proof consists of one or more *rings*. Each ring proves than a certain
-/// ElGamal encryption `E = (R, B)` for public key `K` in a group with generator `G`
-/// is an encryption of one of distinct admissible values `x_0`, `x_1`, ..., `x_n`.
+/// ElGamal ciphertext `E = (R, B)` for public key `K` in a group with generator `G`
+/// encrypts one of distinct admissible values `x_0`, `x_1`, ..., `x_n`.
 /// `K` and `G` are shared among rings, admissible values are generally not.
 /// Different rings may have different number of admissible values.
 ///
@@ -614,15 +614,15 @@ impl<'a, G: Group> Ring<'a, G> {
 ///
 /// ## Range proofs
 ///
-/// Another application is a *range proof* for an ElGamal encryption: proving that an encrypted
+/// Another application is a *range proof* for an ElGamal ciphertext: proving that an encrypted
 /// value is in range `0..=n`, where `n` is a positive integer. To make the proof more compact,
 /// the same trick can be used as for [Pedersen commitments] (used, e.g., for confidential
 /// transaction amounts in [Elements]):
 ///
 /// 1. Represent the value in base 2: `n = n_0 + n_1 * 2 + n_2 * 4 + ...`, where `n_i in {0, 1}`.
 ///   (Other bases are applicable as well.)
-/// 2. Split the encryption correspondingly: `E = E_0 + E_1 + ...`, where `E_i` is an encryption
-///   of `n_i * 2^i`. That is, `E_0` encrypts 0 or 1, `E_1` encrypts 0 or 2, `E_2` – 0 or 4, etc.
+/// 2. Split the ciphertext correspondingly: `E = E_0 + E_1 + ...`, where `E_i` encrypts
+///   `n_i * 2^i`. That is, `E_0` encrypts 0 or 1, `E_1` encrypts 0 or 2, `E_2` – 0 or 4, etc.
 /// 3. Produce a `RingProof` that `E_i` is valid for all `i`.
 ///
 /// As with "ordinary" range proofs, this construction is not optimal in terms of space
@@ -635,8 +635,8 @@ impl<'a, G: Group> Ring<'a, G> {
 /// - The proof is serialized as the common challenge `e_0` followed by `s_i` scalars for
 ///   all the rings.
 /// - Standalone proof generation and verification are not exposed in public crate APIs.
-///   Rather, proofs are part of large protocols, such as [`Encryption::encrypt_bool()`] /
-///   [`Encryption::verify_bool()`].
+///   Rather, proofs are part of large protocols, such as [`Ciphertext::encrypt_bool()`] /
+///   [`Ciphertext::verify_bool()`].
 /// - The context of the proof is set using [`Transcript`] APIs, which provides hash functions
 ///   in the protocol described above. Importantly, the proof itself commits to encrypted values
 ///   and ring indexes, but not to the admissible values across the rings. This must be taken
@@ -664,11 +664,11 @@ impl<G: Group> RingProof<G> {
         &self,
         receiver: &PublicKey<G>,
         admissible_values: &[&[G::Element]],
-        encryptions: &[Encryption<G>],
+        ciphertexts: &[Ciphertext<G>],
         transcript: &mut Transcript,
     ) -> bool {
         // Do quick preliminary checks.
-        assert_eq!(encryptions.len(), admissible_values.len());
+        assert_eq!(ciphertexts.len(), admissible_values.len());
         let total_rings_size: usize = admissible_values.iter().map(|values| values.len()).sum();
         if total_rings_size != self.total_rings_size() {
             return false;
@@ -679,15 +679,15 @@ impl<G: Group> RingProof<G> {
         // so we need a separate transcript copy to initialize ring transcripts.
         let initial_ring_transcript = transcript.clone();
 
-        let it = admissible_values.iter().zip(encryptions).enumerate();
+        let it = admissible_values.iter().zip(ciphertexts).enumerate();
         let mut starting_response = 0;
-        for (ring_index, (values, encryption)) in it {
+        for (ring_index, (values, ciphertext)) in it {
             let mut challenge = self.common_challenge;
             let mut commitments = (G::generator(), G::generator());
 
             let mut ring_transcript = initial_ring_transcript.clone();
             ring_transcript.start_proof(b"ring_enc");
-            ring_transcript.append_message(b"enc", &encryption.to_bytes());
+            ring_transcript.append_message(b"enc", &ciphertext.to_bytes());
             ring_transcript.append_u64(b"i", ring_index as u64);
 
             for (eq_index, (&admissible_value, response)) in values
@@ -695,13 +695,13 @@ impl<G: Group> RingProof<G> {
                 .zip(&self.ring_responses[starting_response..])
                 .enumerate()
             {
-                let dh_element = encryption.blinded_element - admissible_value;
+                let dh_element = ciphertext.blinded_element - admissible_value;
                 let neg_challenge = -challenge;
 
                 commitments = (
                     G::vartime_double_mul_generator(
                         &neg_challenge,
-                        encryption.random_element,
+                        ciphertext.random_element,
                         response,
                     ),
                     G::vartime_multi_mul(
@@ -808,20 +808,20 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
         &mut self,
         admissible_values: &'a [G::Element],
         value_index: usize,
-    ) -> EncryptionWithLog<G> {
-        let encryption_with_log =
-            EncryptionWithLog::new(admissible_values[value_index], self.receiver, self.rng);
+    ) -> ExtendedCiphertext<G> {
+        let ext_ciphertext =
+            ExtendedCiphertext::new(admissible_values[value_index], self.receiver, self.rng);
         let ring = Ring::new(
             self.rings.len(),
             self.receiver.full,
-            encryption_with_log.clone(),
+            ext_ciphertext.clone(),
             admissible_values,
             value_index,
             &*self.transcript,
             self.rng,
         );
         self.rings.push(ring);
-        encryption_with_log
+        ext_ciphertext
     }
 
     /// Finishes building a [`RingProof`].
@@ -885,8 +885,8 @@ mod tests {
         let admissible_values = [RistrettoPoint::identity(), Ristretto::generator()];
 
         let value = RistrettoPoint::identity();
-        let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
-        let encryption = encryption_with_log.inner;
+        let ext_ciphertext = ExtendedCiphertext::new(value, keypair.public(), &mut rng);
+        let ciphertext = ext_ciphertext.inner;
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         RingProof::initialize_transcript(&mut transcript, keypair.public());
@@ -894,7 +894,7 @@ mod tests {
         let signature_ring = Ring::new(
             0,
             keypair.public().full,
-            encryption_with_log,
+            ext_ciphertext,
             &admissible_values,
             0,
             &transcript,
@@ -911,21 +911,21 @@ mod tests {
         assert!(proof.verify(
             keypair.public(),
             &[&admissible_values],
-            &[encryption],
+            &[ciphertext],
             &mut transcript
         ));
 
-        // Check a proof for the encryption of 1.
+        // Check a proof for encryption of 1.
         let value = Ristretto::generator();
-        let encryption_with_log = EncryptionWithLog::new(value, keypair.public(), &mut rng);
-        let encryption = encryption_with_log.inner;
+        let ext_ciphertext = ExtendedCiphertext::new(value, keypair.public(), &mut rng);
+        let ciphertext = ext_ciphertext.inner;
 
         let mut transcript = Transcript::new(b"test_ring_encryption");
         RingProof::initialize_transcript(&mut transcript, keypair.public());
         let signature_ring = Ring::new(
             0,
             keypair.public().full,
-            encryption_with_log,
+            ext_ciphertext,
             &admissible_values,
             1,
             &transcript,
@@ -942,7 +942,7 @@ mod tests {
         assert!(proof.verify(
             keypair.public(),
             &[&admissible_values],
-            &[encryption],
+            &[ciphertext],
             &mut transcript
         ));
     }
@@ -958,9 +958,8 @@ mod tests {
         for _ in 0..100 {
             let val: u32 = rng.gen_range(0..4);
             let element_val = Ristretto::mul_generator(&Scalar25519::from(val));
-            let encryption_with_log =
-                EncryptionWithLog::new(element_val, keypair.public(), &mut rng);
-            let encryption = encryption_with_log.inner;
+            let ext_ciphertext = ExtendedCiphertext::new(element_val, keypair.public(), &mut rng);
+            let ciphertext = ext_ciphertext.inner;
 
             let mut transcript = Transcript::new(b"test_ring_encryption");
             RingProof::initialize_transcript(&mut transcript, keypair.public());
@@ -968,7 +967,7 @@ mod tests {
             let signature_ring = Ring::new(
                 0,
                 keypair.public().full,
-                encryption_with_log,
+                ext_ciphertext,
                 &admissible_values,
                 val as usize,
                 &transcript,
@@ -985,7 +984,7 @@ mod tests {
             assert!(proof.verify(
                 keypair.public(),
                 &[&admissible_values],
-                &[encryption],
+                &[ciphertext],
                 &mut transcript
             ));
         }
@@ -1003,25 +1002,25 @@ mod tests {
             let mut transcript = Transcript::new(b"test_ring_encryption");
             RingProof::initialize_transcript(&mut transcript, keypair.public());
 
-            let (encryptions, rings): (Vec<_>, Vec<_>) = (0..RING_COUNT)
+            let (ciphertexts, rings): (Vec<_>, Vec<_>) = (0..RING_COUNT)
                 .map(|ring_index| {
                     let val = rng.gen_bool(0.5) as u32;
                     let element_val = Ristretto::mul_generator(&Scalar25519::from(val));
-                    let encryption_with_log =
-                        EncryptionWithLog::new(element_val, keypair.public(), &mut rng);
-                    let encryption = encryption_with_log.inner;
+                    let ext_ciphertext =
+                        ExtendedCiphertext::new(element_val, keypair.public(), &mut rng);
+                    let ciphertext = ext_ciphertext.inner;
 
                     let signature_ring = Ring::new(
                         ring_index,
                         keypair.public().full,
-                        encryption_with_log,
+                        ext_ciphertext,
                         &admissible_values,
                         val as usize,
                         &transcript,
                         &mut rng,
                     );
 
-                    (encryption, signature_ring)
+                    (ciphertext, signature_ring)
                 })
                 .unzip();
 
@@ -1031,7 +1030,7 @@ mod tests {
             assert!(proof.verify(
                 keypair.public(),
                 &[&admissible_values as &[_]; RING_COUNT],
-                &encryptions,
+                &ciphertexts,
                 &mut transcript,
             ));
         }
@@ -1039,7 +1038,7 @@ mod tests {
 
     #[test]
     fn multiple_rings_with_base4_value_encoding_work() {
-        // We're testing encryptions of `u8` integers, hence 4 rings with 4 elements (=2 bits) each.
+        // We're testing ciphertexts of `u8` integers, hence 4 rings with 4 elements (=2 bits) each.
         const RING_COUNT: u8 = 4;
 
         // Admissible values are `[O, G, [2]G, [3]G]` for the first ring,
@@ -1064,7 +1063,7 @@ mod tests {
             let mut transcript = Transcript::new(b"test_ring_encryption");
             RingProof::initialize_transcript(&mut transcript, keypair.public());
 
-            let (encryptions, rings): (Vec<_>, Vec<_>) = (0..RING_COUNT)
+            let (ciphertexts, rings): (Vec<_>, Vec<_>) = (0..RING_COUNT)
                 .map(|ring_index| {
                     let mask = 3 << (2 * ring_index);
                     let val = overall_value & mask;
@@ -1072,22 +1071,22 @@ mod tests {
                     assert!(val_index < 4);
 
                     let element_val = Ristretto::mul_generator(&Scalar25519::from(val));
-                    let encryption_with_log =
-                        EncryptionWithLog::new(element_val, keypair.public(), &mut rng);
-                    let encryption = encryption_with_log.inner;
+                    let ext_ciphertext =
+                        ExtendedCiphertext::new(element_val, keypair.public(), &mut rng);
+                    let ciphertext = ext_ciphertext.inner;
 
                     let ring_index = usize::from(ring_index);
                     let signature_ring = Ring::new(
                         ring_index,
                         keypair.public().full,
-                        encryption_with_log,
+                        ext_ciphertext,
                         &admissible_values[ring_index],
                         val_index,
                         &transcript,
                         &mut rng,
                     );
 
-                    (encryption, signature_ring)
+                    (ciphertext, signature_ring)
                 })
                 .unzip();
 
@@ -1101,7 +1100,7 @@ mod tests {
             assert!(proof.verify(
                 keypair.public(),
                 &admissible_values,
-                &encryptions,
+                &ciphertexts,
                 &mut transcript
             ));
         }
@@ -1115,7 +1114,7 @@ mod tests {
         let admissible_values = [RistrettoPoint::identity(), Ristretto::generator()];
 
         let mut builder = RingProofBuilder::new(keypair.public(), &mut transcript, &mut rng);
-        let encryptions: Vec<_> = (0..5)
+        let ciphertexts: Vec<_> = (0..5)
             .map(|i| builder.add_value(&admissible_values, i & 1).inner)
             .collect();
         let proof = builder.build();
@@ -1123,7 +1122,7 @@ mod tests {
         assert!(proof.verify(
             keypair.public(),
             &[&admissible_values as &[_]; 5],
-            &encryptions,
+            &ciphertexts,
             &mut Transcript::new(b"test_ring_encryption"),
         ));
     }

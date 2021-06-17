@@ -1,4 +1,4 @@
-//! `Encryption` and closely related types.
+//! `Ciphertext` and closely related types.
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
@@ -11,60 +11,60 @@ use crate::{
     PublicKey, SecretKey,
 };
 
-/// ElGamal asymmetric encryption.
+/// Ciphertext for ElGamal encryption.
 ///
-/// Encryptions are partially homomorphic: they can be added together or multiplied by a scalar
+/// Ciphertexts are partially homomorphic: they can be added together or multiplied by a scalar
 /// value.
 ///
 /// # Examples
 ///
-/// Basic usage and arithmetic for encryptions:
+/// Basic usage and arithmetic for ciphertexts:
 ///
 /// ```
-/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
+/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Ciphertext, Keypair};
 /// # use rand::thread_rng;
 /// // Generate a keypair for the ciphertext recipient.
 /// let mut rng = thread_rng();
 /// let recipient = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create a couple of ciphertexts.
-/// let mut enc = Encryption::new(2_u64, recipient.public(), &mut rng);
-/// enc += Encryption::new(3_u64, recipient.public(), &mut rng) * 4;
+/// let mut enc = Ciphertext::new(2_u64, recipient.public(), &mut rng);
+/// enc += Ciphertext::new(3_u64, recipient.public(), &mut rng) * 4;
 /// // Check that the ciphertext decrypts to 2 + 3 * 4 = 14.
 /// let lookup_table = DiscreteLogTable::new(0..20);
 /// let decrypted = recipient.secret().decrypt(enc, &lookup_table);
 /// assert_eq!(decrypted, Some(14));
 /// ```
 ///
-/// Creating an encryption of a boolean value together with a proof:
+/// Creating a ciphertext of a boolean value together with a proof:
 ///
 /// ```
-/// # use elastic_elgamal::{group::Ristretto, Encryption, Keypair};
+/// # use elastic_elgamal::{group::Ristretto, Ciphertext, Keypair};
 /// # use rand::thread_rng;
 /// // Generate a keypair for the ciphertext recipient.
 /// let mut rng = thread_rng();
 /// let recipient = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create and verify a boolean encryption.
 /// let (enc, proof) =
-///     Encryption::encrypt_bool(false, recipient.public(), &mut rng);
+///     Ciphertext::encrypt_bool(false, recipient.public(), &mut rng);
 /// assert!(enc.verify_bool(recipient.public(), &proof));
 /// ```
 #[derive(Clone, Copy)]
-pub struct Encryption<G: Group> {
+pub struct Ciphertext<G: Group> {
     pub(crate) random_element: G::Element,
     pub(crate) blinded_element: G::Element,
 }
 
-impl<G: Group> fmt::Debug for Encryption<G> {
+impl<G: Group> fmt::Debug for Ciphertext<G> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
-            .debug_struct("Encryption")
+            .debug_struct("Ciphertext")
             .field("random_element", &self.random_element)
             .field("blinded_element", &self.blinded_element)
             .finish()
     }
 }
 
-impl<G: Group> Encryption<G> {
+impl<G: Group> Ciphertext<G> {
     /// Encrypts a value for the specified `receiver`.
     pub fn new<T, R: CryptoRng + RngCore>(value: T, receiver: &PublicKey<G>, rng: &mut R) -> Self
     where
@@ -72,7 +72,7 @@ impl<G: Group> Encryption<G> {
     {
         let scalar = G::Scalar::from(value);
         let element = G::mul_generator(&scalar);
-        EncryptionWithLog::new(element, receiver, rng).inner
+        ExtendedCiphertext::new(element, receiver, rng).inner
     }
 
     /// Represents encryption of zero value without the blinding factor.
@@ -83,7 +83,7 @@ impl<G: Group> Encryption<G> {
         }
     }
 
-    /// Serializes this encryption as two group elements (the random element,
+    /// Serializes this ciphertext as two group elements (the random element,
     /// then the blinded value).
     pub fn to_bytes(self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(2 * G::ELEMENT_SIZE);
@@ -100,7 +100,7 @@ impl<G: Group> Encryption<G> {
         let random_scalar = SecretKey::<G>::generate(rng);
         let random_element = G::mul_generator(&random_scalar.0);
         let blinded_element = receiver.full * &random_scalar.0;
-        let encryption = Self {
+        let ciphertext = Self {
             random_element,
             blinded_element,
         };
@@ -113,7 +113,7 @@ impl<G: Group> Encryption<G> {
             rng,
         );
 
-        (encryption, proof)
+        (ciphertext, proof)
     }
 
     /// Verifies that this is an encryption of a zero value.
@@ -138,8 +138,8 @@ impl<G: Group> Encryption<G> {
         let mut transcript = Transcript::new(b"bool_encryption");
         let admissible_values = [G::identity(), G::generator()];
         let mut builder = RingProofBuilder::new(&receiver, &mut transcript, rng);
-        let encryption = builder.add_value(&admissible_values, value as usize);
-        (encryption.inner, builder.build())
+        let ciphertext = builder.add_value(&admissible_values, value as usize);
+        (ciphertext.inner, builder.build())
     }
 
     /// Verifies a proof of encryption correctness of a boolean value, which was presumably
@@ -155,7 +155,7 @@ impl<G: Group> Encryption<G> {
     }
 }
 
-impl<G: Group> ops::Add for Encryption<G> {
+impl<G: Group> ops::Add for Ciphertext<G> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
@@ -166,13 +166,13 @@ impl<G: Group> ops::Add for Encryption<G> {
     }
 }
 
-impl<G: Group> ops::AddAssign for Encryption<G> {
+impl<G: Group> ops::AddAssign for Ciphertext<G> {
     fn add_assign(&mut self, rhs: Self) {
         *self = *self + rhs;
     }
 }
 
-impl<G: Group> ops::Sub for Encryption<G> {
+impl<G: Group> ops::Sub for Ciphertext<G> {
     type Output = Self;
 
     fn sub(self, rhs: Self) -> Self {
@@ -183,13 +183,13 @@ impl<G: Group> ops::Sub for Encryption<G> {
     }
 }
 
-impl<G: Group> ops::SubAssign for Encryption<G> {
+impl<G: Group> ops::SubAssign for Ciphertext<G> {
     fn sub_assign(&mut self, rhs: Self) {
         *self = *self - rhs;
     }
 }
 
-impl<G: Group> ops::Mul<&G::Scalar> for Encryption<G> {
+impl<G: Group> ops::Mul<&G::Scalar> for Ciphertext<G> {
     type Output = Self;
 
     fn mul(self, rhs: &G::Scalar) -> Self {
@@ -200,7 +200,7 @@ impl<G: Group> ops::Mul<&G::Scalar> for Encryption<G> {
     }
 }
 
-impl<G: Group> ops::Mul<u64> for Encryption<G> {
+impl<G: Group> ops::Mul<u64> for Ciphertext<G> {
     type Output = Self;
 
     fn mul(self, rhs: u64) -> Self {
@@ -211,7 +211,7 @@ impl<G: Group> ops::Mul<u64> for Encryption<G> {
 
 /// Lookup table for discrete logarithms.
 ///
-/// For ElGamal [`Encryption`] to be partially homomorphic, the encrypted values must be
+/// For [`Ciphertext`]s to be partially homomorphic, the encrypted values must be
 /// group scalars linearly mapped to group elements: `x -> [x]G`, where `G` is the group
 /// generator. After decryption it is necessary to map the decrypted group element back to a scalar
 /// (i.e., get its discrete logarithm with base `G`). By definition of the group,
@@ -222,19 +222,19 @@ impl<G: Group> ops::Mul<u64> for Encryption<G> {
 /// # Examples
 ///
 /// ```
-/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Encryption, Keypair};
+/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Ciphertext, Keypair};
 /// # use rand::thread_rng;
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
-/// let encryptions = (0_u64..16)
-///     .map(|i| Encryption::new(i, receiver.public(), &mut rng));
-/// // Assume that we know that the encryption in range 0..16,
+/// let ciphertexts = (0_u64..16)
+///     .map(|i| Ciphertext::new(i, receiver.public(), &mut rng));
+/// // Assume that we know that the plaintext is in range 0..16,
 /// // e.g., via a zero-knowledge proof.
 /// let lookup_table = DiscreteLogTable::new(0..16);
 /// // Then, we can use the lookup table to decrypt values.
-/// // A single table may be shared for multiple decryptions
+/// // A single table may be shared for multiple decryption operations
 /// // (i.e., it may be constructed ahead of time).
-/// for (i, enc) in encryptions.enumerate() {
+/// for (i, enc) in ciphertexts.enumerate() {
 ///     assert_eq!(
 ///         receiver.secret().decrypt(enc, &lookup_table),
 ///         Some(i as u64)
@@ -282,16 +282,16 @@ impl<G: Group> DiscreteLogTable<G> {
     }
 }
 
-/// [`Encryption`] together with the random scalar used to create it.
+/// [`Ciphertext`] together with the random scalar used to create it.
 #[derive(Debug, Clone)]
 #[doc(hidden)] // only public for benchmarking
-pub struct EncryptionWithLog<G: Group> {
-    pub inner: Encryption<G>,
+pub struct ExtendedCiphertext<G: Group> {
+    pub inner: Ciphertext<G>,
     pub random_scalar: SecretKey<G>,
 }
 
-impl<G: Group> EncryptionWithLog<G> {
-    /// Creates an encryption of `value` for the specified `receiver`.
+impl<G: Group> ExtendedCiphertext<G> {
+    /// Creates a ciphertext of `value` for the specified `receiver`.
     pub fn new<R: CryptoRng + RngCore>(
         value: G::Element,
         receiver: &PublicKey<G>,
@@ -303,7 +303,7 @@ impl<G: Group> EncryptionWithLog<G> {
         let blinded_element = value + dh_element;
 
         Self {
-            inner: Encryption {
+            inner: Ciphertext {
                 random_element,
                 blinded_element,
             },
@@ -317,17 +317,17 @@ impl<G: Group> EncryptionWithLog<G> {
 ///
 /// # Construction
 ///
-/// The choice is represented as a vector of `n` *variant encryptions* of Boolean values (0 or 1),
-/// where the chosen variant is an encryption of 1 and other variants are encryptions of 0.
+/// The choice is represented as a vector of `n` *variant ciphertexts* of Boolean values (0 or 1),
+/// where the chosen variant encrypts 1 and other variants encrypt 0.
 /// This ensures that multiple [`EncryptedChoice`]s can be added (e.g., within a voting protocol).
-/// These encryptions can be obtained via [`Self::verify()`].
+/// These ciphertexts can be obtained via [`Self::verify()`].
 ///
 /// Zero-knowledge proofs are:
 ///
-/// - A [`RingProof`] attesting that all `n` encryptions are indeed encryptions of Boolean
-///   values. This proof can be obtained via [`Self::range_proof()`].
+/// - A [`RingProof`] attesting that all `n` ciphertexts encrypt 0 or 1.
+///   This proof can be obtained via [`Self::range_proof()`].
 /// - A [`LogEqualityProof`] attesting that the encrypted values sum up to 1. Combined with
-///   the range proof, this means that exactly one of encryptions is 1, and all others are 0.
+///   the range proof, this means that exactly one of encrypted values is 1, and all others are 0.
 ///   This proof can be obtained via [`Self::sum_proof()`].
 ///
 /// # Examples
@@ -341,7 +341,7 @@ impl<G: Group> EncryptionWithLog<G> {
 /// let enc = EncryptedChoice::new(5, choice, receiver.public(), &mut rng);
 /// let variants = enc.verify(receiver.public()).unwrap();
 ///
-/// // `variants` is a slice of 5 Boolean value encryptions
+/// // `variants` is a slice of 5 Boolean value ciphertexts
 /// assert_eq!(variants.len(), 5);
 /// let lookup_table = DiscreteLogTable::new(0..=1);
 /// for (idx, &v) in variants.iter().enumerate() {
@@ -353,7 +353,7 @@ impl<G: Group> EncryptionWithLog<G> {
 /// ```
 #[derive(Debug, Clone)]
 pub struct EncryptedChoice<G: Group> {
-    variants: Vec<Encryption<G>>,
+    variants: Vec<Ciphertext<G>>,
     range_proof: RingProof<G>,
     sum_proof: LogEqualityProof<G>,
 }
@@ -395,18 +395,18 @@ impl<G: Group> EncryptedChoice<G> {
         let range_proofs = proof_builder.build();
 
         let mut sum_log = variants[0].random_scalar.clone();
-        let mut sum_encryption = variants[0].inner;
+        let mut sum_ciphertext = variants[0].inner;
         for variant in variants.iter().skip(1) {
             sum_log += variant.random_scalar.clone();
-            sum_encryption += variant.inner;
+            sum_ciphertext += variant.inner;
         }
 
         let sum_proof = LogEqualityProof::new(
             receiver,
             &sum_log,
             (
-                sum_encryption.random_element,
-                sum_encryption.blinded_element - G::generator(),
+                sum_ciphertext.random_element,
+                sum_ciphertext.blinded_element - G::generator(),
             ),
             &mut Transcript::new(b"choice_encryption_sum"),
             rng,
@@ -424,37 +424,37 @@ impl<G: Group> EncryptedChoice<G> {
         self.variants.len()
     }
 
-    /// Returns variant encryptions **without** checking their validity.
-    pub fn variants_unchecked(&self) -> &[Encryption<G>] {
+    /// Returns variant ciphertexts **without** checking their validity.
+    pub fn variants_unchecked(&self) -> &[Ciphertext<G>] {
         &self.variants
     }
 
-    /// Returns the range proof for the variant encryptions.
+    /// Returns the range proof for the variant ciphertexts.
     pub fn range_proof(&self) -> &RingProof<G> {
         &self.range_proof
     }
 
-    /// Returns the sum proof for the variant encryptions.
+    /// Returns the sum proof for the variant ciphertexts.
     pub fn sum_proof(&self) -> &LogEqualityProof<G> {
         &self.sum_proof
     }
 
-    /// Verifies the range and sum proofs in this choice and returns variant encryptions
+    /// Verifies the range and sum proofs in this choice and returns variant ciphertexts
     /// if they check out. Otherwise, returns `None`.
-    pub fn verify(&self, receiver: &PublicKey<G>) -> Option<&[Encryption<G>]> {
+    pub fn verify(&self, receiver: &PublicKey<G>) -> Option<&[Ciphertext<G>]> {
         // Some sanity checks.
         if self.len() == 0 || self.range_proof.total_rings_size() != 2 * self.variants.len() {
             return None;
         }
 
-        let mut sum_encryption = self.variants[0];
+        let mut sum_ciphertexts = self.variants[0];
         for &variant in self.variants.iter().skip(1) {
-            sum_encryption += variant;
+            sum_ciphertexts += variant;
         }
 
         let powers = (
-            sum_encryption.random_element,
-            sum_encryption.blinded_element - G::generator(),
+            sum_ciphertexts.random_element,
+            sum_ciphertexts.blinded_element - G::generator(),
         );
         if !self.sum_proof.verify(
             receiver,
@@ -494,12 +494,12 @@ mod tests {
         let keypair = Keypair::<G>::generate(&mut rng);
 
         let mut choice = EncryptedChoice::new(5, 2, keypair.public(), &mut rng);
-        let (encrypted_one, _) = Encryption::encrypt_bool(true, keypair.public(), &mut rng);
+        let (encrypted_one, _) = Ciphertext::encrypt_bool(true, keypair.public(), &mut rng);
         choice.variants[0] = encrypted_one;
         assert!(choice.verify(keypair.public()).is_none());
 
         let mut choice = EncryptedChoice::new(5, 4, keypair.public(), &mut rng);
-        let (encrypted_zero, _) = Encryption::encrypt_bool(false, keypair.public(), &mut rng);
+        let (encrypted_zero, _) = Ciphertext::encrypt_bool(false, keypair.public(), &mut rng);
         choice.variants[4] = encrypted_zero;
         assert!(choice.verify(keypair.public()).is_none());
 

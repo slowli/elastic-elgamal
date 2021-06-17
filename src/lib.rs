@@ -13,15 +13,14 @@
 //!
 //! # Overview
 //!
-//! - [`Encryption`] provides ElGamal encryption, i.e., public-key encryption using a prime-order
-//!   group. This and other protocols use [`PublicKey`], [`SecretKey`] and [`Keypair`]
-//!   to represent participants' keys.
-//! - Besides basic encryption, `Encryption` also provides zero-knowledge proofs of
-//!   [zero encryption](Encryption::encrypt_zero()) and of
-//!   [Boolean value encryption](Encryption::encrypt_bool()). These are useful in higher-level
+//! - [`Ciphertext`] provides ElGamal encryption. This and other protocols use
+//!   [`PublicKey`], [`SecretKey`] and [`Keypair`] to represent participants' keys.
+//! - Besides basic encryption, `Ciphertext` also provides zero-knowledge proofs of
+//!   [zero encryption](Ciphertext::encrypt_zero()) and of
+//!   [Boolean value encryption](Ciphertext::encrypt_bool()). These are useful in higher-level
 //!   protocols, e.g., re-encryption.
 //! - [`EncryptedChoice`] provides a way to encrypt a choice of one of `n` variants so that
-//!   encryption is additively homomorphic and has a zero-knowledge proof of correctness.
+//!   variant ciphertexts are additively homomorphic and have zero-knowledge proof of correctness.
 //! - [`sharing`](crate::sharing) module exposes a threshold encryption scheme based
 //!   on [Shamir's secret sharing][sss], including distributed key generation
 //!   and verifiable shared decryption. Some crypto primitives used in the module
@@ -73,7 +72,7 @@ mod proofs;
 pub mod sharing;
 
 pub use crate::{
-    encryption::{DiscreteLogTable, EncryptedChoice, Encryption},
+    encryption::{Ciphertext, DiscreteLogTable, EncryptedChoice},
     keys::{Keypair, PublicKey, SecretKey},
     proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder},
 };

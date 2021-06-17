@@ -2,7 +2,7 @@
 
 use rand_core::{CryptoRng, RngCore};
 
-use crate::{group::Group, DiscreteLogTable, Encryption};
+use crate::{group::Group, Ciphertext, DiscreteLogTable};
 
 use std::{fmt, ops};
 
@@ -56,7 +56,7 @@ impl<G: Group> SecretKey<G> {
     /// this operation cannot fail. If the ciphertext is not produced properly (e.g., it targets
     /// another receiver), the returned group element will be garbage.
     // FIXME: move to `Encryption`?
-    pub fn decrypt_to_element(&self, encrypted: Encryption<G>) -> G::Element {
+    pub fn decrypt_to_element(&self, encrypted: Ciphertext<G>) -> G::Element {
         let dh_element = encrypted.random_element * &self.0;
         encrypted.blinded_element - dh_element
     }
@@ -69,7 +69,7 @@ impl<G: Group> SecretKey<G> {
     // FIXME: move to `Encryption`?
     pub fn decrypt(
         &self,
-        encrypted: Encryption<G>,
+        encrypted: Ciphertext<G>,
         lookup_table: &DiscreteLogTable<G>,
     ) -> Option<u64> {
         lookup_table.get(&self.decrypt_to_element(encrypted))

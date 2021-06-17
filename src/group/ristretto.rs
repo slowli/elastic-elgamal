@@ -118,7 +118,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{group::Curve25519Subgroup, DiscreteLogTable, EncryptedChoice, Encryption};
+    use crate::{group::Curve25519Subgroup, Ciphertext, DiscreteLogTable, EncryptedChoice};
 
     type SecretKey = crate::SecretKey<Ristretto>;
     type Keypair = crate::Keypair<Ristretto>;
@@ -128,7 +128,7 @@ mod tests {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let value = Ristretto::generate_scalar(&mut rng);
-        let encrypted = Encryption::new(value, keypair.public(), &mut rng);
+        let encrypted = Ciphertext::new(value, keypair.public(), &mut rng);
         let decryption = keypair.secret().decrypt_to_element(encrypted);
         assert_eq!(decryption, Ristretto::vartime_mul_generator(&value));
     }
