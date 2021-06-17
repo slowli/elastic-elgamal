@@ -9,6 +9,7 @@ use elliptic_curve::{
 };
 use ff::PrimeField;
 use rand_core::{CryptoRng, RngCore};
+use zeroize::Zeroize;
 
 use std::{marker::PhantomData, ops};
 
@@ -34,7 +35,11 @@ impl<C> Clone for Generic<C> {
 
 impl<C> Copy for Generic<C> {}
 
-impl<C: ProjectiveArithmetic> ScalarOps for Generic<C> {
+impl<C> ScalarOps for Generic<C>
+where
+    C: ProjectiveArithmetic,
+    Scalar<C>: Zeroize,
+{
     type Scalar = Scalar<C>;
 
     const SCALAR_SIZE: usize = <FieldSize<C> as Unsigned>::USIZE;
@@ -60,6 +65,7 @@ impl<C: ProjectiveArithmetic> ScalarOps for Generic<C> {
 impl<C> ElementOps for Generic<C>
 where
     C: ProjectiveArithmetic + WeierstrassCurve,
+    Scalar<C>: Zeroize,
     UntaggedPointSize<C>: ops::Add<U1> + ArrayLength<u8>,
     UncompressedPointSize<C>: ArrayLength<u8>,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
@@ -97,6 +103,7 @@ where
 impl<C> Group for Generic<C>
 where
     C: ProjectiveArithmetic + WeierstrassCurve + 'static,
+    Scalar<C>: Zeroize,
     UntaggedPointSize<C>: ops::Add<U1> + ArrayLength<u8>,
     UncompressedPointSize<C>: ArrayLength<u8>,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,

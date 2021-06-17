@@ -11,6 +11,7 @@
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use subtle::{ConditionallySelectable, ConstantTimeEq};
+use zeroize::Zeroize;
 
 use std::{fmt, io, ops};
 
@@ -32,6 +33,7 @@ pub trait ScalarOps {
         + ops::Mul<Output = Self::Scalar>
         + ConditionallySelectable
         + ConstantTimeEq
+        + Zeroize
         + fmt::Debug;
 
     /// Byte size of a serialized [`Self::Scalar`].
