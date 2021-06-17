@@ -16,8 +16,8 @@
 //! - [`Ciphertext`] provides ElGamal encryption. This and other protocols use
 //!   [`PublicKey`], [`SecretKey`] and [`Keypair`] to represent participants' keys.
 //! - Besides basic encryption, `Ciphertext` also provides zero-knowledge proofs of
-//!   [zero encryption](Ciphertext::encrypt_zero()) and of
-//!   [Boolean value encryption](Ciphertext::encrypt_bool()). These are useful in higher-level
+//!   [zero encryption](PublicKey::encrypt_zero()) and of
+//!   [Boolean value encryption](PublicKey::encrypt_bool()). These are useful in higher-level
 //!   protocols, e.g., re-encryption.
 //! - [`EncryptedChoice`] provides a way to encrypt a choice of one of `n` variants so that
 //!   variant ciphertexts are additively homomorphic and have zero-knowledge proof of correctness.

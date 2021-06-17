@@ -1,4 +1,4 @@
-# ElGamal Encryption and Zero-Knowledge Proofs
+# ElGamal Encryption and Related Zero-Knowledge Proofs
 
 Implementation of [ElGamal encryption] and related zero-knowledge proofs
 with pluggable crypto backend.

@@ -57,7 +57,7 @@ impl TranscriptForGroup for Transcript {
     }
 }
 
-/// Proof of possession of one or more secret scalars.
+/// Zero-knowledge proof of possession of one or more secret scalars.
 ///
 /// # Construction
 ///
@@ -555,7 +555,7 @@ impl<'a, G: Group> Ring<'a, G> {
 /// # Construction
 ///
 /// In short, a proof is constructed almost identically to [Borromean ring signatures] by
-/// Maxwell and Poelstra, with the only major difference being that we work on ciphertexts
+/// Maxwell and Poelstra, with the only major difference being that we work on ElGamal ciphertexts
 /// instead of group elements (= public keys).
 ///
 /// A proof consists of one or more *rings*. Each ring proves than a certain
@@ -581,7 +581,7 @@ impl<'a, G: Group> Ring<'a, G> {
 ///
 /// This construction is almost identical to [Abe–Ohkubo–Suzuki ring signatures][ring],
 /// with the only difference that two group elements are hashed on each iteration instead of one.
-/// Also, if admissible values consist of a single value, this protocol reduces to
+/// If admissible values consist of a single value, this protocol reduces to
 /// [`LogEqualityProof`] / Chaum–Pedersen protocol.
 ///
 /// As with "ordinary" ring signatures, constructing a ring is only feasible when knowing
@@ -596,7 +596,7 @@ impl<'a, G: Group> Ring<'a, G> {
 ///
 /// 1. Select random scalar `x` and compute `R_G(j) = [x]G`, `R_K(j) = [x]K`.
 /// 2. Compute `e_{j+1}`, ... `e_n`, ..., `e_j` ("wrapping" around `e_0 = e_{n+1}`)
-///   as per verification formulas, selecting each `s_*` scalar uniformly at random.
+///   as per verification formulas. `s_*` scalars are selected uniformly at random.
 /// 3. Compute `s_j` using the trapdoor information: `s_j = x + e_j * r`.
 ///
 /// ## Multiple rings
@@ -635,8 +635,8 @@ impl<'a, G: Group> Ring<'a, G> {
 /// - The proof is serialized as the common challenge `e_0` followed by `s_i` scalars for
 ///   all the rings.
 /// - Standalone proof generation and verification are not exposed in public crate APIs.
-///   Rather, proofs are part of large protocols, such as [`Ciphertext::encrypt_bool()`] /
-///   [`Ciphertext::verify_bool()`].
+///   Rather, proofs are part of large protocols, such as [`PublicKey::encrypt_bool()`] /
+///   [`PublicKey::verify_bool()`].
 /// - The context of the proof is set using [`Transcript`] APIs, which provides hash functions
 ///   in the protocol described above. Importantly, the proof itself commits to encrypted values
 ///   and ring indexes, but not to the admissible values across the rings. This must be taken

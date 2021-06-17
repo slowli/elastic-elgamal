@@ -83,7 +83,7 @@
 //! # Verifiable decryption
 //!
 //! Assume `(R, B) = ([r]G, [m]G + [r]K)` encrypts scalar `m` for the shared key `K`.
-//! In order to decrypt it, participants perform Diffie - Hellman exchange with the random part
+//! In order to decrypt it, participants perform Diffie–Hellman exchange with the random part
 //! of the ciphertext: `D_i = [x_i]R`. Validity of this *decryption share* can be verified
 //! via a ZKP of discrete log equality:
 //!
@@ -122,7 +122,7 @@
 //! assert!(key_set.is_complete());
 //!
 //! // Once all commitments are collected, all participants may proceed
-//! // to the next stage: P2P secret share exchange.
+//! // to the next stage: exchanging secret shares.
 //! let mut participants: Vec<_> = participants
 //!     .into_iter()
 //!     .map(|p| p.finalize_key_set(&key_set).unwrap())
@@ -147,7 +147,7 @@
 //!
 //! // At last, participants can decrypt messages!
 //! let encrypted_value = 5_u64;
-//! let enc = Ciphertext::new(encrypted_value, key_set.shared_key(), &mut rng);
+//! let enc = key_set.shared_key().encrypt(encrypted_value, &mut rng);
 //! let shares_with_proofs = participants
 //!     .iter()
 //!     .map(|p| p.decrypt_share(enc, &mut rng))
@@ -853,7 +853,7 @@ impl<G: Group> DecryptionShare<G> {
     }
 }
 
-/// Candidate for a [`DecryptionShare`] that has not passed verification via
+/// Candidate for a [`DecryptionShare`] that is not yet verified using
 /// [`PublicKeySet::verify_share()`].
 #[derive(Debug, Clone, Copy)]
 pub struct CandidateShare<G: Group> {

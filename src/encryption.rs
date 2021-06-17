@@ -27,8 +27,8 @@ use crate::{
 /// let mut rng = thread_rng();
 /// let recipient = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create a couple of ciphertexts.
-/// let mut enc = Ciphertext::new(2_u64, recipient.public(), &mut rng);
-/// enc += Ciphertext::new(3_u64, recipient.public(), &mut rng) * 4;
+/// let mut enc = recipient.public().encrypt(2_u64, &mut rng);
+/// enc += recipient.public().encrypt(3_u64, &mut rng) * 4;
 /// // Check that the ciphertext decrypts to 2 + 3 * 4 = 14.
 /// let lookup_table = DiscreteLogTable::new(0..20);
 /// let decrypted = recipient.secret().decrypt(enc, &lookup_table);
@@ -45,8 +45,8 @@ use crate::{
 /// let recipient = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create and verify a boolean encryption.
 /// let (enc, proof) =
-///     Ciphertext::encrypt_bool(false, recipient.public(), &mut rng);
-/// assert!(enc.verify_bool(recipient.public(), &proof));
+///     recipient.public().encrypt_bool(false, &mut rng);
+/// assert!(recipient.public().verify_bool(enc, &proof));
 /// ```
 #[derive(Clone, Copy)]
 pub struct Ciphertext<G: Group> {
@@ -332,7 +332,7 @@ impl<G: Group> ops::Mul<u64> for Ciphertext<G> {
 /// For [`Ciphertext`]s to be partially homomorphic, the encrypted values must be
 /// group scalars linearly mapped to group elements: `x -> [x]G`, where `G` is the group
 /// generator. After decryption it is necessary to map the decrypted group element back to a scalar
-/// (i.e., get its discrete logarithm with base `G`). By definition of the group,
+/// (i.e., get its discrete logarithm with base `G`). Because of discrete logarithm assumption,
 /// this task is computationally infeasible in the general case; however, if the possible range
 /// of encrypted values is small, it is possible to "cheat" by precomputing mapping `[x]G -> x`
 /// for all allowed `x` ahead of time. This is exactly what `DiscreteLogTable` does.
@@ -345,7 +345,7 @@ impl<G: Group> ops::Mul<u64> for Ciphertext<G> {
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// let ciphertexts = (0_u64..16)
-///     .map(|i| Ciphertext::new(i, receiver.public(), &mut rng));
+///     .map(|i| receiver.public().encrypt(i, &mut rng));
 /// // Assume that we know that the plaintext is in range 0..16,
 /// // e.g., via a zero-knowledge proof.
 /// let lookup_table = DiscreteLogTable::new(0..16);
@@ -438,7 +438,7 @@ impl<G: Group> ExtendedCiphertext<G> {
 /// The choice is represented as a vector of `n` *variant ciphertexts* of Boolean values (0 or 1),
 /// where the chosen variant encrypts 1 and other variants encrypt 0.
 /// This ensures that multiple [`EncryptedChoice`]s can be added (e.g., within a voting protocol).
-/// These ciphertexts can be obtained via [`Self::verify()`].
+/// These ciphertexts can be obtained via [`PublicKey::verify_choice()`].
 ///
 /// Zero-knowledge proofs are:
 ///
@@ -456,8 +456,8 @@ impl<G: Group> ExtendedCiphertext<G> {
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// let choice = 2;
-/// let enc = EncryptedChoice::new(5, choice, receiver.public(), &mut rng);
-/// let variants = enc.verify(receiver.public()).unwrap();
+/// let enc = receiver.public().encrypt_choice(5, choice, &mut rng);
+/// let variants = receiver.public().verify_choice(&enc).unwrap();
 ///
 /// // `variants` is a slice of 5 Boolean value ciphertexts
 /// assert_eq!(variants.len(), 5);
