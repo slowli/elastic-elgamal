@@ -1,3 +1,11 @@
+//! Simple universally verifiable crypto voting protocol using threshold ElGamal encryption.
+//! Voter authentication is outside the protocol scope.
+//!
+//! See [*Simple Verifiable Elections*][elections] by Benaloh for an overview of a similar
+//! voting protocol.
+//!
+//! [elections]: https://static.usenix.org/event/evt06/tech/full_papers/benaloh/benaloh.pdf
+
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use rand_core::{CryptoRng, RngCore};
 
@@ -13,9 +21,9 @@ use elastic_elgamal::{
 };
 
 /// Number of options in the poll.
-const OPTIONS_COUNT: usize = 2;
+const OPTIONS_COUNT: usize = 3;
 /// Number of votes to be cast.
-const VOTES: usize = 20;
+const VOTES: usize = 30;
 /// Number of talliers.
 const TALLIER_PARAMS: Params = Params {
     shares: 5,
@@ -130,7 +138,7 @@ fn vote<G: Group>() {
             .collect::<Vec<_>>()
     );
 
-    // After polling, talliers submit decryption shares together with proof of their correctness.
+    // After polling, talliers submit decryption shares together with a proof of their correctness.
     let lookup_table = DiscreteLogTable::<G>::new(0..=(VOTES as u64));
     for (i, (&variant_totals, &expected)) in
         encrypted_totals.iter().zip(&expected_totals).enumerate()
@@ -173,11 +181,11 @@ fn vote<G: Group>() {
 
 fn main() {
     match env::args().nth(1).as_deref() {
-        None | Some("edwards") => vote::<Curve25519Subgroup>(),
-        Some("ristretto") => vote::<Ristretto>(),
+        None | Some("ristretto") => vote::<Ristretto>(),
+        Some("curve25519") => vote::<Curve25519Subgroup>(),
         Some("k256") => vote::<Generic<k256::Secp256k1>>(),
         Some(other) => panic!(
-            "Unknown group: {}; use one of `edwards`, `ristretto` or `k256`",
+            "Unknown group: {}; use one of `curve25519`, `ristretto` or `k256`",
             other
         ),
     }
