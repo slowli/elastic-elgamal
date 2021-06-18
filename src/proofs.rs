@@ -349,7 +349,7 @@ impl<G: Group> LogEqualityProof<G> {
 
     /// Serializes this proof into bytes. As described [above](#implementation-details),
     /// the is serialized as 2 scalars: `(c, s)`, i.e., challenge and response.
-    pub fn to_bytes(&self) -> Vec<u8> {
+    pub fn to_bytes(self) -> Vec<u8> {
         let mut bytes = Vec::with_capacity(2 * G::SCALAR_SIZE);
         G::serialize_scalar(&self.challenge, &mut bytes);
         G::serialize_scalar(&self.response, &mut bytes);

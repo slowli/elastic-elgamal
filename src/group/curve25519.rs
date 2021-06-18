@@ -155,7 +155,9 @@ mod tests {
     #[test]
     fn small_order_points_are_invalid_public_keys() {
         let small_order = Scalar::from(8_u32);
-        for point in &EIGHT_TORSION {
+        // First element of `EIGHT_TORSION` is the point at infinity; since it
+        // would be processed differently, we skip it.
+        for point in EIGHT_TORSION.iter().skip(1) {
             assert_eq!(point * small_order, EdwardsPoint::identity());
             let bytes = point.compress().to_bytes();
             assert!(matches!(
