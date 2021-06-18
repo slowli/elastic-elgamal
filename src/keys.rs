@@ -85,7 +85,7 @@ impl<G: Group> ops::Mul<&G::Scalar> for &SecretKey<G> {
 /// # Implementation details
 ///
 /// We store both the original bytes (which are used in zero-knowledge proofs)
-/// and its decompression into a group element.
+/// and its decompression into a [`Group`] element.
 /// This increases the memory footprint, but speeds up generating / verifying proofs.
 pub struct PublicKey<G: Group> {
     pub(crate) bytes: Vec<u8>,
@@ -172,6 +172,7 @@ impl<G: Group> From<&SecretKey<G>> for PublicKey<G> {
 
 /// Errors that can occur when converting other types to [`PublicKey`].
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum PublicKeyConversionError {
     /// Invalid size of the byte buffer.
     InvalidByteSize,

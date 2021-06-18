@@ -129,6 +129,10 @@ impl<G: Group> PublicKey<G> {
 
     /// Encrypts a boolean value (0 or 1) and provides a zero-knowledge proof of encryption
     /// correctness.
+    ///
+    /// # Examples
+    ///
+    /// See [`Ciphertext`] docs for an example of usage.
     pub fn encrypt_bool<R: CryptoRng + RngCore>(
         &self,
         value: bool,
@@ -143,6 +147,10 @@ impl<G: Group> PublicKey<G> {
 
     /// Verifies a proof of encryption correctness of a boolean value, which was presumably
     /// obtained via [`Self::encrypt_bool()`].
+    ///
+    /// # Examples
+    ///
+    /// See [`Ciphertext`] docs for an example of usage.
     pub fn verify_bool(&self, ciphertext: Ciphertext<G>, proof: &RingProof<G>) -> bool {
         let admissible_values = [G::identity(), G::generator()];
         proof.verify(
@@ -209,7 +217,7 @@ impl<G: Group> PublicKey<G> {
         }
     }
 
-    /// Verifies the range and sum proofs in this choice and returns variant ciphertexts
+    /// Verifies the zero-knowledge proofs in an [`EncryptedChoice`] and returns variant ciphertexts
     /// if they check out. Otherwise, returns `None`.
     pub fn verify_choice<'a>(&self, choice: &'a EncryptedChoice<G>) -> Option<&'a [Ciphertext<G>]> {
         // Some sanity checks.
