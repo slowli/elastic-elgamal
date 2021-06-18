@@ -56,6 +56,8 @@
 //! [`k256`]: https://docs.rs/k256/
 //! [docker-rng]: https://github.com/moby/moby/blob/master/pkg/namesgenerator/names-generator.go
 
+// Documentation settings.
+#![doc(html_root_url = "https://docs.rs/elastic-elgamal/0.1.0")]
 // Linter settings.
 #![warn(missing_debug_implementations, missing_docs, bare_trait_objects)]
 #![warn(clippy::all, clippy::pedantic)]
