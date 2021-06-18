@@ -89,14 +89,14 @@ impl<G: Group> ops::Mul<&G::Scalar> for &SecretKey<G> {
 /// This increases the memory footprint, but speeds up generating / verifying proofs.
 pub struct PublicKey<G: Group> {
     pub(crate) bytes: Vec<u8>,
-    pub(crate) full: G::Element,
+    pub(crate) element: G::Element,
 }
 
 impl<G: Group> Clone for PublicKey<G> {
     fn clone(&self) -> Self {
         PublicKey {
             bytes: self.bytes.clone(),
-            full: self.full,
+            element: self.element,
         }
     }
 }
@@ -120,26 +120,34 @@ where
 }
 
 impl<G: Group> PublicKey<G> {
-    /// Deserializes a public key from bytes. If the bytes do not represent a valid [`Group`]
-    /// element, returns `None`.
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
+    /// Deserializes a public key from bytes.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `bytes` has invalid byte size, does not represent a valid group element
+    /// or represents the group identity.
+    pub fn from_bytes(bytes: &[u8]) -> Result<Self, PublicKeyConversionError> {
         if bytes.len() != G::ELEMENT_SIZE {
-            return None;
+            return Err(PublicKeyConversionError::InvalidByteSize);
         }
 
-        G::deserialize_element(bytes)
-            .filter(|element| !G::is_identity(element))
-            .map(|full| PublicKey {
+        let element =
+            G::deserialize_element(bytes).ok_or(PublicKeyConversionError::InvalidGroupElement)?;
+        if G::is_identity(&element) {
+            Err(PublicKeyConversionError::IdentityKey)
+        } else {
+            Ok(Self {
                 bytes: bytes.to_vec(),
-                full,
+                element,
             })
+        }
     }
 
-    pub(crate) fn from_element(full: G::Element) -> Self {
+    pub(crate) fn from_element(element: G::Element) -> Self {
         let mut element_bytes = Vec::with_capacity(G::ELEMENT_SIZE);
-        G::serialize_element(&full, &mut element_bytes);
+        G::serialize_element(&element, &mut element_bytes);
         PublicKey {
-            full,
+            element,
             bytes: element_bytes,
         }
     }
@@ -151,7 +159,7 @@ impl<G: Group> PublicKey<G> {
 
     /// Returns the group element equivalent to this key.
     pub fn as_element(&self) -> G::Element {
-        self.full
+        self.element
     }
 }
 
@@ -162,11 +170,36 @@ impl<G: Group> From<&SecretKey<G>> for PublicKey<G> {
     }
 }
 
+/// Errors that can occur when converting other types to [`PublicKey`].
+#[derive(Debug, Clone)]
+pub enum PublicKeyConversionError {
+    /// Invalid size of the byte buffer.
+    InvalidByteSize,
+    /// Byte buffer has correct size, but does not represent a group element.
+    InvalidGroupElement,
+    /// Underlying group element is the group identity.
+    IdentityKey,
+}
+
+impl fmt::Display for PublicKeyConversionError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::InvalidByteSize => "invalid size of the byte buffer",
+            Self::InvalidGroupElement => {
+                "byte buffer has correct size, but does not represent a group element"
+            }
+            Self::IdentityKey => "underlying group element is the group identity",
+        })
+    }
+}
+
+impl std::error::Error for PublicKeyConversionError {}
+
 impl<G: Group> ops::Add<Self> for PublicKey<G> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        let element = self.full + rhs.full;
+        let element = self.element + rhs.element;
         Self::from_element(element)
     }
 }
@@ -175,8 +208,16 @@ impl<G: Group> ops::Mul<&G::Scalar> for PublicKey<G> {
     type Output = Self;
 
     fn mul(self, k: &G::Scalar) -> Self {
-        let element = self.full * k;
+        let element = self.element * k;
         Self::from_element(element)
+    }
+}
+
+impl<G: Group> ops::Mul<u64> for PublicKey<G> {
+    type Output = Self;
+
+    fn mul(self, k: u64) -> Self {
+        self * &G::Scalar::from(k)
     }
 }
 

@@ -176,7 +176,7 @@ impl<G: Group> ProofOfPossession<G> {
 
         for (public_key, response) in public_keys.zip(&self.responses) {
             let random_element =
-                G::vartime_double_mul_generator(&-self.challenge, public_key.full, response);
+                G::vartime_double_mul_generator(&-self.challenge, public_key.element, response);
             transcript.append_element::<G>(b"R", &random_element);
         }
 
@@ -290,7 +290,7 @@ impl<G: Group> LogEqualityProof<G> {
 
         let random_scalar = SecretKey::<G>::generate(rng);
         transcript.append_element::<G>(b"[x]G", &G::mul_generator(&random_scalar.0));
-        transcript.append_element::<G>(b"[x]K", &(log_base.full * &random_scalar.0));
+        transcript.append_element::<G>(b"[x]K", &(log_base.element * &random_scalar.0));
         let challenge = transcript.challenge_scalar::<G>(b"c");
         let response = random_scalar.0 + challenge * secret.0;
 
@@ -333,7 +333,7 @@ impl<G: Group> LogEqualityProof<G> {
             G::vartime_double_mul_generator(&-self.challenge, powers.0, &self.response),
             G::vartime_multi_mul(
                 &[-self.challenge, self.response],
-                [powers.1, log_base.full].iter().copied(),
+                [powers.1, log_base.element].iter().copied(),
             ),
         );
 
@@ -706,7 +706,7 @@ impl<G: Group> RingProof<G> {
                     ),
                     G::vartime_multi_mul(
                         [response, &neg_challenge].iter().copied(),
-                        [receiver.full, dh_element].iter().copied(),
+                        [receiver.element, dh_element].iter().copied(),
                     ),
                 );
 
@@ -813,7 +813,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
             ExtendedCiphertext::new(admissible_values[value_index], self.receiver, self.rng);
         let ring = Ring::new(
             self.rings.len(),
-            self.receiver.full,
+            self.receiver.element,
             ext_ciphertext.clone(),
             admissible_values,
             value_index,
@@ -826,7 +826,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
 
     /// Finishes building a [`RingProof`].
     pub fn build(self) -> RingProof<G> {
-        Ring::aggregate(self.rings, self.receiver.full, self.transcript, self.rng)
+        Ring::aggregate(self.rings, self.receiver.element, self.transcript, self.rng)
     }
 }
 
@@ -862,7 +862,7 @@ mod tests {
 
         for _ in 0..100 {
             let (generator_val, secret) = Keypair::generate(&mut rng).into_tuple();
-            let key_val = log_base.full * secret.expose_scalar();
+            let key_val = log_base.element * secret.expose_scalar();
             let proof = LogEqualityProof::new(
                 &log_base,
                 &secret,
@@ -893,7 +893,7 @@ mod tests {
 
         let signature_ring = Ring::new(
             0,
-            keypair.public().full,
+            keypair.public().element,
             ext_ciphertext,
             &admissible_values,
             0,
@@ -902,7 +902,7 @@ mod tests {
         );
         let proof = Ring::aggregate(
             vec![signature_ring],
-            keypair.public().full,
+            keypair.public().element,
             &mut transcript,
             &mut rng,
         );
@@ -924,7 +924,7 @@ mod tests {
         RingProof::initialize_transcript(&mut transcript, keypair.public());
         let signature_ring = Ring::new(
             0,
-            keypair.public().full,
+            keypair.public().element,
             ext_ciphertext,
             &admissible_values,
             1,
@@ -933,7 +933,7 @@ mod tests {
         );
         let proof = Ring::aggregate(
             vec![signature_ring],
-            keypair.public().full,
+            keypair.public().element,
             &mut transcript,
             &mut rng,
         );
@@ -966,7 +966,7 @@ mod tests {
 
             let signature_ring = Ring::new(
                 0,
-                keypair.public().full,
+                keypair.public().element,
                 ext_ciphertext,
                 &admissible_values,
                 val as usize,
@@ -975,7 +975,7 @@ mod tests {
             );
             let proof = Ring::aggregate(
                 vec![signature_ring],
-                keypair.public().full,
+                keypair.public().element,
                 &mut transcript,
                 &mut rng,
             );
@@ -1012,7 +1012,7 @@ mod tests {
 
                     let signature_ring = Ring::new(
                         ring_index,
-                        keypair.public().full,
+                        keypair.public().element,
                         ext_ciphertext,
                         &admissible_values,
                         val as usize,
@@ -1024,7 +1024,7 @@ mod tests {
                 })
                 .unzip();
 
-            let proof = Ring::aggregate(rings, keypair.public().full, &mut transcript, &mut rng);
+            let proof = Ring::aggregate(rings, keypair.public().element, &mut transcript, &mut rng);
 
             let mut transcript = Transcript::new(b"test_ring_encryption");
             assert!(proof.verify(
@@ -1078,7 +1078,7 @@ mod tests {
                     let ring_index = usize::from(ring_index);
                     let signature_ring = Ring::new(
                         ring_index,
-                        keypair.public().full,
+                        keypair.public().element,
                         ext_ciphertext,
                         &admissible_values[ring_index],
                         val_index,
@@ -1090,7 +1090,7 @@ mod tests {
                 })
                 .unzip();
 
-            let proof = Ring::aggregate(rings, keypair.public().full, &mut transcript, &mut rng);
+            let proof = Ring::aggregate(rings, keypair.public().element, &mut transcript, &mut rng);
             let admissible_values: Vec<_> = admissible_values
                 .iter()
                 .map(|values| values as &[_])

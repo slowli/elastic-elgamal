@@ -176,7 +176,7 @@ use subtle::ConstantTimeEq;
 use std::{
     cmp::Ordering,
     collections::{BTreeMap, HashMap, HashSet},
-    iter,
+    fmt, iter,
 };
 
 use crate::{
@@ -246,13 +246,33 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
-    /// Participant polynomial is malformed.
+    /// Public polynomial received from a participant is malformed.
     MalformedParticipantPolynomial,
-    /// Secret received from a participant does not correspond to their previous commitment.
+    /// Secret received from a participant does not correspond to their commitment via
+    /// public polynomial.
     InvalidSecret,
-    /// Proof of possession supplied with a participant's polynomial is invalid.
+    /// Proof of possession supplied with a participant's public polynomial is invalid.
     InvalidProofOfPossession,
 }
+
+impl fmt::Display for Error {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter.write_str(match self {
+            Self::MalformedParticipantPolynomial => {
+                "public polynomial received from a participant is malformed"
+            }
+            Self::InvalidSecret => {
+                "secret received from a participant does not correspond to their commitment via \
+                 public polynomial"
+            }
+            Self::InvalidProofOfPossession => {
+                "proof of possession supplied with a participant's public polynomial is invalid"
+            }
+        })
+    }
+}
+
+impl std::error::Error for Error {}
 
 /// Parameters of a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -433,7 +453,7 @@ impl<G: Group> PublicKeySet<G> {
             &denominators,
             participant_keys
                 .iter()
-                .map(|key| key.full)
+                .map(|key| key.element)
                 .take(params.threshold),
         );
 
@@ -503,7 +523,7 @@ impl<G: Group> PublicKeySet<G> {
         index: usize,
         proof: &LogEqualityProof<G>,
     ) -> Option<DecryptionShare<G>> {
-        let key_share = self.participant_keys[index].full;
+        let key_share = self.participant_keys[index].element;
         let dh_element = candidate_share.inner.dh_element;
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.commit(&mut transcript);
@@ -575,7 +595,7 @@ impl<G: Group> StartingParticipant<G> {
         let public_polynomial = self
             .polynomial
             .iter()
-            .map(|pair| pair.public().full)
+            .map(|pair| pair.public().element)
             .collect();
         (public_polynomial, &self.proof_of_possession)
     }
@@ -659,7 +679,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
         assert!(self.is_complete(), "cannot complete protocol at this point");
         debug_assert!(bool::from(
             G::mul_generator(&self.secret_share.0)
-                .ct_eq(&self.key_set.participant_keys[self.index].full)
+                .ct_eq(&self.key_set.participant_keys[self.index].element)
         ));
 
         ActiveParticipant {
@@ -729,7 +749,7 @@ impl<G: Group> ActiveParticipant<G> {
     pub fn new(key_set: PublicKeySet<G>, index: usize, secret_share: SecretKey<G>) -> Self {
         assert!(
             bool::from(
-                G::mul_generator(&secret_share.0).ct_eq(&key_set.participant_keys[index].full)
+                G::mul_generator(&secret_share.0).ct_eq(&key_set.participant_keys[index].element)
             ),
             "Secret key share does not correspond to public key share"
         );
@@ -788,7 +808,7 @@ impl<G: Group> ActiveParticipant<G> {
         R: CryptoRng + RngCore,
     {
         let dh_element = ciphertext.random_element * &self.secret_share.0;
-        let our_public_key = self.key_set.participant_keys[self.index].full;
+        let our_public_key = self.key_set.participant_keys[self.index].element;
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.key_set.commit(&mut transcript);
         transcript.append_u64(b"i", self.index as u64);
@@ -931,7 +951,7 @@ mod tests {
         assert_eq!(bob.secret_share.0, joint_secret);
 
         let group_info = group_info.complete().unwrap();
-        assert_eq!(group_info.shared_key.full, joint_pt);
+        assert_eq!(group_info.shared_key.element, joint_pt);
         assert_eq!(
             group_info.participant_keys,
             vec![PublicKey::from_element(joint_pt); 2]
@@ -995,7 +1015,7 @@ mod tests {
         assert!(actors.iter().all(|actor| actor.is_complete()));
 
         let key_set = key_set.complete().unwrap();
-        assert_eq!(key_set.shared_key.full, pt0);
+        assert_eq!(key_set.shared_key.element, pt0);
         assert_eq!(
             key_set.participant_keys,
             vec![

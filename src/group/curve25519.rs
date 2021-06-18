@@ -132,6 +132,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
+    use crate::PublicKeyConversionError;
 
     type PublicKey = crate::PublicKey<Curve25519Subgroup>;
 
@@ -144,7 +145,10 @@ mod tests {
             point += EIGHT_TORSION[1];
             assert!(!point.is_torsion_free());
             let bytes = point.compress().to_bytes();
-            assert!(PublicKey::from_bytes(&bytes).is_none());
+            assert!(matches!(
+                PublicKey::from_bytes(&bytes).unwrap_err(),
+                PublicKeyConversionError::InvalidGroupElement
+            ));
         }
     }
 
@@ -154,7 +158,10 @@ mod tests {
         for point in &EIGHT_TORSION {
             assert_eq!(point * small_order, EdwardsPoint::identity());
             let bytes = point.compress().to_bytes();
-            assert!(PublicKey::from_bytes(&bytes).is_none());
+            assert!(matches!(
+                PublicKey::from_bytes(&bytes).unwrap_err(),
+                PublicKeyConversionError::InvalidGroupElement
+            ));
         }
     }
 }

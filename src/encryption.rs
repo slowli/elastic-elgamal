@@ -101,7 +101,7 @@ impl<G: Group> PublicKey<G> {
     {
         let random_scalar = SecretKey::<G>::generate(rng);
         let random_element = G::mul_generator(&random_scalar.0);
-        let blinded_element = self.full * &random_scalar.0;
+        let blinded_element = self.element * &random_scalar.0;
         let ciphertext = Ciphertext {
             random_element,
             blinded_element,
@@ -417,7 +417,7 @@ impl<G: Group> ExtendedCiphertext<G> {
     ) -> Self {
         let random_scalar = SecretKey::<G>::generate(rng);
         let random_element = G::mul_generator(&random_scalar.0);
-        let dh_element = receiver.full * &random_scalar.0;
+        let dh_element = receiver.element * &random_scalar.0;
         let blinded_element = value + dh_element;
 
         Self {
