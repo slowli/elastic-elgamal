@@ -65,7 +65,7 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
     for i in 0..talliers.len() {
         for j in 0..talliers.len() {
             if j != i {
-                let message = talliers[i].message(j);
+                let message = talliers[i].message(j).clone();
                 talliers[j].process_message(i, message).unwrap();
             }
         }

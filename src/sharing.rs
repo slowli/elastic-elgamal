@@ -134,7 +134,7 @@
 //! for i in 0..3 {
 //!     for j in 0..3 {
 //!         if j != i {
-//!              let message = participants[i].message(j);
+//!              let message = participants[i].message(j).clone();
 //!              participants[j].process_message(i, message).unwrap();
 //!         }
 //!     }
@@ -172,17 +172,13 @@
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use subtle::ConstantTimeEq;
 
-use std::{
-    cmp::Ordering,
-    collections::{HashMap, HashSet},
-    fmt, iter, ops,
-};
+use std::{cmp::Ordering, collections::HashSet, fmt, iter, ops};
 
 #[cfg(feature = "serde")]
-use crate::serde::ElementHelper;
+use crate::serde::{ElementHelper, VecHelper};
 use crate::{
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
@@ -327,10 +323,31 @@ impl<G: Group> ops::AddAssign<&Self> for PublicPolynomial<G> {
     }
 }
 
+#[cfg(feature = "serde")]
+impl<G: Group> Serialize for PublicPolynomial<G> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        VecHelper::<ElementHelper<G>, 1>::serialize(&self.0, serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, G: Group> Deserialize<'de> for PublicPolynomial<G> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        VecHelper::<ElementHelper<G>, 1>::deserialize(deserializer).map(Self)
+    }
+}
+
 /// In-progress information about the participants of a threshold ElGamal encryption scheme
 /// before all participants' commitments are collected.
 #[derive(Debug)]
-// TODO: serialize
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct PartialPublicKeySet<G: Group> {
     params: Params,
     received_polynomials: Vec<Option<PublicPolynomial<G>>>,
@@ -584,8 +601,9 @@ impl<G: Group> PublicKeySet<G> {
 
 /// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// at the initial step of the protocol, before the [`PublicKeySet`] is determined.
-#[derive(Debug)]
-// TODO: serialize
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct StartingParticipant<G: Group> {
     params: Params,
     index: usize,
@@ -656,17 +674,17 @@ impl<G: Group> StartingParticipant<G> {
         let references = key_set.references_for_participant(self.index)?;
         let key_set = key_set.complete()?;
 
-        let mut messages: HashMap<_, _> = (0..self.params.shares)
+        let messages: Vec<_> = (0..self.params.shares)
             .map(|index| {
                 let power = G::Scalar::from(index as u64 + 1);
                 let mut poly_value = SecretKey::new(G::Scalar::from(0));
                 for keypair in self.polynomial.iter().rev() {
                     poly_value = poly_value * &power + keypair.secret().clone();
                 }
-                (index, poly_value)
+                poly_value
             })
             .collect();
-        let starting_share = messages.remove(&self.index).unwrap();
+        let starting_share = messages[self.index].clone();
 
         Some(ParticipantExchangingSecrets {
             key_set,
@@ -682,13 +700,15 @@ impl<G: Group> StartingParticipant<G> {
 /// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// at the intermediate step of the protocol, after the [`PublicKeySet`] is determined
 /// but before the participant gets messages from all other participants.
-#[derive(Debug)]
-// TODO: serialize
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct ParticipantExchangingSecrets<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
-    messages_to_others: HashMap<usize, SecretKey<G>>,
+    messages_to_others: Vec<SecretKey<G>>,
     secret_share: SecretKey<G>,
+    #[serde(with = "VecHelper::<ElementHelper<G>, 1>")]
     references: Vec<G::Element>,
     received_messages: HashSet<usize>,
 }
@@ -696,8 +716,8 @@ pub struct ParticipantExchangingSecrets<G: Group> {
 impl<G: Group> ParticipantExchangingSecrets<G> {
     /// Returns a message that should be sent to a scheme participant with the specified index.
     /// The message is not encrypted; it must be encrypted separately.
-    pub fn message(&self, participant_index: usize) -> SecretKey<G> {
-        self.messages_to_others[&participant_index].clone()
+    pub fn message(&self, participant_index: usize) -> &SecretKey<G> {
+        &self.messages_to_others[participant_index]
     }
 
     /// Checks whether we have received a message from a specific participant.
@@ -772,8 +792,9 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
 /// Personalized state of a participant of a threshold ElGamal encryption scheme once the participant
 /// receives all necessary messages. At this point, the participant can produce
 /// [`DecryptionShare`]s.
-#[derive(Debug)]
-// TODO: serialize
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct ActiveParticipant<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
@@ -986,9 +1007,9 @@ mod tests {
         let joint_pt = Ristretto::mul_generator(&joint_secret);
 
         let mut alice = alice.finalize_key_set(&group_info).unwrap();
-        let a2b_message = alice.message(1);
+        let a2b_message = alice.message(1).clone();
         let mut bob = bob.finalize_key_set(&group_info).unwrap();
-        let b2a_message = bob.message(0);
+        let b2a_message = bob.message(0).clone();
         bob.process_message(0, a2b_message).unwrap();
         alice.process_message(1, b2a_message).unwrap();
 
@@ -1054,7 +1075,7 @@ mod tests {
         for i in 0..3 {
             for j in 0..3 {
                 if j != i {
-                    let message = actors[i].message(j);
+                    let message = actors[i].message(j).clone();
                     actors[j].process_message(i, message).unwrap();
                 }
             }

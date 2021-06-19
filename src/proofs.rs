@@ -10,7 +10,7 @@ use subtle::ConstantTimeEq;
 use std::{fmt, io};
 
 #[cfg(feature = "serde")]
-use crate::serde::{ScalarHelper, ScalarVec};
+use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
     encryption::ExtendedCiphertext, group::Group, Ciphertext, Keypair, PublicKey, SecretKey,
 };
@@ -112,7 +112,7 @@ impl TranscriptForGroup for Transcript {
 pub struct ProofOfPossession<G: Group> {
     #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
-    #[cfg_attr(feature = "serde", serde(with = "ScalarVec::<G, 1>"))]
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ScalarHelper<G>, 1>"))]
     responses: Vec<G::Scalar>,
 }
 
@@ -663,7 +663,7 @@ impl<'a, G: Group> Ring<'a, G> {
 pub struct RingProof<G: Group> {
     #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     common_challenge: G::Scalar,
-    #[cfg_attr(feature = "serde", serde(with = "ScalarVec::<G, 2>"))]
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ScalarHelper<G>, 2>"))]
     ring_responses: Vec<G::Scalar>,
 }
 

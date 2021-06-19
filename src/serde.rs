@@ -2,15 +2,14 @@
 
 use base64ct::{Base64UrlUnpadded, Encoding};
 use serde::{
-    de::{Error as DeError, SeqAccess, Unexpected, Visitor},
-    ser::SerializeSeq,
+    de::{DeserializeOwned, Error as DeError, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
 };
 use zeroize::Zeroizing;
 
 use std::{fmt, marker::PhantomData};
 
-use crate::{group::Group, PublicKey, SecretKey};
+use crate::{group::Group, Keypair, PublicKey, SecretKey};
 
 fn serialize_bytes<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -115,9 +114,38 @@ impl<'de, G: Group> Deserialize<'de> for SecretKey<G> {
     }
 }
 
+impl<G: Group> Serialize for Keypair<G> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        self.secret().serialize(serializer)
+    }
+}
+
+impl<'de, G: Group> Deserialize<'de> for Keypair<G> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        SecretKey::<G>::deserialize(deserializer).map(From::from)
+    }
+}
+
+/// Common functionality for serialization helpers.
+pub(crate) trait Helper: Serialize + DeserializeOwned {
+    const PLURAL_DESCRIPTION: &'static str;
+    type Target;
+
+    fn from_target(target: &Self::Target) -> Self;
+    fn into_target(self) -> Self::Target;
+}
+
 /// Helper type to deserialize scalars.
+///
+/// **NB.** Scalars are assumed to be public! Secret scalars must be serialized via `SecretKey`.
 #[derive(Debug)]
-pub struct ScalarHelper<G: Group>(G::Scalar);
+pub(crate) struct ScalarHelper<G: Group>(G::Scalar);
 
 impl<G: Group> ScalarHelper<G> {
     pub fn serialize<S>(scalar: &G::Scalar, serializer: S) -> Result<S::Ok, S::Error>
@@ -147,6 +175,15 @@ impl<G: Group> ScalarHelper<G> {
     }
 }
 
+impl<G: Group> Serialize for ScalarHelper<G> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Self::serialize(&self.0, serializer)
+    }
+}
+
 impl<'de, G: Group> Deserialize<'de> for ScalarHelper<G> {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -156,9 +193,22 @@ impl<'de, G: Group> Deserialize<'de> for ScalarHelper<G> {
     }
 }
 
+impl<G: Group> Helper for ScalarHelper<G> {
+    const PLURAL_DESCRIPTION: &'static str = "group scalars";
+    type Target = G::Scalar;
+
+    fn from_target(target: &Self::Target) -> Self {
+        Self(*target)
+    }
+
+    fn into_target(self) -> Self::Target {
+        self.0
+    }
+}
+
 /// Helper type to deserialize group elements.
 #[derive(Debug)]
-pub struct ElementHelper<G: Group>(G::Element);
+pub(crate) struct ElementHelper<G: Group>(G::Element);
 
 impl<G: Group> ElementHelper<G> {
     pub fn serialize<S>(element: &G::Element, serializer: S) -> Result<S::Ok, S::Error>
@@ -188,36 +238,53 @@ impl<G: Group> ElementHelper<G> {
     }
 }
 
-pub struct ScalarVec<G, const MIN: usize>(PhantomData<G>);
+impl<G: Group> Serialize for ElementHelper<G> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        Self::serialize(&self.0, serializer)
+    }
+}
 
-impl<G: Group, const MIN: usize> ScalarVec<G, MIN> {
+impl<'de, G: Group> Deserialize<'de> for ElementHelper<G> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Self::deserialize(deserializer).map(Self)
+    }
+}
+
+impl<G: Group> Helper for ElementHelper<G> {
+    const PLURAL_DESCRIPTION: &'static str = "group elements";
+    type Target = G::Element;
+
+    fn from_target(target: &Self::Target) -> Self {
+        Self(*target)
+    }
+
+    fn into_target(self) -> Self::Target {
+        self.0
+    }
+}
+
+pub(crate) struct VecHelper<T, const MIN: usize>(PhantomData<T>);
+
+impl<T: Helper, const MIN: usize> VecHelper<T, MIN> {
     fn new() -> Self {
         Self(PhantomData)
     }
 
-    pub fn serialize<S>(scalars: &[G::Scalar], serializer: S) -> Result<S::Ok, S::Error>
+    pub fn serialize<S>(values: &[T::Target], serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
     {
-        debug_assert!(scalars.len() >= MIN);
-
-        let is_human_readable = serializer.is_human_readable();
-        let mut seq = serializer.serialize_seq(Some(scalars.len()))?;
-        for scalar in scalars {
-            let mut bytes = Vec::with_capacity(G::SCALAR_SIZE);
-            G::serialize_scalar(scalar, &mut bytes);
-
-            if is_human_readable {
-                let string = Base64UrlUnpadded::encode_string(&bytes);
-                seq.serialize_element(&string)?;
-            } else {
-                seq.serialize_element(&bytes)?;
-            }
-        }
-        seq.end()
+        debug_assert!(values.len() >= MIN);
+        serializer.collect_seq(values.iter().map(T::from_target))
     }
 
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<G::Scalar>, D::Error>
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Vec<T::Target>, D::Error>
     where
         D: Deserializer<'de>,
     {
@@ -225,18 +292,18 @@ impl<G: Group, const MIN: usize> ScalarVec<G, MIN> {
     }
 }
 
-impl<'de, G: Group, const MIN: usize> Visitor<'de> for ScalarVec<G, MIN> {
-    type Value = Vec<G::Scalar>;
+impl<'de, T: Helper, const MIN: usize> Visitor<'de> for VecHelper<T, MIN> {
+    type Value = Vec<T::Target>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "at least {} group scalars", MIN)
+        write!(formatter, "at least {} {}", MIN, T::PLURAL_DESCRIPTION)
     }
 
     fn visit_seq<S>(self, mut access: S) -> Result<Self::Value, S::Error>
     where
         S: SeqAccess<'de>,
     {
-        let mut scalars = if let Some(size) = access.size_hint() {
+        let mut scalars: Vec<T::Target> = if let Some(size) = access.size_hint() {
             if size < MIN {
                 return Err(S::Error::invalid_length(size, &self));
             }
@@ -245,8 +312,8 @@ impl<'de, G: Group, const MIN: usize> Visitor<'de> for ScalarVec<G, MIN> {
             Vec::new()
         };
 
-        while let Some(scalar) = access.next_element::<ScalarHelper<G>>()? {
-            scalars.push(scalar.0);
+        while let Some(value) = access.next_element::<T>()? {
+            scalars.push(value.into_target());
         }
         if scalars.len() >= MIN {
             Ok(scalars)
