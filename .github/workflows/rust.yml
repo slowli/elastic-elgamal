@@ -35,12 +35,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-targets
+          args: --workspace --all-features --all-targets
       - name: Run doc tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --doc
+          args: --workspace --all-features --doc
 
   build:
     runs-on: ubuntu-latest
@@ -70,29 +70,29 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          args: --workspace --all-targets -- -D warnings
+          args: --workspace --all-features --all-targets -- -D warnings
 
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-targets
+          args: --workspace --all-features --all-targets
       - name: Run doc tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --doc
+          args: --workspace --all-features --doc
 
       - name: Run voting (ristretto)
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: -p elastic-elgamal --example voting
+          args: -p elastic-elgamal --all-features --example voting
       - name: Run voting (k256)
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: -p elastic-elgamal --example voting -- k256
+          args: -p elastic-elgamal --all-features --example voting -- k256
 
   document:
     if: github.event_name == 'push'
@@ -119,7 +119,7 @@ jobs:
 
       - name: Build docs
         run: |
-          cargo clean --doc && cargo rustdoc -p elastic-elgamal
+          cargo clean --doc && cargo rustdoc -p elastic-elgamal --all-features
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@releases/v3
