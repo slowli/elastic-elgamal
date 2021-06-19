@@ -1,5 +1,6 @@
 //! Cryptographic keys for ElGamal encryption.
 
+use base64ct::{Base64UrlUnpadded, Encoding};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::group::Group;
@@ -105,7 +106,7 @@ impl<G: Group> fmt::Debug for PublicKey<G> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
             .debug_tuple("PublicKey")
-            .field(&base64::encode_config(&self.bytes, base64::URL_SAFE_NO_PAD))
+            .field(&Base64UrlUnpadded::encode_string(&self.bytes))
             .finish()
     }
 }

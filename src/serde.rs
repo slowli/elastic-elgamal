@@ -1,5 +1,6 @@
 //! (De)serialization utils.
 
+use base64ct::{Base64UrlUnpadded, Encoding};
 use serde::{
     de::{Error as DeError, SeqAccess, Unexpected, Visitor},
     ser::SerializeSeq,
@@ -15,7 +16,7 @@ where
     S: Serializer,
 {
     if serializer.is_human_readable() {
-        serializer.serialize_str(&base64::encode_config(value, base64::URL_SAFE_NO_PAD))
+        serializer.serialize_str(&Base64UrlUnpadded::encode_string(value))
     } else {
         serializer.serialize_bytes(value)
     }
@@ -35,7 +36,7 @@ where
         }
 
         fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
-            base64::decode_config(value, base64::URL_SAFE_NO_PAD)
+            Base64UrlUnpadded::decode_vec(value)
                 .map_err(|_| E::invalid_value(Unexpected::Str(value), &self))
         }
 
@@ -185,8 +186,8 @@ impl<G: Group, const MIN: usize> ScalarVec<G, MIN> {
             G::serialize_scalar(scalar, &mut bytes);
 
             if is_human_readable {
-                let str = base64::encode_config(&bytes, base64::URL_SAFE_NO_PAD);
-                seq.serialize_element(&str)?;
+                let string = Base64UrlUnpadded::encode_string(&bytes);
+                seq.serialize_element(&string)?;
             } else {
                 seq.serialize_element(&bytes)?;
             }

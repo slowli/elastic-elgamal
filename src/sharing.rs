@@ -171,9 +171,9 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
-use subtle::ConstantTimeEq;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use subtle::ConstantTimeEq;
 
 use std::{
     cmp::Ordering,
@@ -181,13 +181,13 @@ use std::{
     fmt, iter,
 };
 
+#[cfg(feature = "serde")]
+use crate::serde::ElementHelper;
 use crate::{
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
     Ciphertext, Keypair, PublicKey, SecretKey,
 };
-#[cfg(feature = "serde")]
-use crate::serde::ElementHelper;
 
 /// Computes value of a public polynomial at the specified point in variable time.
 fn polynomial_value<G: Group>(coefficients: &[G::Element], x: G::Scalar) -> G::Element {

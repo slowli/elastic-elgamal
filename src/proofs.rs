@@ -2,18 +2,18 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
-use smallvec::{smallvec, SmallVec};
-use subtle::ConstantTimeEq;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use smallvec::{smallvec, SmallVec};
+use subtle::ConstantTimeEq;
 
 use std::{fmt, io};
 
+#[cfg(feature = "serde")]
+use crate::serde::{ScalarHelper, ScalarVec};
 use crate::{
     encryption::ExtendedCiphertext, group::Group, Ciphertext, Keypair, PublicKey, SecretKey,
 };
-#[cfg(feature = "serde")]
-use crate::serde::{ScalarHelper, ScalarVec};
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
 pub(crate) trait TranscriptForGroup {

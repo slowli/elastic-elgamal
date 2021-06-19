@@ -7,13 +7,13 @@ use serde::{Deserialize, Serialize};
 
 use std::{collections::HashMap, fmt, marker::PhantomData, ops};
 
+#[cfg(feature = "serde")]
+use crate::serde::ElementHelper;
 use crate::{
     group::Group,
     proofs::{LogEqualityProof, RingProof, RingProofBuilder},
     PublicKey, SecretKey,
 };
-#[cfg(feature = "serde")]
-use crate::serde::ElementHelper;
 
 /// Ciphertext for ElGamal encryption.
 ///
