@@ -37,6 +37,23 @@
 //!   the traits specified by the [`elliptic-curve`] crate. For example,
 //!   the secp256k1 curve can be used via the [`k256`] crate.
 //!
+//! # Crate features
+//!
+//! ## `serde`
+//!
+//! *(off by default)*
+//!
+//! Enables [`Serialize`](::serde::Serialize) / [`Deserialize`](::serde::Deserialize)
+//! implementations for most types in the crate.
+//! Group scalars, elements and wrapper key types are serialized to human-readable formats
+//! (JSON, YAML, TOML, etc.) as strings that represent corresponding byte buffers using
+//! base64-url encoding without padding. For binary formats, byte buffers are serialized directly.
+//!
+//! For complex types (e.g., participant states from the [`sharing`] module), self-consistency
+//! checks are **not** performed on deserialization. That is, deserialization of such types
+//! should only be performed from a trusted source or in the presence of additional integrity
+//! checks.
+//!
 //! # Crate naming
 //!
 //! "Elastic" refers to pluggable backends, configurable params for threshold encryption,
