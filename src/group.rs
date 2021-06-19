@@ -11,6 +11,8 @@
 //! [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 //! [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm
 
+// FIXME: change serialization to use `&mut [u8]`
+
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use subtle::{ConditionallySelectable, ConstantTimeEq};

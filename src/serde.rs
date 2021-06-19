@@ -6,10 +6,11 @@ use serde::{
     ser::SerializeSeq,
     Deserialize, Deserializer, Serialize, Serializer,
 };
+use zeroize::Zeroizing;
 
 use std::{fmt, marker::PhantomData};
 
-use crate::{group::Group, PublicKey};
+use crate::{group::Group, PublicKey, SecretKey};
 
 fn serialize_bytes<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -70,7 +71,7 @@ where
     if deserializer.is_human_readable() {
         deserializer.deserialize_str(Base64Visitor)
     } else {
-        deserializer.deserialize_bytes(BytesVisitor)
+        deserializer.deserialize_byte_buf(BytesVisitor)
     }
 }
 
@@ -90,6 +91,27 @@ impl<'de, G: Group> Deserialize<'de> for PublicKey<G> {
     {
         let bytes = deserialize_bytes(deserializer)?;
         Self::from_bytes(&bytes).map_err(D::Error::custom)
+    }
+}
+
+impl<G: Group> Serialize for SecretKey<G> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let mut bytes = Zeroizing::new(Vec::with_capacity(G::SCALAR_SIZE));
+        G::serialize_scalar(&self.0, &mut bytes);
+        serialize_bytes(&bytes, serializer)
+    }
+}
+
+impl<'de, G: Group> Deserialize<'de> for SecretKey<G> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = Zeroizing::new(deserialize_bytes(deserializer)?);
+        Self::from_bytes(&bytes).ok_or_else(|| D::Error::custom("bytes do not represent a scalar"))
     }
 }
 
