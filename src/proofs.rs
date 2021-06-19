@@ -4,12 +4,16 @@ use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 use smallvec::{smallvec, SmallVec};
 use subtle::ConstantTimeEq;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use std::{fmt, io};
 
 use crate::{
     encryption::ExtendedCiphertext, group::Group, Ciphertext, Keypair, PublicKey, SecretKey,
 };
+#[cfg(feature = "serde")]
+use crate::serde::{ScalarHelper, ScalarVec};
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
 pub(crate) trait TranscriptForGroup {
@@ -104,8 +108,11 @@ impl TranscriptForGroup for Transcript {
 /// ```
 // TODO: serialization?
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProofOfPossession<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "ScalarVec::<G, 1>"))]
     responses: Vec<G::Scalar>,
 }
 
@@ -260,8 +267,11 @@ impl<G: Group> ProofOfPossession<G> {
 /// [fst]: https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic
 /// [this course]: http://www.cs.au.dk/~ivan/Sigma.pdf
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LogEqualityProof<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     response: G::Scalar,
 }
 
@@ -648,9 +658,12 @@ impl<'a, G: Group> Ring<'a, G> {
 /// [ring]: https://link.springer.com/content/pdf/10.1007/3-540-36178-2_26.pdf
 /// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 // TODO: range proof (think about base etc.)
 pub struct RingProof<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     common_challenge: G::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "ScalarVec::<G, 2>"))]
     ring_responses: Vec<G::Scalar>,
 }
 

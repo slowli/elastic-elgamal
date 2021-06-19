@@ -9,7 +9,7 @@
 use rand::{seq::IteratorRandom, thread_rng, Rng};
 use rand_core::{CryptoRng, RngCore};
 
-use std::{collections::HashMap, env, iter::FromIterator};
+use std::env;
 
 use elastic_elgamal::{
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
@@ -30,20 +30,6 @@ const TALLIER_PARAMS: Params = Params {
     threshold: 3,
 };
 
-fn dump_group_info<G: Group>(info: &PublicKeySet<G>) {
-    println!(
-        "Shared public key: {}",
-        hex::encode(info.shared_key().as_bytes())
-    );
-    for (i, key) in info.participant_keys().iter().enumerate() {
-        println!(
-            "Participant #{} key: {}",
-            i + 1,
-            hex::encode(key.as_bytes())
-        );
-    }
-}
-
 fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
     params: Params,
     rng: &mut R,
@@ -61,10 +47,12 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
             .add_participant(i, poly.to_vec(), proof)
             .unwrap();
     }
-    let group = partial_info.complete().unwrap();
+    let key_set = partial_info.complete().unwrap();
 
-    println!("Threshold encryption params:");
-    dump_group_info(&group);
+    println!(
+        "Threshold encryption params: {}",
+        serde_json::to_string_pretty(&key_set).unwrap()
+    );
 
     let mut talliers: Vec<_> = talliers
         .into_iter()
@@ -87,7 +75,7 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
         .into_iter()
         .map(|tallier| tallier.complete())
         .collect();
-    (group, talliers)
+    (key_set, talliers)
 }
 
 fn vote<G: Group>() {
@@ -107,22 +95,7 @@ fn vote<G: Group>() {
             .shared_key()
             .encrypt_choice(OPTIONS_COUNT, choice, &mut rng);
 
-        println!(
-            "Encrypted choice variants: {:#?}",
-            choice
-                .variants_unchecked()
-                .iter()
-                .map(|variant| hex::encode(&variant.to_bytes()[..]))
-                .collect::<Vec<_>>()
-        );
-        println!(
-            "Range proof: {}",
-            hex::encode(&choice.range_proof().to_bytes())
-        );
-        println!(
-            "Sum proof: {}",
-            hex::encode(&choice.sum_proof().to_bytes()[..])
-        );
+        println!("Choice: {}", serde_json::to_string_pretty(&choice).unwrap());
 
         let variants = key_set.shared_key().verify_choice(&choice).unwrap();
         for (i, &variant) in variants.iter().enumerate() {
@@ -131,11 +104,8 @@ fn vote<G: Group>() {
     }
 
     println!(
-        "\nCumulative choice variants: {:#?}",
-        encrypted_totals
-            .iter()
-            .map(|variant| hex::encode(&variant.to_bytes()[..]))
-            .collect::<Vec<_>>()
+        "\nCumulative choice variants: {}",
+        serde_json::to_string_pretty(&encrypted_totals).unwrap()
     );
 
     // After polling, talliers submit decryption shares together with a proof of their correctness.
@@ -153,16 +123,18 @@ fn vote<G: Group>() {
             .map(|(j, tallier)| (j, tallier.decrypt_share(variant_totals, &mut rng)))
             .map(|(j, (share, proof))| {
                 let share = share.to_bytes(); // Emulate transfer via network
+                let candidate_share = CandidateShare::from_bytes(&share).unwrap();
+                let share_with_proof = serde_json::json!({
+                    "share": &candidate_share,
+                    "proof": &proof,
+                });
+
                 println!(
-                    "Share from tallier #{}: {:#?}",
+                    "Share from tallier #{}: {}",
                     j + 1,
-                    HashMap::<_, _>::from_iter(vec![
-                        ("decryption", hex::encode(&share)),
-                        ("proof", hex::encode(&proof.to_bytes()[..])),
-                    ])
+                    serde_json::to_string_pretty(&share_with_proof).unwrap()
                 );
 
-                let candidate_share = CandidateShare::from_bytes(&share).unwrap();
                 let share = key_set
                     .verify_share(candidate_share, variant_totals, j, &proof)
                     .unwrap();

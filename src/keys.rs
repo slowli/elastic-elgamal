@@ -105,7 +105,7 @@ impl<G: Group> fmt::Debug for PublicKey<G> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter
             .debug_tuple("PublicKey")
-            .field(&hex::encode(&self.bytes))
+            .field(&base64::encode_config(&self.bytes, base64::URL_SAFE_NO_PAD))
             .finish()
     }
 }

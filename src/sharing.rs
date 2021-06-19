@@ -172,6 +172,8 @@
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use std::{
     cmp::Ordering,
@@ -184,6 +186,8 @@ use crate::{
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
     Ciphertext, Keypair, PublicKey, SecretKey,
 };
+#[cfg(feature = "serde")]
+use crate::serde::ElementHelper;
 
 /// Computes value of a public polynomial at the specified point in variable time.
 fn polynomial_value<G: Group>(coefficients: &[G::Element], x: G::Scalar) -> G::Element {
@@ -276,6 +280,7 @@ impl std::error::Error for Error {}
 
 /// Parameters of a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Params {
     /// Total number of shares / participants.
     pub shares: usize,
@@ -299,8 +304,10 @@ impl Params {
 /// In-progress information about the participants of a threshold ElGamal encryption scheme
 /// before all participants' commitments are collected.
 #[derive(Debug)]
+// TODO: serialize
 pub struct PartialPublicKeySet<G: Group> {
     params: Params,
+    // TODO: replace with `Vec<Option<_>>`?
     received_polynomials: BTreeMap<usize, Vec<G::Element>>,
 }
 
@@ -431,6 +438,8 @@ impl<G: Group> PartialPublicKeySet<G> {
 /// Full public information about the participants of a threshold ElGamal encryption scheme
 /// after all participants' commitments are collected.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct PublicKeySet<G: Group> {
     params: Params,
     shared_key: PublicKey<G>,
@@ -546,6 +555,7 @@ impl<G: Group> PublicKeySet<G> {
 /// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// at the initial step of the protocol, before the [`PublicKeySet`] is determined.
 #[derive(Debug)]
+// TODO: serialize
 pub struct StartingParticipant<G: Group> {
     params: Params,
     index: usize,
@@ -643,6 +653,7 @@ impl<G: Group> StartingParticipant<G> {
 /// at the intermediate step of the protocol, after the [`PublicKeySet`] is determined
 /// but before the participant gets messages from all other participants.
 #[derive(Debug)]
+// TODO: serialize
 pub struct ParticipantExchangingSecrets<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
@@ -732,6 +743,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
 /// receives all necessary messages. At this point, the participant can produce
 /// [`DecryptionShare`]s.
 #[derive(Debug)]
+// TODO: serialize
 pub struct ActiveParticipant<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
@@ -826,7 +838,10 @@ impl<G: Group> ActiveParticipant<G> {
 
 /// Decryption share for a certain [`Ciphertext`] in a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct DecryptionShare<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ElementHelper::<G>"))]
     dh_element: G::Element,
 }
 
@@ -876,6 +891,8 @@ impl<G: Group> DecryptionShare<G> {
 /// Candidate for a [`DecryptionShare`] that is not yet verified using
 /// [`PublicKeySet::verify_share()`].
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent, bound = ""))]
 pub struct CandidateShare<G: Group> {
     inner: DecryptionShare<G>,
 }

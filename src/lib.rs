@@ -71,6 +71,8 @@ mod encryption;
 pub mod group;
 mod keys;
 mod proofs;
+#[cfg(feature = "serde")]
+mod serde;
 pub mod sharing;
 
 pub use crate::{

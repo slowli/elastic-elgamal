@@ -2,6 +2,8 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use std::{collections::HashMap, fmt, marker::PhantomData, ops};
 
@@ -10,6 +12,8 @@ use crate::{
     proofs::{LogEqualityProof, RingProof, RingProofBuilder},
     PublicKey, SecretKey,
 };
+#[cfg(feature = "serde")]
+use crate::serde::ElementHelper;
 
 /// Ciphertext for ElGamal encryption.
 ///
@@ -49,8 +53,11 @@ use crate::{
 /// assert!(recipient.public().verify_bool(enc, &proof));
 /// ```
 #[derive(Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Ciphertext<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ElementHelper::<G>"))]
     pub(crate) random_element: G::Element,
+    #[cfg_attr(feature = "serde", serde(with = "ElementHelper::<G>"))]
     pub(crate) blinded_element: G::Element,
 }
 
@@ -478,6 +485,8 @@ impl<G: Group> ExtendedCiphertext<G> {
 /// }
 /// ```
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct EncryptedChoice<G: Group> {
     variants: Vec<Ciphertext<G>>,
     range_proof: RingProof<G>,
