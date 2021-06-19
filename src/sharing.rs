@@ -467,7 +467,7 @@ impl<G: Group> PartialPublicKeySet<G> {
         }
     }
 
-    fn references_for_participant(&self, participant_index: usize) -> Option<Vec<G::Element>> {
+    fn commitments_for_participant(&self, participant_index: usize) -> Option<Vec<G::Element>> {
         assert!(participant_index < self.params.shares);
         if !self.is_complete() {
             return None;
@@ -671,7 +671,7 @@ impl<G: Group> StartingParticipant<G> {
         key_set: &PartialPublicKeySet<G>,
     ) -> Option<ParticipantExchangingSecrets<G>> {
         assert_eq!(key_set.params, self.params);
-        let references = key_set.references_for_participant(self.index)?;
+        let participant_commitments = key_set.commitments_for_participant(self.index)?;
         let key_set = key_set.complete()?;
 
         let messages: Vec<_> = (0..self.params.shares)
@@ -691,7 +691,7 @@ impl<G: Group> StartingParticipant<G> {
             index: self.index,
             secret_share: starting_share,
             messages_to_others: messages,
-            references,
+            participant_commitments,
             received_messages: HashSet::new(),
         })
     }
@@ -708,8 +708,8 @@ pub struct ParticipantExchangingSecrets<G: Group> {
     index: usize,
     messages_to_others: Vec<SecretKey<G>>,
     secret_share: SecretKey<G>,
-    #[serde(with = "VecHelper::<ElementHelper<G>, 1>")]
-    references: Vec<G::Element>,
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ElementHelper<G>, 1>"))]
+    participant_commitments: Vec<G::Element>,
     received_messages: HashSet<usize>,
 }
 
@@ -778,7 +778,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
         );
 
         // Check that the received value is valid.
-        let expected_value = &self.references[participant_index];
+        let expected_value = &self.participant_commitments[participant_index];
         if !bool::from(expected_value.ct_eq(&G::mul_generator(&message.0))) {
             return Err(Error::InvalidSecret);
         }

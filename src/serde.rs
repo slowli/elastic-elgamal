@@ -110,7 +110,8 @@ impl<'de, G: Group> Deserialize<'de> for SecretKey<G> {
         D: Deserializer<'de>,
     {
         let bytes = Zeroizing::new(deserialize_bytes(deserializer)?);
-        Self::from_bytes(&bytes).ok_or_else(|| D::Error::custom("bytes do not represent a scalar"))
+        Self::from_bytes(&bytes)
+            .ok_or_else(|| D::Error::custom("bytes do not represent a group scalar"))
     }
 }
 
@@ -164,7 +165,7 @@ impl<G: Group> ScalarHelper<G> {
         let bytes = deserialize_bytes(deserializer)?;
         if bytes.len() == G::SCALAR_SIZE {
             G::deserialize_scalar(&bytes)
-                .ok_or_else(|| D::Error::invalid_value(Unexpected::Bytes(&bytes), &"group scalar"))
+                .ok_or_else(|| D::Error::custom("bytes do not represent a group scalar"))
         } else {
             let expected_len = G::SCALAR_SIZE.to_string();
             Err(D::Error::invalid_length(
@@ -227,7 +228,7 @@ impl<G: Group> ElementHelper<G> {
         let bytes = deserialize_bytes(deserializer)?;
         if bytes.len() == G::ELEMENT_SIZE {
             G::deserialize_element(&bytes)
-                .ok_or_else(|| D::Error::invalid_value(Unexpected::Bytes(&bytes), &"group element"))
+                .ok_or_else(|| D::Error::custom("bytes do not represent a group element"))
         } else {
             let expected_len = G::ELEMENT_SIZE.to_string();
             Err(D::Error::invalid_length(
@@ -320,5 +321,187 @@ impl<'de, T: Helper, const MIN: usize> Visitor<'de> for VecHelper<T, MIN> {
         } else {
             Err(S::Error::invalid_length(scalars.len(), &self))
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rand::thread_rng;
+
+    use super::*;
+    use crate::group::Ristretto;
+
+    #[test]
+    fn key_roundtrip() {
+        let keypair = Keypair::<Ristretto>::generate(&mut thread_rng());
+        let json = serde_json::to_value(&keypair).unwrap();
+        assert!(json.is_string(), "{:?}", json);
+        let keypair_copy: Keypair<Ristretto> = serde_json::from_value(json).unwrap();
+        assert_eq!(keypair_copy.public(), keypair.public());
+
+        let json = serde_json::to_value(keypair.public()).unwrap();
+        assert!(json.is_string(), "{:?}", json);
+        let public_key: PublicKey<Ristretto> = serde_json::from_value(json).unwrap();
+        assert_eq!(public_key, *keypair.public());
+
+        let json = serde_json::to_value(keypair.secret()).unwrap();
+        assert!(json.is_string(), "{:?}", json);
+        let secret_key: SecretKey<Ristretto> = serde_json::from_value(json).unwrap();
+        assert_eq!(secret_key.expose_scalar(), keypair.secret().expose_scalar());
+    }
+
+    #[test]
+    fn public_key_deserialization_with_incorrect_length() {
+        let err = serde_json::from_str::<PublicKey<Ristretto>>("\"dGVzdA\"").unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("invalid size of the byte buffer"),
+            "{}",
+            err_string
+        );
+    }
+
+    #[test]
+    fn public_key_deserialization_of_non_element() {
+        let err = serde_json::from_str::<PublicKey<Ristretto>>(
+            "\"tNDkeYUVQWgh34d-RqaElOk7yFB8d2qCh5f4Vi2euT1\"",
+        )
+        .unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("does not represent a group element"),
+            "{}",
+            err_string
+        );
+    }
+
+    #[test]
+    fn secret_key_deserialization_with_incorrect_length() {
+        let err = serde_json::from_str::<SecretKey<Ristretto>>("\"dGVzdA\"").unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("bytes do not represent a group scalar"),
+            "{}",
+            err_string
+        );
+    }
+
+    #[test]
+    fn secret_key_deserialization_of_invalid_scalar() {
+        // Last `__` chars set the upper byte of the scalar bytes to 0xff, which is invalid
+        // (all scalars are less than 2^253).
+        let err = serde_json::from_str::<SecretKey<Ristretto>>(
+            "\"nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__\"",
+        )
+        .unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("bytes do not represent a group scalar"),
+            "{}",
+            err_string
+        );
+    }
+
+    #[derive(Debug, PartialEq, Serialize, Deserialize)]
+    #[serde(bound = "")]
+    struct TestObject<G: Group> {
+        #[serde(with = "ScalarHelper::<G>")]
+        scalar: G::Scalar,
+        #[serde(with = "ElementHelper::<G>")]
+        element: G::Element,
+        #[serde(with = "VecHelper::<ScalarHelper<G>, 2>")]
+        more_scalars: Vec<G::Scalar>,
+    }
+
+    impl TestObject<Ristretto> {
+        fn sample() -> Self {
+            Self {
+                scalar: 12345_u64.into(),
+                element: Ristretto::mul_generator(&54321_u64.into()),
+                more_scalars: vec![7_u64.into(), 890_u64.into()],
+            }
+        }
+    }
+
+    #[test]
+    fn helpers_roundtrip() {
+        let object = TestObject::sample();
+        let json = serde_json::to_value(&object).unwrap();
+        let object_copy: TestObject<Ristretto> = serde_json::from_value(json).unwrap();
+        assert_eq!(object_copy, object);
+    }
+
+    #[test]
+    fn scalar_helper_invalid_scalar() {
+        let object = TestObject::sample();
+        let mut json = serde_json::to_value(&object).unwrap();
+        json.as_object_mut()
+            .unwrap()
+            .insert("scalar".to_owned(), "dGVzdA".into());
+
+        let err = serde_json::from_value::<TestObject<Ristretto>>(json.clone()).unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("invalid length 4, expected 32"),
+            "{}",
+            err
+        );
+
+        json.as_object_mut().unwrap().insert(
+            "scalar".to_owned(),
+            "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__".into(),
+        );
+        let err = serde_json::from_value::<TestObject<Ristretto>>(json).unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("bytes do not represent a group scalar"),
+            "{}",
+            err_string
+        );
+    }
+
+    #[test]
+    fn element_helper_invalid_element() {
+        let object = TestObject::sample();
+        let mut json = serde_json::to_value(&object).unwrap();
+        json.as_object_mut()
+            .unwrap()
+            .insert("element".to_owned(), "dGVzdA".into());
+
+        let err = serde_json::from_value::<TestObject<Ristretto>>(json.clone()).unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("invalid length 4, expected 32"),
+            "{}",
+            err
+        );
+
+        json.as_object_mut().unwrap().insert(
+            "element".to_owned(),
+            "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__".into(),
+        );
+        let err = serde_json::from_value::<TestObject<Ristretto>>(json).unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("bytes do not represent a group element"),
+            "{}",
+            err_string
+        );
+    }
+
+    #[test]
+    fn vec_helper_invalid_length() {
+        let object = TestObject::sample();
+        let mut json = serde_json::to_value(&object).unwrap();
+        let more_scalars = &mut json.as_object_mut().unwrap()["more_scalars"];
+        more_scalars.as_array_mut().unwrap().pop();
+
+        let err = serde_json::from_value::<TestObject<Ristretto>>(json).unwrap_err();
+        let err_string = err.to_string();
+        assert!(
+            err_string.contains("invalid length 1, expected at least 2 group scalars"),
+            "{}",
+            err_string
+        );
     }
 }
