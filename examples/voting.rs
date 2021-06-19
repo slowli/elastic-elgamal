@@ -37,6 +37,10 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
     let talliers: Vec<_> = (0..params.shares)
         .map(|i| StartingParticipant::<G>::new(params, i, rng))
         .collect();
+    println!(
+        "Talliers: {}",
+        serde_json::to_string_pretty(&talliers).unwrap()
+    );
 
     // Public tallier parameters together with proofs may be shared publicly
     // (e.g., on a blockchain).
@@ -47,6 +51,11 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
             .add_participant(i, poly.to_vec(), proof)
             .unwrap();
     }
+    println!(
+        "Partial public key set after receiving all commitments: {}",
+        serde_json::to_string_pretty(&partial_info).unwrap()
+    );
+
     let key_set = partial_info.complete().unwrap();
 
     println!(
@@ -58,6 +67,10 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
         .into_iter()
         .map(|tallier| tallier.finalize_key_set(&partial_info).unwrap())
         .collect();
+    println!(
+        "Talliers after finalizing key set: {}",
+        serde_json::to_string_pretty(&talliers).unwrap()
+    );
 
     // Then, talliers exchange private shares with each other.
     // This is the only private / non-auditable part of the protocol, although it can be made
@@ -75,6 +88,10 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
         .into_iter()
         .map(|tallier| tallier.complete())
         .collect();
+    println!(
+        "Active talliers: {}",
+        serde_json::to_string_pretty(&talliers).unwrap()
+    );
     (key_set, talliers)
 }
 
