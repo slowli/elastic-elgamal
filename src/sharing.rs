@@ -177,8 +177,8 @@ use subtle::ConstantTimeEq;
 
 use std::{
     cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
-    fmt, iter,
+    collections::{HashMap, HashSet},
+    fmt, iter, ops,
 };
 
 #[cfg(feature = "serde")]
@@ -188,20 +188,6 @@ use crate::{
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
     Ciphertext, Keypair, PublicKey, SecretKey,
 };
-
-/// Computes value of a public polynomial at the specified point in variable time.
-fn polynomial_value<G: Group>(coefficients: &[G::Element], x: G::Scalar) -> G::Element {
-    let mut val = G::Scalar::from(1_u64);
-    let scalars: Vec<_> = (0..coefficients.len())
-        .map(|_| {
-            let output = val;
-            val = val * x;
-            output
-        })
-        .collect();
-
-    G::vartime_multi_mul(&scalars, coefficients.iter().copied())
-}
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
 /// at the given points. The indexes are zero-based, hence points are determined as
@@ -301,14 +287,53 @@ impl Params {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PublicPolynomial<G: Group>(Vec<G::Element>);
+
+impl<G: Group> PublicPolynomial<G> {
+    fn identity(len: usize) -> Self {
+        Self(vec![G::identity(); len])
+    }
+
+    fn value_at_zero(&self) -> G::Element {
+        self.0[0]
+    }
+
+    /// Computes value of this public polynomial at the specified point in variable time.
+    fn value_at(&self, x: G::Scalar) -> G::Element {
+        let mut val = G::Scalar::from(1_u64);
+        let scalars: Vec<_> = (0..self.0.len())
+            .map(|_| {
+                let output = val;
+                val = val * x;
+                output
+            })
+            .collect();
+
+        G::vartime_multi_mul(&scalars, self.0.iter().copied())
+    }
+}
+
+impl<G: Group> ops::AddAssign<&Self> for PublicPolynomial<G> {
+    fn add_assign(&mut self, rhs: &Self) {
+        debug_assert_eq!(
+            self.0.len(),
+            rhs.0.len(),
+            "cannot add polynomials of different degrees"
+        );
+        for (val, &rhs_val) in self.0.iter_mut().zip(&rhs.0) {
+            *val = *val + rhs_val;
+        }
+    }
+}
+
 /// In-progress information about the participants of a threshold ElGamal encryption scheme
 /// before all participants' commitments are collected.
 #[derive(Debug)]
 // TODO: serialize
 pub struct PartialPublicKeySet<G: Group> {
     params: Params,
-    // TODO: replace with `Vec<Option<_>>`?
-    received_polynomials: BTreeMap<usize, Vec<G::Element>>,
+    received_polynomials: Vec<Option<PublicPolynomial<G>>>,
 }
 
 impl<G: Group> PartialPublicKeySet<G> {
@@ -316,19 +341,27 @@ impl<G: Group> PartialPublicKeySet<G> {
     pub fn new(params: Params) -> Self {
         Self {
             params,
-            received_polynomials: BTreeMap::new(),
+            received_polynomials: vec![None; params.shares],
         }
     }
 
     /// Checks whether a valid polynomial commitment was received from a participant with
     /// the specified `index`.
     pub fn has_participant(&self, index: usize) -> bool {
-        self.received_polynomials.contains_key(&index)
+        self.received_polynomials
+            .get(index)
+            .map_or(false, Option::is_some)
     }
 
     /// Checks whether this set is complete (has commitments from all participants).
     pub fn is_complete(&self) -> bool {
-        self.received_polynomials.len() == self.params.shares
+        self.received_polynomials.iter().all(Option::is_some)
+    }
+
+    fn all_polynomials(&self) -> impl Iterator<Item = &PublicPolynomial<G>> + '_ {
+        self.received_polynomials
+            .iter()
+            .map(|poly| poly.as_ref().unwrap())
     }
 
     /// Completes this set returning [`PublicKeySet`]. Returns `None` if this set is currently
@@ -338,24 +371,22 @@ impl<G: Group> PartialPublicKeySet<G> {
             return None;
         }
 
-        let coefficients = self.received_polynomials.values().fold(
-            vec![G::identity(); self.params.threshold],
+        let coefficients = self.all_polynomials().fold(
+            PublicPolynomial::identity(self.params.threshold),
             |mut acc, val| {
-                for (i, &coefficient) in val.iter().enumerate() {
-                    acc[i] = acc[i] + coefficient;
-                }
+                acc += val;
                 acc
             },
         );
 
         // The shared public key is the value of the resulting polynomial at `0`.
-        let shared_key = PublicKey::from_element(coefficients[0]);
+        let shared_key = PublicKey::from_element(coefficients.value_at_zero());
         // A participant's public key is the value of the resulting polynomial at their index
         // (1-based).
         let participant_keys: Vec<_> = (0..self.params.shares)
             .map(|index| {
                 let x = G::Scalar::from(index as u64 + 1);
-                PublicKey::from_element(polynomial_value::<G>(&coefficients, x))
+                PublicKey::from_element(coefficients.value_at(x))
             })
             .collect();
 
@@ -412,7 +443,7 @@ impl<G: Group> PartialPublicKeySet<G> {
             .map(PublicKey::from_element)
             .collect();
         if proof_of_possession.verify(public_keys.iter(), &mut transcript) {
-            self.received_polynomials.insert(index, polynomial);
+            self.received_polynomials[index] = Some(PublicPolynomial(polynomial));
             Ok(())
         } else {
             Err(Error::InvalidProofOfPossession)
@@ -427,9 +458,8 @@ impl<G: Group> PartialPublicKeySet<G> {
 
         let power = G::Scalar::from(participant_index as u64 + 1);
         Some(
-            self.received_polynomials
-                .values()
-                .map(|polynomial| polynomial_value::<G>(&polynomial, power))
+            self.all_polynomials()
+                .map(|polynomial| polynomial.value_at(power))
                 .collect(),
         )
     }
