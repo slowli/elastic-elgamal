@@ -147,7 +147,7 @@ impl<G: Group> PublicKey<G> {
     ) -> (Ciphertext<G>, RingProof<G>) {
         let mut transcript = Transcript::new(b"bool_encryption");
         let admissible_values = [G::identity(), G::generator()];
-        let mut builder = RingProofBuilder::new(self, &mut transcript, rng);
+        let mut builder = RingProofBuilder::new(self, 1, &mut transcript, rng);
         let ciphertext = builder.add_value(&admissible_values, value as usize);
         (ciphertext.inner, builder.build())
     }
@@ -192,7 +192,8 @@ impl<G: Group> PublicKey<G> {
 
         let admissible_values = [G::identity(), G::generator()];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");
-        let mut proof_builder = RingProofBuilder::new(self, &mut transcript, rng);
+        let mut proof_builder =
+            RingProofBuilder::new(self, number_of_variants, &mut transcript, rng);
 
         let variants: Vec<_> = (0..number_of_variants)
             .map(|i| proof_builder.add_value(&admissible_values, (i == choice) as usize))

@@ -36,8 +36,8 @@ impl<G: Group> StartingParticipant<G> {
     ///
     /// Panics if `index` is out of bounds as per `params`.
     pub fn new<R>(params: Params, index: usize, rng: &mut R) -> Self
-        where
-            R: CryptoRng + RngCore,
+    where
+        R: CryptoRng + RngCore,
     {
         assert!(
             index < params.shares,
@@ -285,8 +285,8 @@ impl<G: Group> ActiveParticipant<G> {
         ciphertext: Ciphertext<G>,
         rng: &mut R,
     ) -> (DecryptionShare<G>, LogEqualityProof<G>)
-        where
-            R: CryptoRng + RngCore,
+    where
+        R: CryptoRng + RngCore,
     {
         let dh_element = ciphertext.random_element * &self.secret_share.0;
         let our_public_key = self.key_set.participant_keys[self.index].element;
@@ -540,12 +540,12 @@ mod tests {
         let ciphertext = key_set.shared_key.encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         assert!(key_set
-            .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof, )
+            .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof,)
             .is_some());
 
         let (bob_share, proof) = bob.decrypt_share(ciphertext, &mut rng);
         assert!(key_set
-            .verify_share(bob_share.to_candidate(), ciphertext, 1, &proof, )
+            .verify_share(bob_share.to_candidate(), ciphertext, 1, &proof,)
             .is_some());
 
         // We need to find `a0` from the following equations:

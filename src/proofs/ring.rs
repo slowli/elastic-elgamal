@@ -456,12 +456,17 @@ impl<G: Group, R: fmt::Debug> fmt::Debug for RingProofBuilder<'_, G, R> {
 
 impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
     /// Starts building a [`RingProof`].
-    pub fn new(receiver: &'a PublicKey<G>, transcript: &'a mut Transcript, rng: &'a mut R) -> Self {
+    pub fn new(
+        receiver: &'a PublicKey<G>,
+        ring_count: usize,
+        transcript: &'a mut Transcript,
+        rng: &'a mut R,
+    ) -> Self {
         RingProof::<G>::initialize_transcript(transcript, receiver);
         Self {
             receiver,
             transcript,
-            rings: vec![],
+            rings: Vec::with_capacity(ring_count),
             rng,
         }
     }
@@ -740,7 +745,7 @@ mod tests {
         let mut transcript = Transcript::new(b"test_ring_encryption");
         let admissible_values = [RistrettoPoint::identity(), Ristretto::generator()];
 
-        let mut builder = RingProofBuilder::new(keypair.public(), &mut transcript, &mut rng);
+        let mut builder = RingProofBuilder::new(keypair.public(), 5, &mut transcript, &mut rng);
         let ciphertexts: Vec<_> = (0..5)
             .map(|i| builder.add_value(&admissible_values, i & 1).inner)
             .collect();
