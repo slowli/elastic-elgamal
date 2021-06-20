@@ -2,11 +2,15 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use smallvec::{smallvec, SmallVec};
 use subtle::ConstantTimeEq;
 
 use std::{fmt, io};
 
+#[cfg(feature = "serde")]
+use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
     encryption::ExtendedCiphertext, group::Group, Ciphertext, Keypair, PublicKey, SecretKey,
 };
@@ -32,7 +36,7 @@ impl TranscriptForGroup for Transcript {
     }
 
     fn append_element<G: Group>(&mut self, label: &'static [u8], element: &G::Element) {
-        let mut output = Vec::with_capacity(G::ELEMENT_SIZE);
+        let mut output = vec![0_u8; G::ELEMENT_SIZE];
         G::serialize_element(element, &mut output);
         self.append_element_bytes(label, &output);
     }
@@ -104,8 +108,11 @@ impl TranscriptForGroup for Transcript {
 /// ```
 // TODO: serialization?
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct ProofOfPossession<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ScalarHelper<G>, 1>"))]
     responses: Vec<G::Scalar>,
 }
 
@@ -260,8 +267,11 @@ impl<G: Group> ProofOfPossession<G> {
 /// [fst]: https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic
 /// [this course]: http://www.cs.au.dk/~ivan/Sigma.pdf
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct LogEqualityProof<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     response: G::Scalar,
 }
 
@@ -350,9 +360,9 @@ impl<G: Group> LogEqualityProof<G> {
     /// Serializes this proof into bytes. As described [above](#implementation-details),
     /// the is serialized as 2 scalars: `(c, s)`, i.e., challenge and response.
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(2 * G::SCALAR_SIZE);
-        G::serialize_scalar(&self.challenge, &mut bytes);
-        G::serialize_scalar(&self.response, &mut bytes);
+        let mut bytes = vec![0_u8; 2 * G::SCALAR_SIZE];
+        G::serialize_scalar(&self.challenge, &mut bytes[..G::SCALAR_SIZE]);
+        G::serialize_scalar(&self.response, &mut bytes[G::SCALAR_SIZE..]);
         bytes
     }
 }
@@ -648,9 +658,12 @@ impl<'a, G: Group> Ring<'a, G> {
 /// [ring]: https://link.springer.com/content/pdf/10.1007/3-540-36178-2_26.pdf
 /// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 // TODO: range proof (think about base etc.)
 pub struct RingProof<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     common_challenge: G::Scalar,
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ScalarHelper<G>, 2>"))]
     ring_responses: Vec<G::Scalar>,
 }
 
@@ -737,11 +750,12 @@ impl<G: Group> RingProof<G> {
     /// the proof is serialized as the common challenge `e_0` followed by response scalars `s_*`
     /// corresponding successively to each admissible value in each ring.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(G::SCALAR_SIZE * (1 + self.total_rings_size()));
-        G::serialize_scalar(&self.common_challenge, &mut bytes);
+        let mut bytes = vec![0_u8; G::SCALAR_SIZE * (1 + self.total_rings_size())];
+        G::serialize_scalar(&self.common_challenge, &mut bytes[..G::SCALAR_SIZE]);
 
-        for response in &self.ring_responses {
-            G::serialize_scalar(response, &mut bytes);
+        let chunks = bytes[G::SCALAR_SIZE..].chunks_mut(G::SCALAR_SIZE);
+        for (response, buffer) in self.ring_responses.iter().zip(chunks) {
+            G::serialize_scalar(response, buffer);
         }
         bytes
     }

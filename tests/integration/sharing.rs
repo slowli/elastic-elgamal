@@ -40,7 +40,7 @@ impl<G: Group> Rig<G> {
         for i in 0..participants.len() {
             for j in 0..participants.len() {
                 if j != i {
-                    let message = participants[i].message(j);
+                    let message = participants[i].message(j).clone();
                     participants[j].process_message(i, message).unwrap();
                 }
             }

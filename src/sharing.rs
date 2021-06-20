@@ -134,7 +134,7 @@
 //! for i in 0..3 {
 //!     for j in 0..3 {
 //!         if j != i {
-//!              let message = participants[i].message(j);
+//!              let message = participants[i].message(j).clone();
 //!              participants[j].process_message(i, message).unwrap();
 //!         }
 //!     }
@@ -171,33 +171,19 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use subtle::ConstantTimeEq;
 
-use std::{
-    cmp::Ordering,
-    collections::{BTreeMap, HashMap, HashSet},
-    fmt, iter,
-};
+use std::{cmp::Ordering, collections::HashSet, fmt, iter, ops};
 
+#[cfg(feature = "serde")]
+use crate::serde::{ElementHelper, VecHelper};
 use crate::{
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
     Ciphertext, Keypair, PublicKey, SecretKey,
 };
-
-/// Computes value of a public polynomial at the specified point in variable time.
-fn polynomial_value<G: Group>(coefficients: &[G::Element], x: G::Scalar) -> G::Element {
-    let mut val = G::Scalar::from(1_u64);
-    let scalars: Vec<_> = (0..coefficients.len())
-        .map(|_| {
-            let output = val;
-            val = val * x;
-            output
-        })
-        .collect();
-
-    G::vartime_multi_mul(&scalars, coefficients.iter().copied())
-}
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
 /// at the given points. The indexes are zero-based, hence points are determined as
@@ -276,6 +262,7 @@ impl std::error::Error for Error {}
 
 /// Parameters of a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Params {
     /// Total number of shares / participants.
     pub shares: usize,
@@ -296,12 +283,74 @@ impl Params {
     }
 }
 
+#[derive(Debug, Clone)]
+struct PublicPolynomial<G: Group>(Vec<G::Element>);
+
+impl<G: Group> PublicPolynomial<G> {
+    fn identity(len: usize) -> Self {
+        Self(vec![G::identity(); len])
+    }
+
+    fn value_at_zero(&self) -> G::Element {
+        self.0[0]
+    }
+
+    /// Computes value of this public polynomial at the specified point in variable time.
+    fn value_at(&self, x: G::Scalar) -> G::Element {
+        let mut val = G::Scalar::from(1_u64);
+        let scalars: Vec<_> = (0..self.0.len())
+            .map(|_| {
+                let output = val;
+                val = val * x;
+                output
+            })
+            .collect();
+
+        G::vartime_multi_mul(&scalars, self.0.iter().copied())
+    }
+}
+
+impl<G: Group> ops::AddAssign<&Self> for PublicPolynomial<G> {
+    fn add_assign(&mut self, rhs: &Self) {
+        debug_assert_eq!(
+            self.0.len(),
+            rhs.0.len(),
+            "cannot add polynomials of different degrees"
+        );
+        for (val, &rhs_val) in self.0.iter_mut().zip(&rhs.0) {
+            *val = *val + rhs_val;
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<G: Group> Serialize for PublicPolynomial<G> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        VecHelper::<ElementHelper<G>, 1>::serialize(&self.0, serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, G: Group> Deserialize<'de> for PublicPolynomial<G> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        VecHelper::<ElementHelper<G>, 1>::deserialize(deserializer).map(Self)
+    }
+}
+
 /// In-progress information about the participants of a threshold ElGamal encryption scheme
 /// before all participants' commitments are collected.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct PartialPublicKeySet<G: Group> {
     params: Params,
-    received_polynomials: BTreeMap<usize, Vec<G::Element>>,
+    received_polynomials: Vec<Option<PublicPolynomial<G>>>,
 }
 
 impl<G: Group> PartialPublicKeySet<G> {
@@ -309,19 +358,27 @@ impl<G: Group> PartialPublicKeySet<G> {
     pub fn new(params: Params) -> Self {
         Self {
             params,
-            received_polynomials: BTreeMap::new(),
+            received_polynomials: vec![None; params.shares],
         }
     }
 
     /// Checks whether a valid polynomial commitment was received from a participant with
     /// the specified `index`.
     pub fn has_participant(&self, index: usize) -> bool {
-        self.received_polynomials.contains_key(&index)
+        self.received_polynomials
+            .get(index)
+            .map_or(false, Option::is_some)
     }
 
     /// Checks whether this set is complete (has commitments from all participants).
     pub fn is_complete(&self) -> bool {
-        self.received_polynomials.len() == self.params.shares
+        self.received_polynomials.iter().all(Option::is_some)
+    }
+
+    fn all_polynomials(&self) -> impl Iterator<Item = &PublicPolynomial<G>> + '_ {
+        self.received_polynomials
+            .iter()
+            .map(|poly| poly.as_ref().unwrap())
     }
 
     /// Completes this set returning [`PublicKeySet`]. Returns `None` if this set is currently
@@ -331,24 +388,22 @@ impl<G: Group> PartialPublicKeySet<G> {
             return None;
         }
 
-        let coefficients = self.received_polynomials.values().fold(
-            vec![G::identity(); self.params.threshold],
+        let coefficients = self.all_polynomials().fold(
+            PublicPolynomial::identity(self.params.threshold),
             |mut acc, val| {
-                for (i, &coefficient) in val.iter().enumerate() {
-                    acc[i] = acc[i] + coefficient;
-                }
+                acc += val;
                 acc
             },
         );
 
         // The shared public key is the value of the resulting polynomial at `0`.
-        let shared_key = PublicKey::from_element(coefficients[0]);
+        let shared_key = PublicKey::from_element(coefficients.value_at_zero());
         // A participant's public key is the value of the resulting polynomial at their index
         // (1-based).
         let participant_keys: Vec<_> = (0..self.params.shares)
             .map(|index| {
                 let x = G::Scalar::from(index as u64 + 1);
-                PublicKey::from_element(polynomial_value::<G>(&coefficients, x))
+                PublicKey::from_element(coefficients.value_at(x))
             })
             .collect();
 
@@ -405,14 +460,14 @@ impl<G: Group> PartialPublicKeySet<G> {
             .map(PublicKey::from_element)
             .collect();
         if proof_of_possession.verify(public_keys.iter(), &mut transcript) {
-            self.received_polynomials.insert(index, polynomial);
+            self.received_polynomials[index] = Some(PublicPolynomial(polynomial));
             Ok(())
         } else {
             Err(Error::InvalidProofOfPossession)
         }
     }
 
-    fn references_for_participant(&self, participant_index: usize) -> Option<Vec<G::Element>> {
+    fn commitments_for_participant(&self, participant_index: usize) -> Option<Vec<G::Element>> {
         assert!(participant_index < self.params.shares);
         if !self.is_complete() {
             return None;
@@ -420,9 +475,8 @@ impl<G: Group> PartialPublicKeySet<G> {
 
         let power = G::Scalar::from(participant_index as u64 + 1);
         Some(
-            self.received_polynomials
-                .values()
-                .map(|polynomial| polynomial_value::<G>(&polynomial, power))
+            self.all_polynomials()
+                .map(|polynomial| polynomial.value_at(power))
                 .collect(),
         )
     }
@@ -431,6 +485,8 @@ impl<G: Group> PartialPublicKeySet<G> {
 /// Full public information about the participants of a threshold ElGamal encryption scheme
 /// after all participants' commitments are collected.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct PublicKeySet<G: Group> {
     params: Params,
     shared_key: PublicKey<G>,
@@ -545,7 +601,9 @@ impl<G: Group> PublicKeySet<G> {
 
 /// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// at the initial step of the protocol, before the [`PublicKeySet`] is determined.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct StartingParticipant<G: Group> {
     params: Params,
     index: usize,
@@ -613,27 +671,27 @@ impl<G: Group> StartingParticipant<G> {
         key_set: &PartialPublicKeySet<G>,
     ) -> Option<ParticipantExchangingSecrets<G>> {
         assert_eq!(key_set.params, self.params);
-        let references = key_set.references_for_participant(self.index)?;
+        let participant_commitments = key_set.commitments_for_participant(self.index)?;
         let key_set = key_set.complete()?;
 
-        let mut messages: HashMap<_, _> = (0..self.params.shares)
+        let messages: Vec<_> = (0..self.params.shares)
             .map(|index| {
                 let power = G::Scalar::from(index as u64 + 1);
                 let mut poly_value = SecretKey::new(G::Scalar::from(0));
                 for keypair in self.polynomial.iter().rev() {
                     poly_value = poly_value * &power + keypair.secret().clone();
                 }
-                (index, poly_value)
+                poly_value
             })
             .collect();
-        let starting_share = messages.remove(&self.index).unwrap();
+        let starting_share = messages[self.index].clone();
 
         Some(ParticipantExchangingSecrets {
             key_set,
             index: self.index,
             secret_share: starting_share,
             messages_to_others: messages,
-            references,
+            participant_commitments,
             received_messages: HashSet::new(),
         })
     }
@@ -642,21 +700,24 @@ impl<G: Group> StartingParticipant<G> {
 /// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// at the intermediate step of the protocol, after the [`PublicKeySet`] is determined
 /// but before the participant gets messages from all other participants.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct ParticipantExchangingSecrets<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
-    messages_to_others: HashMap<usize, SecretKey<G>>,
+    messages_to_others: Vec<SecretKey<G>>,
     secret_share: SecretKey<G>,
-    references: Vec<G::Element>,
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ElementHelper<G>, 1>"))]
+    participant_commitments: Vec<G::Element>,
     received_messages: HashSet<usize>,
 }
 
 impl<G: Group> ParticipantExchangingSecrets<G> {
     /// Returns a message that should be sent to a scheme participant with the specified index.
     /// The message is not encrypted; it must be encrypted separately.
-    pub fn message(&self, participant_index: usize) -> SecretKey<G> {
-        self.messages_to_others[&participant_index].clone()
+    pub fn message(&self, participant_index: usize) -> &SecretKey<G> {
+        &self.messages_to_others[participant_index]
     }
 
     /// Checks whether we have received a message from a specific participant.
@@ -717,7 +778,7 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
         );
 
         // Check that the received value is valid.
-        let expected_value = &self.references[participant_index];
+        let expected_value = &self.participant_commitments[participant_index];
         if !bool::from(expected_value.ct_eq(&G::mul_generator(&message.0))) {
             return Err(Error::InvalidSecret);
         }
@@ -731,7 +792,9 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
 /// Personalized state of a participant of a threshold ElGamal encryption scheme once the participant
 /// receives all necessary messages. At this point, the participant can produce
 /// [`DecryptionShare`]s.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct ActiveParticipant<G: Group> {
     key_set: PublicKeySet<G>,
     index: usize,
@@ -826,7 +889,10 @@ impl<G: Group> ActiveParticipant<G> {
 
 /// Decryption share for a certain [`Ciphertext`] in a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct DecryptionShare<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ElementHelper::<G>"))]
     dh_element: G::Element,
 }
 
@@ -867,7 +933,7 @@ impl<G: Group> DecryptionShare<G> {
 
     /// Serializes this share into bytes.
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+        let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
         G::serialize_element(&self.dh_element, &mut bytes);
         bytes
     }
@@ -876,6 +942,8 @@ impl<G: Group> DecryptionShare<G> {
 /// Candidate for a [`DecryptionShare`] that is not yet verified using
 /// [`PublicKeySet::verify_share()`].
 #[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent, bound = ""))]
 pub struct CandidateShare<G: Group> {
     inner: DecryptionShare<G>,
 }
@@ -939,9 +1007,9 @@ mod tests {
         let joint_pt = Ristretto::mul_generator(&joint_secret);
 
         let mut alice = alice.finalize_key_set(&group_info).unwrap();
-        let a2b_message = alice.message(1);
+        let a2b_message = alice.message(1).clone();
         let mut bob = bob.finalize_key_set(&group_info).unwrap();
-        let b2a_message = bob.message(0);
+        let b2a_message = bob.message(0).clone();
         bob.process_message(0, a2b_message).unwrap();
         alice.process_message(1, b2a_message).unwrap();
 
@@ -1007,7 +1075,7 @@ mod tests {
         for i in 0..3 {
             for j in 0..3 {
                 if j != i {
-                    let message = actors[i].message(j);
+                    let message = actors[i].message(j).clone();
                     actors[j].process_message(i, message).unwrap();
                 }
             }
