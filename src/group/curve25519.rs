@@ -50,12 +50,12 @@ impl ScalarOps for Curve25519Subgroup {
         Scalar::batch_invert(scalars);
     }
 
-    fn serialize_scalar(scalar: &Self::Scalar, output: &mut Vec<u8>) {
-        output.extend_from_slice(&scalar.to_bytes())
+    fn serialize_scalar(scalar: &Self::Scalar, buffer: &mut [u8]) {
+        buffer.copy_from_slice(&scalar.to_bytes())
     }
 
-    fn deserialize_scalar(bytes: &[u8]) -> Option<Self::Scalar> {
-        let bytes: &[u8; 32] = bytes.try_into().expect("input has incorrect byte size");
+    fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
+        let bytes: &[u8; 32] = buffer.try_into().expect("input has incorrect byte size");
         Scalar::from_canonical_bytes(*bytes)
     }
 }
@@ -77,12 +77,12 @@ impl ElementOps for Curve25519Subgroup {
         ED25519_BASEPOINT_POINT
     }
 
-    fn serialize_element(element: &Self::Element, output: &mut Vec<u8>) {
-        output.extend_from_slice(&element.compress().to_bytes())
+    fn serialize_element(element: &Self::Element, buffer: &mut [u8]) {
+        buffer.copy_from_slice(&element.compress().to_bytes())
     }
 
-    fn deserialize_element(input: &[u8]) -> Option<Self::Element> {
-        CompressedEdwardsY::from_slice(input)
+    fn deserialize_element(buffer: &[u8]) -> Option<Self::Element> {
+        CompressedEdwardsY::from_slice(buffer)
             .decompress()
             .filter(EdwardsPoint::is_torsion_free)
     }

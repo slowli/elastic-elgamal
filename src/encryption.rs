@@ -83,9 +83,9 @@ impl<G: Group> Ciphertext<G> {
     /// Serializes this ciphertext as two group elements (the random element,
     /// then the blinded value).
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(2 * G::ELEMENT_SIZE);
-        G::serialize_element(&self.random_element, &mut bytes);
-        G::serialize_element(&self.blinded_element, &mut bytes);
+        let mut bytes = vec![0_u8; 2 * G::ELEMENT_SIZE];
+        G::serialize_element(&self.random_element, &mut bytes[..G::ELEMENT_SIZE]);
+        G::serialize_element(&self.blinded_element, &mut bytes[G::ELEMENT_SIZE..]);
         bytes
     }
 }
@@ -388,7 +388,7 @@ impl<G: Group> DiscreteLogTable<G> {
             .filter(|&value| value != 0)
             .map(|i| {
                 let element = G::vartime_mul_generator(&G::Scalar::from(i));
-                let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+                let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
                 G::serialize_element(&element, &mut bytes);
                 (bytes, i)
             })
@@ -408,7 +408,7 @@ impl<G: Group> DiscreteLogTable<G> {
             // for elliptic curves), so we check it separately.
             Some(0)
         } else {
-            let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+            let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
             G::serialize_element(decrypted_element, &mut bytes);
             self.inner.get(&bytes).copied()
         }

@@ -5,13 +5,12 @@
 //! (Decisional Diffie–Hellman assumption is considered stronger than both CDH and DL,
 //! so if DDH is believed to hold for a certain group, it should be good to go.)
 //!
-//! Such groups can be applied for ElGamal encryption and other cryptographic protocols from this crate.
+//! Such groups can be applied for ElGamal encryption and other cryptographic protocols
+//! from this crate.
 //!
 //! [DDH]: https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption
 //! [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 //! [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm
-
-// FIXME: change serialization to use `&mut [u8]`
 
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
@@ -82,12 +81,14 @@ pub trait ScalarOps {
         }
     }
 
-    /// Serializes the scalar into a byte buffer.
-    fn serialize_scalar(scalar: &Self::Scalar, output: &mut Vec<u8>);
+    /// Serializes the scalar into the provided `buffer`, which is guaranteed to have length
+    /// [`Self::SCALAR_SIZE`].
+    fn serialize_scalar(scalar: &Self::Scalar, buffer: &mut [u8]);
 
-    /// Deserializes the scalar from the byte buffer. This method returns `None` if the buffer
+    /// Deserializes the scalar from `buffer`, which is guaranteed to have length
+    /// [`Self::SCALAR_SIZE`]. This method returns `None` if the buffer
     /// does not correspond to a representation of a valid scalar.
-    fn deserialize_scalar(bytes: &[u8]) -> Option<Self::Scalar>;
+    fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar>;
 }
 
 /// Helper trait for [`Group`] that describes operations on group elements (i.e., EC points
@@ -115,12 +116,14 @@ pub trait ElementOps: ScalarOps {
     /// Returns the agreed-upon generator of the group.
     fn generator() -> Self::Element;
 
-    /// Serializes `element` into a byte buffer.
-    fn serialize_element(element: &Self::Element, output: &mut Vec<u8>);
-
-    /// Deserializes an element from the byte buffer, which is guaranteed to have length
+    /// Serializes `element` into the provided `buffer`, which is guaranteed to have length
     /// [`Self::ELEMENT_SIZE`].
-    fn deserialize_element(input: &[u8]) -> Option<Self::Element>;
+    fn serialize_element(element: &Self::Element, output: &mut [u8]);
+
+    /// Deserializes an element from `buffer`, which is guaranteed to have length
+    /// [`Self::ELEMENT_SIZE`]. This method returns `None` if the buffer
+    /// does not correspond to a representation of a valid scalar.
+    fn deserialize_element(buffer: &[u8]) -> Option<Self::Element>;
 }
 
 /// Prime-order group in which the discrete log problem and decisional / computational

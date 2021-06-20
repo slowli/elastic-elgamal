@@ -98,7 +98,7 @@ impl<G: Group> Serialize for SecretKey<G> {
     where
         S: Serializer,
     {
-        let mut bytes = Zeroizing::new(Vec::with_capacity(G::SCALAR_SIZE));
+        let mut bytes = Zeroizing::new(vec![0_u8; G::SCALAR_SIZE]);
         G::serialize_scalar(&self.0, &mut bytes);
         serialize_bytes(&bytes, serializer)
     }
@@ -153,7 +153,7 @@ impl<G: Group> ScalarHelper<G> {
     where
         S: Serializer,
     {
-        let mut bytes = Vec::with_capacity(G::SCALAR_SIZE);
+        let mut bytes = vec![0_u8; G::SCALAR_SIZE];
         G::serialize_scalar(scalar, &mut bytes);
         serialize_bytes(&bytes, serializer)
     }
@@ -216,7 +216,7 @@ impl<G: Group> ElementHelper<G> {
     where
         S: Serializer,
     {
-        let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+        let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
         G::serialize_element(element, &mut bytes);
         serialize_bytes(&bytes, serializer)
     }

@@ -933,7 +933,7 @@ impl<G: Group> DecryptionShare<G> {
 
     /// Serializes this share into bytes.
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(G::ELEMENT_SIZE);
+        let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
         G::serialize_element(&self.dh_element, &mut bytes);
         bytes
     }

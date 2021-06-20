@@ -36,7 +36,7 @@ impl TranscriptForGroup for Transcript {
     }
 
     fn append_element<G: Group>(&mut self, label: &'static [u8], element: &G::Element) {
-        let mut output = Vec::with_capacity(G::ELEMENT_SIZE);
+        let mut output = vec![0_u8; G::ELEMENT_SIZE];
         G::serialize_element(element, &mut output);
         self.append_element_bytes(label, &output);
     }
@@ -360,9 +360,9 @@ impl<G: Group> LogEqualityProof<G> {
     /// Serializes this proof into bytes. As described [above](#implementation-details),
     /// the is serialized as 2 scalars: `(c, s)`, i.e., challenge and response.
     pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(2 * G::SCALAR_SIZE);
-        G::serialize_scalar(&self.challenge, &mut bytes);
-        G::serialize_scalar(&self.response, &mut bytes);
+        let mut bytes = vec![0_u8; 2 * G::SCALAR_SIZE];
+        G::serialize_scalar(&self.challenge, &mut bytes[..G::SCALAR_SIZE]);
+        G::serialize_scalar(&self.response, &mut bytes[G::SCALAR_SIZE..]);
         bytes
     }
 }
@@ -750,11 +750,12 @@ impl<G: Group> RingProof<G> {
     /// the proof is serialized as the common challenge `e_0` followed by response scalars `s_*`
     /// corresponding successively to each admissible value in each ring.
     pub fn to_bytes(&self) -> Vec<u8> {
-        let mut bytes = Vec::with_capacity(G::SCALAR_SIZE * (1 + self.total_rings_size()));
-        G::serialize_scalar(&self.common_challenge, &mut bytes);
+        let mut bytes = vec![0_u8; G::SCALAR_SIZE * (1 + self.total_rings_size())];
+        G::serialize_scalar(&self.common_challenge, &mut bytes[..G::SCALAR_SIZE]);
 
-        for response in &self.ring_responses {
-            G::serialize_scalar(response, &mut bytes);
+        let chunks = bytes[G::SCALAR_SIZE..].chunks_mut(G::SCALAR_SIZE);
+        for (response, buffer) in self.ring_responses.iter().zip(chunks) {
+            G::serialize_scalar(response, buffer);
         }
         bytes
     }

@@ -52,13 +52,13 @@ where
         scalar.invert().unwrap()
     }
 
-    fn serialize_scalar(scalar: &Self::Scalar, output: &mut Vec<u8>) {
-        output.extend_from_slice(scalar.to_repr().as_ref());
+    fn serialize_scalar(scalar: &Self::Scalar, buffer: &mut [u8]) {
+        buffer.copy_from_slice(scalar.to_repr().as_ref());
     }
 
-    fn deserialize_scalar(bytes: &[u8]) -> Option<Self::Scalar> {
+    fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
         // For most curves, cloning will be resolved as a copy.
-        Scalar::<C>::from_repr(GenericArray::from_slice(bytes).clone())
+        Scalar::<C>::from_repr(GenericArray::from_slice(buffer).clone())
     }
 }
 
@@ -89,9 +89,9 @@ where
         C::ProjectivePoint::generator()
     }
 
-    fn serialize_element(element: &Self::Element, output: &mut Vec<u8>) {
+    fn serialize_element(element: &Self::Element, buffer: &mut [u8]) {
         let encoded_point = element.to_encoded_point(true);
-        output.extend_from_slice(encoded_point.as_bytes())
+        buffer.copy_from_slice(encoded_point.as_bytes())
     }
 
     fn deserialize_element(input: &[u8]) -> Option<Self::Element> {
@@ -122,11 +122,10 @@ mod tests {
     #[test]
     fn scalar_roundtrip() {
         let mut rng = thread_rng();
+        let mut buffer = vec![0_u8; K256::SCALAR_SIZE];
         for _ in 0..100 {
             let scalar = K256::generate_scalar(&mut rng);
-            let mut buffer = Vec::with_capacity(K256::SCALAR_SIZE);
             K256::serialize_scalar(&scalar, &mut buffer);
-            assert_eq!(buffer.len(), K256::SCALAR_SIZE);
             assert_eq!(K256::deserialize_scalar(&buffer).unwrap(), scalar);
         }
     }
@@ -134,11 +133,10 @@ mod tests {
     #[test]
     fn point_roundtrip() {
         let mut rng = thread_rng();
+        let mut buffer = vec![0_u8; K256::ELEMENT_SIZE];
         for _ in 0..100 {
             let point = K256::mul_generator(&K256::generate_scalar(&mut rng));
-            let mut buffer = Vec::with_capacity(K256::ELEMENT_SIZE);
             K256::serialize_element(&point, &mut buffer);
-            assert_eq!(buffer.len(), K256::ELEMENT_SIZE);
             assert_eq!(K256::deserialize_element(&buffer).unwrap(), point);
         }
     }
