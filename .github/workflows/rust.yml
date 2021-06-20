@@ -70,7 +70,14 @@ jobs:
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+          name: "Clippy: all features"
           args: --workspace --all-features --all-targets -- -D warnings
+      - name: Clippy (no features)
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: "Clippy: no features"
+          args: --workspace --no-default-features --all-targets -- -D warnings
 
       - name: Run tests
         uses: actions-rs/cargo@v1
