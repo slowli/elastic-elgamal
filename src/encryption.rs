@@ -5,7 +5,7 @@ use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashMap, fmt, marker::PhantomData, ops};
+use std::{collections::HashMap, fmt, iter, marker::PhantomData, ops};
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
@@ -162,8 +162,8 @@ impl<G: Group> PublicKey<G> {
         let admissible_values = [G::identity(), G::generator()];
         proof.verify(
             self,
-            &[&admissible_values],
-            &[ciphertext],
+            iter::once(&admissible_values as &[_]),
+            iter::once(ciphertext),
             &mut Transcript::new(b"bool_encryption"),
         )
     }
@@ -250,11 +250,10 @@ impl<G: Group> PublicKey<G> {
         }
 
         let admissible_values = [G::identity(), G::generator()];
-        let admissible_values = vec![&admissible_values as &[_]; choice.variants.len()];
         if choice.range_proof.verify(
             self,
-            &admissible_values,
-            &choice.variants,
+            iter::repeat(&admissible_values as &[_]).take(choice.variants.len()),
+            choice.variants.iter().copied(),
             &mut Transcript::new(b"encrypted_choice_ranges"),
         ) {
             Some(&choice.variants)

@@ -97,5 +97,6 @@ pub use crate::{
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
     proofs::{
         LogEqualityProof, ProofOfPossession, RangeDecomposition, RingProof, RingProofBuilder,
+        RangeProof,
     },
 };

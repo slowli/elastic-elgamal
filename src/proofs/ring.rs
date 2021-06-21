@@ -322,16 +322,15 @@ impl<G: Group> RingProof<G> {
         transcript.append_element_bytes(b"K", &receiver.bytes);
     }
 
-    pub(crate) fn verify(
+    pub(crate) fn verify<'a>(
         &self,
         receiver: &PublicKey<G>,
-        admissible_values: &[&[G::Element]],
-        ciphertexts: &[Ciphertext<G>],
+        admissible_values: impl Iterator<Item = &'a [G::Element]> + Clone,
+        ciphertexts: impl Iterator<Item = Ciphertext<G>>,
         transcript: &mut Transcript,
     ) -> bool {
         // Do quick preliminary checks.
-        assert_eq!(ciphertexts.len(), admissible_values.len());
-        let total_rings_size: usize = admissible_values.iter().map(|values| values.len()).sum();
+        let total_rings_size: usize = admissible_values.clone().map(|values| values.len()).sum();
         if total_rings_size != self.total_rings_size() {
             return false;
         }
@@ -341,7 +340,7 @@ impl<G: Group> RingProof<G> {
         // so we need a separate transcript copy to initialize ring transcripts.
         let initial_ring_transcript = transcript.clone();
 
-        let it = admissible_values.iter().zip(ciphertexts).enumerate();
+        let it = admissible_values.zip(ciphertexts).enumerate();
         let mut starting_response = 0;
         for (ring_index, (values, ciphertext)) in it {
             let mut challenge = self.common_challenge;
@@ -505,6 +504,8 @@ mod tests {
     };
     use rand::{thread_rng, Rng};
 
+    use std::iter;
+
     use super::*;
     use crate::group::{ElementOps, Ristretto};
 
@@ -542,8 +543,8 @@ mod tests {
         let mut transcript = Transcript::new(b"test_ring_encryption");
         assert!(proof.verify(
             keypair.public(),
-            &[&admissible_values],
-            &[ciphertext],
+            iter::once(&admissible_values as &[_]),
+            iter::once(ciphertext),
             &mut transcript
         ));
 
@@ -573,8 +574,8 @@ mod tests {
         let mut transcript = Transcript::new(b"test_ring_encryption");
         assert!(proof.verify(
             keypair.public(),
-            &[&admissible_values],
-            &[ciphertext],
+            iter::once(&admissible_values as &[_]),
+            iter::once(ciphertext),
             &mut transcript
         ));
     }
@@ -615,8 +616,8 @@ mod tests {
             let mut transcript = Transcript::new(b"test_ring_encryption");
             assert!(proof.verify(
                 keypair.public(),
-                &[&admissible_values],
-                &[ciphertext],
+                iter::once(admissible_values.as_slice()),
+                iter::once(ciphertext),
                 &mut transcript
             ));
         }
@@ -661,8 +662,8 @@ mod tests {
             let mut transcript = Transcript::new(b"test_ring_encryption");
             assert!(proof.verify(
                 keypair.public(),
-                &[&admissible_values as &[_]; RING_COUNT],
-                &ciphertexts,
+                iter::repeat(&admissible_values as &[_]).take(RING_COUNT),
+                ciphertexts.into_iter(),
                 &mut transcript,
             ));
         }
@@ -723,16 +724,13 @@ mod tests {
                 .unzip();
 
             let proof = Ring::aggregate(rings, keypair.public().element, &mut transcript, &mut rng);
-            let admissible_values: Vec<_> = admissible_values
-                .iter()
-                .map(|values| values as &[_])
-                .collect();
+            let admissible_values = admissible_values.iter().map(|values| values as &[_]);
 
             let mut transcript = Transcript::new(b"test_ring_encryption");
             assert!(proof.verify(
                 keypair.public(),
-                &admissible_values,
-                &ciphertexts,
+                admissible_values,
+                ciphertexts.into_iter(),
                 &mut transcript
             ));
         }
@@ -753,8 +751,8 @@ mod tests {
 
         assert!(proof.verify(
             keypair.public(),
-            &[&admissible_values as &[_]; 5],
-            &ciphertexts,
+            iter::repeat(&admissible_values as &[_]).take(5),
+            ciphertexts.into_iter(),
             &mut Transcript::new(b"test_ring_encryption"),
         ));
     }

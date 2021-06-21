@@ -1,19 +1,25 @@
 //! Range proofs for ElGamal ciphertexts.
 
-use zeroize::{DefaultIsZeroes, Zeroizing};
+use merlin::Transcript;
+use rand_core::{CryptoRng, RngCore};
+use zeroize::Zeroizing;
 
 use std::{collections::HashMap, fmt};
 
-#[derive(Debug, Clone, Copy, Default)]
+use crate::{
+    group::Group,
+    proofs::{RingProof, RingProofBuilder, TranscriptForGroup},
+    Ciphertext, PublicKey,
+};
+
+#[derive(Debug, Clone, Copy, PartialEq)]
 struct RingSpec {
     size: u64,
     step: u64,
-    value_index: u64,
 }
 
-impl DefaultIsZeroes for RingSpec {}
-
 /// Decomposition of an integer range `0..n`.
+// TODO: non-recursive form? (0..3 + 3 * 0..5 + 15 * 0..6)
 #[derive(Debug, Clone, PartialEq)]
 #[non_exhaustive]
 pub enum RangeDecomposition {
@@ -62,6 +68,7 @@ impl fmt::Display for RangeDecomposition {
     }
 }
 
+/// `RangeDecomposition` together with optimized parameters.
 #[derive(Debug, Clone)]
 struct OptimalDecomposition {
     decomposition: RangeDecomposition,
@@ -121,81 +128,56 @@ impl RangeDecomposition {
         Self::optimize(upper_bound, false, &mut optimal_values).decomposition
     }
 
-    /// Computes upper bound of this decomposition and pushes upper bounds for LHSs
-    /// of the inner decompositions into `bounds` in the DFS order.
-    fn upper_bound(&self, bounds: &mut Vec<u64>) -> u64 {
+    /// Returns the capacity of this decomposition.
+    fn walk(
+        &self,
+        multiplier: u64,
+        ring_specs: &mut Vec<RingSpec>,
+        lhs_capacities: &mut Vec<u64>,
+    ) -> u64 {
         match self {
-            Self::Just(bound) => *bound,
+            Self::Just(bound) => {
+                ring_specs.push(RingSpec {
+                    size: *bound,
+                    step: multiplier,
+                });
+                *bound
+            }
             Self::Mul { lhs, rhs } => {
-                let lhs_size = lhs.upper_bound(bounds);
-                bounds.push(lhs_size);
-                lhs_size * rhs.upper_bound(bounds)
+                let lhs_capacity = lhs.walk(multiplier, ring_specs, lhs_capacities);
+                lhs_capacities.push(lhs_capacity);
+                lhs_capacity * rhs.walk(multiplier * lhs_capacity, ring_specs, lhs_capacities)
             }
             Self::Add { lhs, rhs } => {
-                let lhs_size = lhs.upper_bound(bounds);
-                bounds.push(lhs_size);
-                lhs_size + rhs.upper_bound(bounds) - 1
+                let lhs_capacity = lhs.walk(multiplier, ring_specs, lhs_capacities);
+                lhs_capacities.push(lhs_capacity);
+                lhs_capacity + rhs.walk(multiplier, ring_specs, lhs_capacities) - 1
             }
         }
     }
 
-    /// Decomposes the provided `secret_value` into the constituent rings. `app_fn` is called
-    /// for each of the rings.
-    fn decompose(&self, secret_value: u64) -> Zeroizing<Vec<RingSpec>> {
-        let mut upper_bounds = vec![];
-        let upper_bound = self.upper_bound(&mut upper_bounds);
-        upper_bounds.reverse();
-
-        assert!(
-            secret_value < upper_bound,
-            "Secret value must be in range 0..{}",
-            upper_bound
-        );
-        // We immediately allocate the necessary capacity for `decomposition`.
-        let mut decomposition = Zeroizing::new(Vec::with_capacity(upper_bounds.len()));
-        self.decompose_inner(&mut decomposition, secret_value, 1, &mut upper_bounds);
-        decomposition
-    }
-
-    fn decompose_inner(
-        &self,
-        decomposition: &mut Vec<RingSpec>,
-        secret_value: u64,
-        multiplier: u64,
-        upper_bounds: &mut Vec<u64>,
-    ) {
+    fn decompose(&self, value_indexes: &mut Vec<usize>, secret_value: u64, lhs_capacities: &[u64]) {
         match self {
-            Self::Just(bound) => decomposition.push(RingSpec {
-                size: *bound,
-                step: multiplier,
-                value_index: secret_value,
-            }),
+            Self::Just(_) => value_indexes.push(secret_value as usize),
             Self::Mul { lhs, rhs } => {
-                let lhs_size = upper_bounds.pop().expect("upper_bounds underflow");
-                lhs.decompose_inner(
-                    decomposition,
-                    secret_value % lhs_size,
-                    multiplier,
-                    upper_bounds,
+                let lhs_capacity = lhs_capacities[0];
+                lhs.decompose(
+                    value_indexes,
+                    secret_value % lhs_capacity,
+                    &lhs_capacities[1..],
                 );
-                rhs.decompose_inner(
-                    decomposition,
-                    secret_value / lhs_size,
-                    multiplier * lhs_size,
-                    upper_bounds,
+                rhs.decompose(
+                    value_indexes,
+                    secret_value / lhs_capacity,
+                    &lhs_capacities[1..],
                 );
             }
             Self::Add { lhs, rhs } => {
-                let lhs_size = upper_bounds.pop().expect("upper_bounds underflow");
+                let lhs_capacity = lhs_capacities[0];
                 // TODO: is `saturating_sub` constant-time?
-                let to_rhs = secret_value.saturating_sub(lhs_size - 1);
-                lhs.decompose_inner(
-                    decomposition,
-                    secret_value - to_rhs,
-                    multiplier,
-                    upper_bounds,
-                );
-                rhs.decompose_inner(decomposition, to_rhs, multiplier, upper_bounds);
+                let to_rhs = secret_value.saturating_sub(lhs_capacity - 1);
+                lhs.decompose(value_indexes, secret_value - to_rhs, &lhs_capacities[1..]);
+                rhs.decompose(value_indexes, to_rhs, &lhs_capacities[1..]);
             }
         }
     }
@@ -292,11 +274,159 @@ impl RangeDecomposition {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct PreparedRangeDecomposition<G: Group> {
+    inner: RangeDecomposition,
+    capacity: u64,
+    lhs_capacities: Vec<u64>,
+    admissible_values: Vec<Vec<G::Element>>,
+}
+
+impl<G: Group> From<RangeDecomposition> for PreparedRangeDecomposition<G> {
+    fn from(decomposition: RangeDecomposition) -> Self {
+        Self::new(decomposition)
+    }
+}
+
+impl<G: Group> PreparedRangeDecomposition<G> {
+    fn new(inner: RangeDecomposition) -> Self {
+        let mut ring_specs = vec![];
+        let mut lhs_capacities = vec![];
+        let capacity = inner.walk(1, &mut ring_specs, &mut lhs_capacities);
+
+        let admissible_values = Vec::with_capacity(ring_specs.len());
+        let admissible_values = ring_specs
+            .into_iter()
+            .fold(admissible_values, |mut acc, spec| {
+                let ring_values: Vec<_> = (0..spec.size)
+                    .map(|i| G::vartime_mul_generator(&(i * spec.step).into()))
+                    .collect();
+                acc.push(ring_values);
+                acc
+            });
+
+        Self {
+            inner,
+            capacity,
+            lhs_capacities,
+            admissible_values,
+        }
+    }
+
+    /// Decomposes the provided `secret_value` into value indexes in constituent rings.
+    fn decompose(&self, secret_value: u64) -> Zeroizing<Vec<usize>> {
+        assert!(
+            secret_value < self.capacity,
+            "Secret value must be in range 0..{}",
+            self.capacity
+        );
+        // We immediately allocate the necessary capacity for `decomposition`.
+        let mut decomposition = Zeroizing::new(Vec::with_capacity(self.admissible_values.len()));
+        self.inner
+            .decompose(&mut decomposition, secret_value, &self.lhs_capacities);
+        decomposition
+    }
+}
+
+/// Zero-knowledge proof that an ElGamal ciphertext encrypts a value into a certain range `0..n`.
+#[derive(Debug, Clone)]
+pub struct RangeProof<G: Group> {
+    partial_ciphertexts: Vec<Ciphertext<G>>,
+    inner: RingProof<G>,
+}
+
+impl<G: Group> RangeProof<G> {
+    /// Creates a new proof. This is a lower-level operation.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `value` is outside the range specified by `decomposition`.
+    pub fn new<R: RngCore + CryptoRng>(
+        receiver: &PublicKey<G>,
+        decomposition: &PreparedRangeDecomposition<G>,
+        value: u64,
+        transcript: &mut Transcript,
+        rng: &mut R,
+    ) -> (Ciphertext<G>, Self) {
+        let value_indexes = decomposition.decompose(value);
+        debug_assert_eq!(value_indexes.len(), decomposition.admissible_values.len());
+        transcript.start_proof(b"encryption_range_proof");
+        transcript.append_message(b"range", decomposition.inner.to_string().as_bytes());
+
+        let mut proof_builder = RingProofBuilder::new(
+            receiver,
+            decomposition.admissible_values.len(),
+            transcript,
+            rng,
+        );
+        let partial_ciphertexts = value_indexes
+            .iter()
+            .zip(&decomposition.admissible_values)
+            .map(|(value_index, admissible_values)| {
+                proof_builder
+                    .add_value(admissible_values, *value_index)
+                    .inner
+            })
+            .collect();
+
+        let mut proof = Self {
+            partial_ciphertexts,
+            inner: proof_builder.build(),
+        };
+        let ciphertext = proof.extract_cumulative_ciphertext();
+        (ciphertext, proof)
+    }
+
+    fn extract_cumulative_ciphertext(&mut self) -> Ciphertext<G> {
+        let ciphertext_sum = self
+            .partial_ciphertexts
+            .iter()
+            .fold(Ciphertext::zero(), |acc, ciphertext| acc + *ciphertext);
+        self.partial_ciphertexts.pop();
+        ciphertext_sum
+    }
+
+    /// Verifies this proof.
+    pub fn verify(
+        &self,
+        receiver: &PublicKey<G>,
+        decomposition: &PreparedRangeDecomposition<G>,
+        ciphertext: Ciphertext<G>,
+        transcript: &mut Transcript,
+    ) -> bool {
+        // Check decomposition / proof consistency.
+        if decomposition.admissible_values.len() != self.partial_ciphertexts.len() + 1 {
+            return false;
+        }
+
+        transcript.start_proof(b"encryption_range_proof");
+        transcript.append_message(b"range", decomposition.inner.to_string().as_bytes());
+
+        let ciphertext_sum = self
+            .partial_ciphertexts
+            .iter()
+            .fold(Ciphertext::zero(), |acc, ciphertext| acc + *ciphertext);
+        let ciphertexts = self
+            .partial_ciphertexts
+            .iter()
+            .copied()
+            .chain(Some(ciphertext - ciphertext_sum));
+
+        let admissible_values = decomposition.admissible_values.iter().map(Vec::as_slice);
+        self.inner
+            .verify(receiver, admissible_values, ciphertexts, transcript)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
 
     use super::*;
+    use crate::{
+        group::{ElementOps, Ristretto},
+        Keypair,
+    };
 
     #[test]
     fn getting_divisors() {
@@ -343,14 +473,12 @@ mod tests {
             value.to_string(),
             "0..3 * 0..5 * (0..2 + 0..6 * (0..3 + 0..3 * 0..3 * 0..3 * 0..5))"
         );
-        assert_eq!(value.upper_bound(&mut vec![]), 12_345);
 
         let value = RangeDecomposition::optimal(777_777);
         assert_eq!(
             value.to_string(),
             "0..3 * 0..7 * 0..7 * 0..11 * (0..2 + 0..4 * 0..4 * 0..5 * 0..6)"
         );
-        assert_eq!(value.upper_bound(&mut vec![]), 777_777);
 
         let value = RangeDecomposition::optimal(12_345_678);
         assert_eq!(
@@ -358,22 +486,27 @@ mod tests {
             "0..6 * (0..2 + 0..4 * 0..5 * 0..7) * \
              (0..2 + 0..3 * 0..4 * 0..4 * 0..4 * 0..4 * (0..2 + 0..3 * 0..6))"
         );
-        assert_eq!(value.upper_bound(&mut vec![]), 12_345_678);
     }
 
     fn test_range_decomposition(decomposition: &RangeDecomposition, upper_bound: u64) {
+        let mut ring_specs = vec![];
+        let mut lhs_capacities = vec![];
+        decomposition.walk(1, &mut ring_specs, &mut lhs_capacities);
+
         let mut rng = thread_rng();
         for _ in 0..100 {
             let secret_value = rng.gen_range(0..upper_bound);
-            let ring_values = decomposition.decompose(secret_value);
+            let mut value_indexes = vec![];
+            decomposition.decompose(&mut value_indexes, secret_value, &lhs_capacities);
 
-            let restored = ring_values
+            let restored = value_indexes
                 .iter()
-                .fold(0, |acc, spec| acc + spec.value_index * spec.step);
+                .zip(&ring_specs)
+                .fold(0, |acc, (&idx, spec)| acc + idx as u64 * spec.step);
             assert_eq!(
                 restored, secret_value,
                 "Cannot restore secret value {}; decomposed as {:?}",
-                secret_value, ring_values
+                secret_value, value_indexes
             );
         }
     }
@@ -381,12 +514,24 @@ mod tests {
     #[test]
     fn applying_range() {
         let decomposition = RangeDecomposition::optimal(1_000);
-        let ring_values: Vec<_> = decomposition
-            .decompose(567)
-            .iter()
-            .map(|spec| (spec.value_index, spec.step))
-            .collect();
-        assert_eq!(ring_values, [(2, 1), (3, 5), (2, 25), (4, 125)]);
+        let mut ring_specs = vec![];
+        let mut lhs_capacities = vec![];
+        decomposition.walk(1, &mut ring_specs, &mut lhs_capacities);
+
+        assert_eq!(
+            ring_specs,
+            [
+                RingSpec { size: 5, step: 1 },
+                RingSpec { size: 5, step: 5 },
+                RingSpec { size: 5, step: 25 },
+                RingSpec { size: 8, step: 125 },
+            ]
+        );
+        assert_eq!(lhs_capacities, [5, 5, 5]);
+
+        let mut value_indexes = vec![];
+        decomposition.decompose(&mut value_indexes, 567, &lhs_capacities);
+        assert_eq!(value_indexes, [2, 3, 2, 4]);
         // 2 + 3 * 5 + 2 * 25 + 4 * 125 = 567
 
         test_range_decomposition(&decomposition, 1_000);
@@ -402,5 +547,72 @@ mod tests {
 
         let decomposition = RangeDecomposition::optimal(54_321);
         test_range_decomposition(&decomposition, 54_321);
+    }
+
+    #[test]
+    fn range_proof_basics() {
+        let decomposition = RangeDecomposition::optimal(15).into();
+
+        let mut rng = thread_rng();
+        let receiver = Keypair::<Ristretto>::generate(&mut rng);
+        let (ciphertext, proof) = RangeProof::new(
+            receiver.public(),
+            &decomposition,
+            10,
+            &mut Transcript::new(b"test"),
+            &mut rng,
+        );
+
+        assert!(proof.verify(
+            receiver.public(),
+            &decomposition,
+            ciphertext,
+            &mut Transcript::new(b"test"),
+        ));
+
+        // Should not verify with another transcript context
+        assert!(!proof.verify(
+            receiver.public(),
+            &decomposition,
+            ciphertext,
+            &mut Transcript::new(b"other"),
+        ));
+
+        // ...or with another receiver
+        let other_receiver = Keypair::<Ristretto>::generate(&mut rng);
+        assert!(!proof.verify(
+            other_receiver.public(),
+            &decomposition,
+            ciphertext,
+            &mut Transcript::new(b"test"),
+        ));
+
+        // ...or with another ciphertext
+        let other_ciphertext = receiver.public().encrypt(10_u64, &mut rng);
+        assert!(!proof.verify(
+            receiver.public(),
+            &decomposition,
+            other_ciphertext,
+            &mut Transcript::new(b"test"),
+        ));
+
+        let mut mangled_ciphertext = ciphertext;
+        mangled_ciphertext.blinded_element =
+            mangled_ciphertext.blinded_element + Ristretto::generator();
+        assert!(!proof.verify(
+            receiver.public(),
+            &decomposition,
+            mangled_ciphertext,
+            &mut Transcript::new(b"test"),
+        ));
+
+        // ...or with another decomposition
+        let other_decomposition = RangeDecomposition::Just(15).into();
+        assert!(!proof.verify(
+            receiver.public(),
+            &other_decomposition,
+            ciphertext,
+            &mut Transcript::new(b"test"),
+        ));
     }
 }
