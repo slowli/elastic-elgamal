@@ -5,7 +5,7 @@ use rand_core::{CryptoRng, RngCore};
 use subtle::{ConditionallySelectable, ConstantTimeGreater};
 use zeroize::Zeroizing;
 
-use std::{borrow::Cow, collections::HashMap, fmt};
+use std::{collections::HashMap, fmt};
 
 use crate::{
     group::Group,
@@ -22,7 +22,7 @@ struct RingSpec {
 /// Decomposition of an integer range `0..n`.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RangeDecomposition {
-    rings: Cow<'static, [RingSpec]>,
+    rings: Vec<RingSpec>,
 }
 
 impl fmt::Display for RangeDecomposition {
@@ -46,35 +46,6 @@ impl fmt::Display for RangeDecomposition {
 struct OptimalDecomposition {
     decomposition: RangeDecomposition,
     optimal_len: u64,
-    skipped_add_decomposition: bool,
-}
-
-impl OptimalDecomposition {
-    fn ring_count(&self) -> usize {
-        self.decomposition.rings.len()
-    }
-
-    fn maybe_replace_by_product(&mut self, x: u64, x_opt: Self, y_opt: &Self) {
-        let new_len = x_opt.optimal_len + y_opt.optimal_len;
-        let new_ring_count = x_opt.ring_count() + y_opt.ring_count();
-        if new_len < self.optimal_len
-            || (new_len == self.optimal_len && new_ring_count < self.ring_count())
-        {
-            self.optimal_len = x_opt.optimal_len + y_opt.optimal_len;
-            self.decomposition = x_opt.decomposition.combine_mul(&y_opt.decomposition, x);
-        }
-    }
-
-    fn maybe_replace_by_sum(&mut self, x_opt: Self, y_opt: &Self) {
-        let new_len = x_opt.optimal_len + y_opt.optimal_len;
-        let new_ring_count = x_opt.ring_count() + y_opt.ring_count();
-        if new_len < self.optimal_len
-            || (new_len == self.optimal_len && new_ring_count < self.ring_count())
-        {
-            self.optimal_len = x_opt.optimal_len + y_opt.optimal_len;
-            self.decomposition = x_opt.decomposition.extend(&y_opt.decomposition);
-        }
-    }
 }
 
 #[allow(
@@ -93,42 +64,34 @@ impl RangeDecomposition {
         assert!(upper_bound >= 2, "`upper_bound` must be greater than 1");
 
         let mut optimal_values = HashMap::new();
-        Self::optimize(upper_bound, false, &mut optimal_values).decomposition
+        Self::optimize(upper_bound, &mut optimal_values).decomposition
     }
 
     fn just(capacity: u64) -> Self {
-        Self {
-            rings: vec![RingSpec {
-                size: capacity,
-                step: 1,
-            }]
-            .into(),
-        }
+        let spec = RingSpec {
+            size: capacity,
+            step: 1,
+        };
+        Self { rings: vec![spec] }
     }
 
-    fn combine_mul(self, rhs: &Self, multiplier: u64) -> Self {
-        let mut combined_rings = self.rings.into_owned();
-        let rhs_rings = rhs.rings.iter().map(|spec| RingSpec {
-            size: spec.size,
-            step: spec.step * multiplier,
+    fn combine_mul(self, new_ring_size: u64, multiplier: u64) -> Self {
+        let mut combined_rings = self.rings;
+        for spec in &mut combined_rings {
+            spec.step *= multiplier;
+        }
+        combined_rings.push(RingSpec {
+            size: new_ring_size,
+            step: 1,
         });
-        combined_rings.extend(rhs_rings);
 
         Self {
-            rings: Cow::Owned(combined_rings),
+            rings: combined_rings,
         }
     }
 
-    fn extend(self, rhs: &Self) -> Self {
-        let mut combined_rings = self.rings.into_owned();
-        combined_rings.extend_from_slice(&rhs.rings);
-        Self {
-            rings: Cow::Owned(combined_rings),
-        }
-    }
-
-    /// Returns the capacity of this decomposition.
-    pub fn capacity(&self) -> u64 {
+    /// Returns the exclusive upper bound of the range presentable by this decomposition.
+    pub fn upper_bound(&self) -> u64 {
         self.rings
             .iter()
             .map(|spec| (spec.size - 1) * spec.step)
@@ -137,7 +100,7 @@ impl RangeDecomposition {
     }
 
     fn decompose(&self, value_indexes: &mut Vec<usize>, mut secret_value: u64) {
-        for ring_spec in self.rings.iter().rev() {
+        for ring_spec in &self.rings {
             let mut value_index = secret_value / ring_spec.step;
             let ring_max_value = ring_spec.size - 1;
             let overflow = value_index.ct_gt(&ring_max_value);
@@ -147,77 +110,84 @@ impl RangeDecomposition {
         }
 
         debug_assert_eq!(secret_value, 0, "unused secret value for {:?}", self);
-        value_indexes.reverse();
     }
 
-    // FIXME: is optimization logic incorrect? `0..2 + 0..4 + 4 * 0..4` vs `0..5 + 4 * 0..4`
+    /// We decompose our range `0..n` as `0..a + k * 0..b`, where `a >= 2`, `b >= 2`,
+    /// `k >= 2`. For all values in the range to be presentable, we need `a >= k` (otherwise,
+    /// there will be gaps) and
+    ///
+    /// ```text
+    /// n - 1 = a - 1 + k * (b - 1) <=> n = a + k * (b - 1)
+    /// ```
+    ///
+    /// (to accurately represent the upper bound). For valid decompositions, we apply the
+    /// same decomposition recursively to `0..b`. If `P(n)` is the optimal proof length for
+    /// range `0..n`, we thus obtain
+    ///
+    /// ```text
+    /// P(n) = min_(a, k) { a + 2 + P((n - a) / k + 1) }.
+    /// ```
+    ///
+    /// Here, `a` is the number of commitments (= number of elements in the ring `0..a`), plus
+    /// 2 group elements in a partial ElGamal ciphertext corresponding to the ring.
+    ///
+    /// We additionally trim the solution space using a lower-bound estimate
+    ///
+    /// ```text
+    /// P(n) >= 3 * log2(n),
+    /// ```
+    ///
+    /// which can be proven recursively.
     fn optimize(
         upper_bound: u64,
-        skip_add_decomposition: bool,
         optimal_values: &mut HashMap<u64, OptimalDecomposition>,
     ) -> OptimalDecomposition {
-        let (mut opt, skip_mul) = if let Some(opt) = optimal_values.get(&upper_bound).cloned() {
-            if skip_add_decomposition || !opt.skipped_add_decomposition {
-                // We know that `opt` is fully optimized.
-                return opt;
-            }
-            // Here, `opt` is partially optimized (using mul decomposition, but not
-            // add one).
-            (opt, true)
-        } else {
-            // Single ring of `upper_bound` elements.
-            let opt = OptimalDecomposition {
-                optimal_len: upper_bound + 2,
-                decomposition: RangeDecomposition::just(upper_bound),
-                skipped_add_decomposition: skip_add_decomposition,
-            };
-            (opt, false)
-        };
-
-        if !skip_mul {
-            // Multiplicative decomposition.
-            for x in Self::divisors(upper_bound) {
-                let y = upper_bound / x;
-
-                let x_estimate = Self::lower_len_estimate(x);
-                let y_estimate = Self::lower_len_estimate(y);
-                if x_estimate + y_estimate > opt.optimal_len {
-                    continue;
-                }
-
-                let x_opt = Self::optimize(x, false, optimal_values);
-                if x_opt.optimal_len + y_estimate > opt.optimal_len {
-                    continue;
-                }
-                let y_opt = Self::optimize(y, false, optimal_values);
-
-                opt.maybe_replace_by_product(x, x_opt, &y_opt);
-            }
+        if let Some(opt) = optimal_values.get(&upper_bound) {
+            return opt.clone();
         }
 
-        // Additive decomposition.
-        if !skip_add_decomposition {
-            opt.skipped_add_decomposition = false;
+        let mut opt = OptimalDecomposition {
+            optimal_len: upper_bound + 2,
+            decomposition: RangeDecomposition::just(upper_bound),
+        };
 
-            for x in 2..=(upper_bound / 2) {
-                let y = upper_bound + 1 - x;
+        for first_ring_size in 2_u64.. {
+            if first_ring_size + 2 > opt.optimal_len {
+                // Any further estimate will be worse than the current optimum.
+                break;
+            }
 
-                let x_estimate = Self::lower_len_estimate(x);
-                let y_estimate = Self::lower_len_estimate(y);
-                if x_estimate + y_estimate >= opt.optimal_len {
-                    // Here, lower boundaries are monotonically increasing w.r.t. `x`,
-                    // so, once we hit the current `optimal_len` as the theoretical lower boundary,
-                    // we're done.
+            let remaining_capacity = upper_bound - first_ring_size;
+            for multiplier in 2_u64..=first_ring_size {
+                if remaining_capacity % multiplier != 0 {
+                    continue;
+                }
+                let inner_upper_bound = remaining_capacity / multiplier + 1;
+                if inner_upper_bound < 2 {
+                    // Since `inner_upper_bound` decreases w.r.t. `multiplier`, we can
+                    // break here.
                     break;
                 }
 
-                let x_opt = Self::optimize(x, true, optimal_values);
-                if x_opt.optimal_len + y_estimate >= opt.optimal_len {
+                let best_estimate =
+                    first_ring_size + 2 + Self::lower_len_estimate(inner_upper_bound);
+                if best_estimate > opt.optimal_len {
                     continue;
                 }
-                let y_opt = Self::optimize(y, true, optimal_values);
 
-                opt.maybe_replace_by_sum(x_opt, &y_opt);
+                let inner_opt = Self::optimize(inner_upper_bound, optimal_values);
+                let candidate_len = first_ring_size + 2 + inner_opt.optimal_len;
+                let candidate_rings = 1 + inner_opt.decomposition.rings.len();
+
+                if candidate_len < opt.optimal_len
+                    || (candidate_len == opt.optimal_len
+                        && candidate_rings < opt.decomposition.rings.len())
+                {
+                    opt.optimal_len = candidate_len;
+                    opt.decomposition = inner_opt
+                        .decomposition
+                        .combine_mul(first_ring_size, multiplier);
+                }
             }
         }
 
@@ -234,11 +204,6 @@ impl RangeDecomposition {
 
     fn lower_len_estimate(upper_bound: u64) -> u64 {
         ((upper_bound as f64).log2() * 3.0).ceil() as u64
-    }
-
-    fn divisors(value: u64) -> impl Iterator<Item = u64> {
-        let upper_bound = (value as f64).sqrt().floor() as u64;
-        (2..=upper_bound).filter(move |&x| value % x == 0)
     }
 }
 
@@ -274,9 +239,9 @@ impl<G: Group> PreparedRangeDecomposition<G> {
     /// Decomposes the provided `secret_value` into value indexes in constituent rings.
     fn decompose(&self, secret_value: u64) -> Zeroizing<Vec<usize>> {
         assert!(
-            secret_value < self.inner.capacity(),
+            secret_value < self.inner.upper_bound(),
             "Secret value must be in range 0..{}",
-            self.inner.capacity()
+            self.inner.upper_bound()
         );
         // We immediately allocate the necessary capacity for `decomposition`.
         let mut decomposition = Zeroizing::new(Vec::with_capacity(self.admissible_values.len()));
@@ -386,14 +351,6 @@ mod tests {
     };
 
     #[test]
-    fn getting_divisors() {
-        let divisors: Vec<_> = RangeDecomposition::divisors(10).collect();
-        assert_eq!(divisors, [2]);
-        let divisors: Vec<_> = RangeDecomposition::divisors(100).collect();
-        assert_eq!(divisors, [2, 4, 5, 10]);
-    }
-
-    #[test]
     fn optimal_value_small() {
         let value = RangeDecomposition::optimal(5);
         assert_eq!(value.rings.as_ref(), [RingSpec { size: 5, step: 1 }]);
@@ -401,54 +358,80 @@ mod tests {
         let value = RangeDecomposition::optimal(16);
         assert_eq!(
             value.rings.as_ref(),
-            [RingSpec { size: 4, step: 1 }, RingSpec { size: 4, step: 4 }]
+            [RingSpec { size: 4, step: 4 }, RingSpec { size: 4, step: 1 }]
         );
 
         let value = RangeDecomposition::optimal(60);
         assert_eq!(
             value.rings.as_ref(),
             [
-                RingSpec { size: 3, step: 1 },
+                RingSpec { size: 5, step: 12 },
                 RingSpec { size: 4, step: 3 },
-                RingSpec { size: 5, step: 12 }
+                RingSpec { size: 3, step: 1 },
             ]
         );
 
         let value = RangeDecomposition::optimal(1_000);
         assert_eq!(
             value.to_string(),
-            "0..5 + 5 * 0..5 + 25 * 0..5 + 125 * 0..8"
+            "125 * 0..8 + 25 * 0..5 + 5 * 0..5 + 0..5"
         );
     }
 
-    /*
+    #[test]
+    fn optimal_values_with_additives() {
+        let value = RangeDecomposition::optimal(17);
+        assert_eq!(
+            value.rings.as_ref(),
+            [RingSpec { size: 4, step: 4 }, RingSpec { size: 5, step: 1 }]
+        );
+
+        let value = RangeDecomposition::optimal(101);
+        assert_eq!(
+            value.rings.as_ref(),
+            [
+                RingSpec { size: 5, step: 20 },
+                RingSpec { size: 5, step: 4 },
+                RingSpec { size: 5, step: 1 }
+            ]
+        );
+    }
+
     #[test]
     fn large_optimal_values() {
         let value = RangeDecomposition::optimal(12_345);
         assert_eq!(
             value.to_string(),
-            "0..3 + 3 * 0..5 + 15 * 0..2 + 15 * 0..6 + 90 * 0..3 + 90 * 0..3 + 270 * 0..3 + 810 * 0..3 + 2430 * 0..5"
+            "2880 * 0..4 + 720 * 0..5 + 90 * 0..9 + 15 * 0..7 + 3 * 0..5 + 0..3"
         );
+        assert_eq!(value.upper_bound(), 12_345);
 
         let value = RangeDecomposition::optimal(777_777);
         assert_eq!(
             value.to_string(),
-            "0..3 * 0..7 * 0..7 * 0..11 * (0..2 + 0..4 * 0..4 * 0..5 * 0..6)"
+            "125440 * 0..6 + 25088 * 0..6 + 3136 * 0..8 + 784 * 0..4 + 196 * 0..4 + \
+             49 * 0..5 + 7 * 0..7 + 0..7"
         );
+        assert_eq!(value.upper_bound(), 777_777);
 
         let value = RangeDecomposition::optimal(12_345_678);
         assert_eq!(
             value.to_string(),
-            "0..6 * (0..2 + 0..4 * 0..5 * 0..7) * \
-             (0..2 + 0..3 * 0..4 * 0..4 * 0..4 * 0..4 * (0..2 + 0..3 * 0..6))"
+            "3072000 * 0..4 + 768000 * 0..4 + 192000 * 0..4 + 48000 * 0..5 + 9600 * 0..6 + \
+             1200 * 0..8 + 300 * 0..4 + 75 * 0..5 + 15 * 0..5 + 3 * 0..6 + 0..3"
         );
+        assert_eq!(value.upper_bound(), 12_345_678);
     }
-     */
 
     fn test_range_decomposition(decomposition: &RangeDecomposition, upper_bound: u64) {
         let mut rng = thread_rng();
-        for _ in 0..100 {
-            let secret_value = rng.gen_range(0..upper_bound);
+
+        let values = (0..1_000)
+            .map(|_| rng.gen_range(0..upper_bound))
+            .chain(0..5)
+            .chain((upper_bound - 5)..upper_bound);
+
+        for secret_value in values {
             let mut value_indexes = vec![];
             decomposition.decompose(&mut value_indexes, secret_value);
 
@@ -465,28 +448,28 @@ mod tests {
     }
 
     #[test]
-    fn applying_small_range() {
+    fn decomposing_for_small_range() {
         let decomposition = RangeDecomposition::optimal(17);
-        assert_eq!(decomposition.to_string(), "0..2 + 0..4 + 4 * 0..4");
+        assert_eq!(decomposition.to_string(), "4 * 0..4 + 0..5");
         let mut value_indexes = vec![];
         decomposition.decompose(&mut value_indexes, 16);
-        assert_eq!(value_indexes, [1, 3, 3]);
-        // 1 + 3 + 4 * 3 = 16
+        assert_eq!(value_indexes, [3, 4]);
+        // 3 * 4 + 4 = 16
     }
 
     #[test]
-    fn applying_range() {
+    fn decomposing_for_range() {
         let decomposition = RangeDecomposition::optimal(1_000);
         let mut value_indexes = vec![];
         decomposition.decompose(&mut value_indexes, 567);
-        assert_eq!(value_indexes, [2, 3, 2, 4]);
+        assert_eq!(value_indexes, [4, 2, 3, 2]);
         // 2 + 3 * 5 + 2 * 25 + 4 * 125 = 567
 
         test_range_decomposition(&decomposition, 1_000);
     }
 
     #[test]
-    fn applying_larger_range() {
+    fn decomposing_for_larger_range() {
         let decomposition = RangeDecomposition::optimal(9_999);
         test_range_decomposition(&decomposition, 9_999);
 
@@ -554,12 +537,12 @@ mod tests {
         ));
 
         // ...or with another decomposition
-        /*let other_decomposition = RangeDecomposition::Just(15).into();
+        let other_decomposition = RangeDecomposition::just(15).into();
         assert!(!proof.verify(
             receiver.public(),
             &other_decomposition,
             ciphertext,
             &mut Transcript::new(b"test"),
-        ));*/
+        ));
     }
 }
