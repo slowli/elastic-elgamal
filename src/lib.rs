@@ -95,5 +95,7 @@ pub mod sharing;
 pub use crate::{
     encryption::{Ciphertext, DiscreteLogTable, EncryptedChoice},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
-    proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder},
+    proofs::{
+        LogEqualityProof, ProofOfPossession, RangeDecomposition, RingProof, RingProofBuilder,
+    },
 };

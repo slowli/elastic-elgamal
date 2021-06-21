@@ -12,9 +12,13 @@ use std::io;
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{group::Group, Keypair, PublicKey, SecretKey};
 
+mod range;
 mod ring;
 
-pub use self::ring::{RingProof, RingProofBuilder};
+pub use self::{
+    range::RangeDecomposition,
+    ring::{RingProof, RingProofBuilder},
+};
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
 pub(crate) trait TranscriptForGroup {
