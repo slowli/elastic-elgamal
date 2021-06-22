@@ -308,7 +308,7 @@ impl<'a, G: Group> Ring<'a, G> {
 /// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-// TODO: range proof (think about base etc.)
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct RingProof<G: Group> {
     #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     common_challenge: G::Scalar,

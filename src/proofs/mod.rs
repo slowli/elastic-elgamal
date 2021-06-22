@@ -111,9 +111,10 @@ impl TranscriptForGroup for Transcript {
 ///     &mut Transcript::new(b"custom_proof"),
 /// ));
 /// ```
-// TODO: serialization?
+// TODO: binary serialization?
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct ProofOfPossession<G: Group> {
     #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
@@ -273,6 +274,7 @@ impl<G: Group> ProofOfPossession<G> {
 /// [this course]: http://www.cs.au.dk/~ivan/Sigma.pdf
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct LogEqualityProof<G: Group> {
     #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
