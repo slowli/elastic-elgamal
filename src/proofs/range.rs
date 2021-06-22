@@ -211,6 +211,8 @@ impl RangeDecomposition {
     }
 }
 
+/// [`RangeDecomposition`] together with values precached for creating and/or verifying
+/// [`RangeProof`]s in a certain [`Group`].
 #[derive(Debug, Clone)]
 pub struct PreparedRangeDecomposition<G: Group> {
     inner: RangeDecomposition,
@@ -265,32 +267,36 @@ pub struct RangeProof<G: Group> {
 }
 
 impl<G: Group> RangeProof<G> {
-    /// Creates a new proof. This is a lower-level operation.
+    /// Encrypts `value` for `receiver` and creates a zero-knowledge proof that the encrypted value
+    /// is in `range`.
+    ///
+    /// This is a lower-level operation; see [`PublicKey::encrypt_range()`] for a higher-level
+    /// alternative.
     ///
     /// # Panics
     ///
-    /// Panics if `value` is outside the range specified by `decomposition`.
+    /// Panics if `value` is outside the range specified by `range`.
     pub fn new<R: RngCore + CryptoRng>(
         receiver: &PublicKey<G>,
-        decomposition: &PreparedRangeDecomposition<G>,
+        range: &PreparedRangeDecomposition<G>,
         value: u64,
         transcript: &mut Transcript,
         rng: &mut R,
     ) -> (Ciphertext<G>, Self) {
-        let value_indexes = decomposition.decompose(value);
-        debug_assert_eq!(value_indexes.len(), decomposition.admissible_values.len());
+        let value_indexes = range.decompose(value);
+        debug_assert_eq!(value_indexes.len(), range.admissible_values.len());
         transcript.start_proof(b"encryption_range_proof");
-        transcript.append_message(b"range", decomposition.inner.to_string().as_bytes());
+        transcript.append_message(b"range", range.inner.to_string().as_bytes());
 
         let mut proof_builder = RingProofBuilder::new(
             receiver,
-            decomposition.admissible_values.len(),
+            range.admissible_values.len(),
             transcript,
             rng,
         );
         let partial_ciphertexts = value_indexes
             .iter()
-            .zip(&decomposition.admissible_values)
+            .zip(&range.admissible_values)
             .map(|(value_index, admissible_values)| {
                 proof_builder
                     .add_value(admissible_values, *value_index)
@@ -315,21 +321,24 @@ impl<G: Group> RangeProof<G> {
         ciphertext_sum
     }
 
-    /// Verifies this proof.
+    /// Verifies this proof against `ciphertext` for `receiver` and the specified `range`.
+    ///
+    /// For a proof to verify, all parameters must be identical to ones provided when creating
+    /// the proof. In particular, `range` must have the same decomposition into rings.
     pub fn verify(
         &self,
         receiver: &PublicKey<G>,
-        decomposition: &PreparedRangeDecomposition<G>,
+        range: &PreparedRangeDecomposition<G>,
         ciphertext: Ciphertext<G>,
         transcript: &mut Transcript,
     ) -> bool {
         // Check decomposition / proof consistency.
-        if decomposition.admissible_values.len() != self.partial_ciphertexts.len() + 1 {
+        if range.admissible_values.len() != self.partial_ciphertexts.len() + 1 {
             return false;
         }
 
         transcript.start_proof(b"encryption_range_proof");
-        transcript.append_message(b"range", decomposition.inner.to_string().as_bytes());
+        transcript.append_message(b"range", range.inner.to_string().as_bytes());
 
         let ciphertext_sum = self
             .partial_ciphertexts
@@ -341,7 +350,7 @@ impl<G: Group> RangeProof<G> {
             .copied()
             .chain(Some(ciphertext - ciphertext_sum));
 
-        let admissible_values = decomposition.admissible_values.iter().map(Vec::as_slice);
+        let admissible_values = range.admissible_values.iter().map(Vec::as_slice);
         self.inner
             .verify(receiver, admissible_values, ciphertexts, transcript)
     }

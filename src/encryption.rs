@@ -11,7 +11,7 @@ use std::{collections::HashMap, fmt, iter, marker::PhantomData, ops};
 use crate::serde::ElementHelper;
 use crate::{
     group::Group,
-    proofs::{LogEqualityProof, RingProof, RingProofBuilder},
+    proofs::{LogEqualityProof, RingProof, RingProofBuilder, PreparedRangeDecomposition, RangeProof},
     PublicKey, SecretKey,
 };
 
@@ -260,6 +260,32 @@ impl<G: Group> PublicKey<G> {
         } else {
             None
         }
+    }
+
+    /// Encrypts `value` and provides a zero-knowledge proof that it lies in the specified `range`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `value` is out of `range`.
+    pub fn encrypt_range<R: CryptoRng + RngCore>(
+        &self,
+        range: &PreparedRangeDecomposition<G>,
+        value: u64,
+        rng: &mut R,
+    ) -> (Ciphertext<G>, RangeProof<G>) {
+        let mut transcript = Transcript::new(b"ciphertext_range");
+        RangeProof::new(self, range, value, &mut transcript, rng)
+    }
+
+    /// Verifies `proof` that `ciphertext` encrypts a value lying in `range`.
+    pub fn verify_range(
+        &self,
+        range: &PreparedRangeDecomposition<G>,
+        ciphertext: Ciphertext<G>,
+        proof: &RangeProof<G>,
+    ) -> bool {
+        let mut transcript = Transcript::new(b"ciphertext_range");
+        proof.verify(self, range, ciphertext, &mut transcript)
     }
 }
 
