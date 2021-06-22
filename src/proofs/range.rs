@@ -2,6 +2,8 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use subtle::{ConditionallySelectable, ConstantTimeGreater};
 use zeroize::Zeroizing;
 
@@ -14,6 +16,7 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct RingSpec {
     size: u64,
     step: u64,
@@ -21,6 +24,7 @@ struct RingSpec {
 
 /// Decomposition of an integer range `0..n`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RangeDecomposition {
     rings: Vec<RingSpec>,
 }
@@ -252,8 +256,11 @@ impl<G: Group> PreparedRangeDecomposition<G> {
 
 /// Zero-knowledge proof that an ElGamal ciphertext encrypts a value into a certain range `0..n`.
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct RangeProof<G: Group> {
     partial_ciphertexts: Vec<Ciphertext<G>>,
+    #[cfg_attr(feature = "serde", serde(flatten))]
     inner: RingProof<G>,
 }
 
