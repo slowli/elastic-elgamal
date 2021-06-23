@@ -96,7 +96,7 @@ pub use crate::{
     encryption::{Ciphertext, DiscreteLogTable, EncryptedChoice},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
     proofs::{
-        LogEqualityProof, ProofOfPossession, RangeDecomposition, RangeProof, RingProof,
-        RingProofBuilder, PreparedRangeDecomposition,
+        LogEqualityProof, PreparedRange, ProofOfPossession, RangeDecomposition, RangeProof,
+        RingProof, RingProofBuilder,
     },
 };

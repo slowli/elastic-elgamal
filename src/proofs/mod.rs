@@ -16,7 +16,7 @@ mod range;
 mod ring;
 
 pub use self::{
-    range::{PreparedRangeDecomposition, RangeDecomposition, RangeProof},
+    range::{PreparedRange, RangeDecomposition, RangeProof},
     ring::{RingProof, RingProofBuilder},
 };
 

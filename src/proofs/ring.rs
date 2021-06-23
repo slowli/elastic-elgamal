@@ -273,21 +273,7 @@ impl<'a, G: Group> Ring<'a, G> {
 ///
 /// ## Range proofs
 ///
-/// Another application is a *range proof* for an ElGamal ciphertext: proving that an encrypted
-/// value is in range `0..=n`, where `n` is a positive integer. To make the proof more compact,
-/// the same trick can be used as for [Pedersen commitments] (used, e.g., for confidential
-/// transaction amounts in [Elements]):
-///
-/// 1. Represent the value in base 2: `n = n_0 + n_1 * 2 + n_2 * 4 + ...`, where `n_i in {0, 1}`.
-///   (Other bases are applicable as well.)
-/// 2. Split the ciphertext correspondingly: `E = E_0 + E_1 + ...`, where `E_i` encrypts
-///   `n_i * 2^i`. That is, `E_0` encrypts 0 or 1, `E_1` encrypts 0 or 2, `E_2` – 0 or 4, etc.
-/// 3. Produce a `RingProof` that `E_i` is valid for all `i`.
-///
-/// As with "ordinary" range proofs, this construction is not optimal in terms of space
-/// or proving / verification complexity for large ranges; it is linear w.r.t. the bit length
-/// of the range. (Constructions like [Bulletproofs] are *logarithmic* w.r.t. the bit length.)
-/// Still, it can be useful for small ranges.
+/// See [`RangeProof`](crate::RangeProof).
 ///
 /// # Implementation details
 ///
@@ -301,11 +287,9 @@ impl<'a, G: Group> Ring<'a, G> {
 ///   and ring indexes, but not to the admissible values across the rings. This must be taken
 ///   care of in a higher-level protocol, and this is the case for protocols exposed by the crate.
 ///
-/// [Pedersen commitments]: https://en.wikipedia.org/wiki/Commitment_scheme
-/// [Elements]: https://elementsproject.org/features/confidential-transactions/investigation
+/// [`LogEqualityProof`]: crate::LogEqualityProof
 /// [Borromean ring signatures]: https://raw.githubusercontent.com/Blockstream/borromean_paper/master/borromean_draft_0.01_34241bb.pdf
 /// [ring]: https://link.springer.com/content/pdf/10.1007/3-540-36178-2_26.pdf
-/// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]

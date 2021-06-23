@@ -11,7 +11,7 @@ use std::{collections::HashMap, fmt, iter, marker::PhantomData, ops};
 use crate::serde::ElementHelper;
 use crate::{
     group::Group,
-    proofs::{LogEqualityProof, RingProof, RingProofBuilder, PreparedRangeDecomposition, RangeProof},
+    proofs::{LogEqualityProof, PreparedRange, RangeProof, RingProof, RingProofBuilder},
     PublicKey, SecretKey,
 };
 
@@ -27,15 +27,15 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Ciphertext, Keypair};
 /// # use rand::thread_rng;
-/// // Generate a keypair for the ciphertext recipient.
+/// // Generate a keypair for the ciphertext receiver.
 /// let mut rng = thread_rng();
-/// let recipient = Keypair::<Ristretto>::generate(&mut rng);
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create a couple of ciphertexts.
-/// let mut enc = recipient.public().encrypt(2_u64, &mut rng);
-/// enc += recipient.public().encrypt(3_u64, &mut rng) * 4;
+/// let mut enc = receiver.public().encrypt(2_u64, &mut rng);
+/// enc += receiver.public().encrypt(3_u64, &mut rng) * 4;
 /// // Check that the ciphertext decrypts to 2 + 3 * 4 = 14.
 /// let lookup_table = DiscreteLogTable::new(0..20);
-/// let decrypted = recipient.secret().decrypt(enc, &lookup_table);
+/// let decrypted = receiver.secret().decrypt(enc, &lookup_table);
 /// assert_eq!(decrypted, Some(14));
 /// ```
 ///
@@ -44,13 +44,35 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Ciphertext, Keypair};
 /// # use rand::thread_rng;
-/// // Generate a keypair for the ciphertext recipient.
+/// // Generate a keypair for the ciphertext receiver.
 /// let mut rng = thread_rng();
-/// let recipient = Keypair::<Ristretto>::generate(&mut rng);
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create and verify a boolean encryption.
 /// let (enc, proof) =
-///     recipient.public().encrypt_bool(false, &mut rng);
-/// assert!(recipient.public().verify_bool(enc, &proof));
+///     receiver.public().encrypt_bool(false, &mut rng);
+/// assert!(receiver.public().verify_bool(enc, &proof));
+/// ```
+///
+/// Creating a ciphertext of an integer value together with a range proof:
+///
+/// ```
+/// # use elastic_elgamal::{group::Ristretto, Keypair, RangeDecomposition};
+/// # use rand::thread_rng;
+/// // Generate the ciphertext receiver.
+/// let mut rng = thread_rng();
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
+/// // Find the optimal range decomposition for our range
+/// // and specialize it for the Ristretto group.
+/// let range = RangeDecomposition::optimal(100).into();
+///
+/// let (ciphertext, proof) = receiver
+///     .public()
+///     .encrypt_range(&range, 42, &mut rng);
+///
+/// // Check that the the proof verifies.
+/// assert!(receiver
+///     .public()
+///     .verify_range(&range, ciphertext, &proof));
 /// ```
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -269,7 +291,7 @@ impl<G: Group> PublicKey<G> {
     /// Panics if `value` is out of `range`.
     pub fn encrypt_range<R: CryptoRng + RngCore>(
         &self,
-        range: &PreparedRangeDecomposition<G>,
+        range: &PreparedRange<G>,
         value: u64,
         rng: &mut R,
     ) -> (Ciphertext<G>, RangeProof<G>) {
@@ -280,7 +302,7 @@ impl<G: Group> PublicKey<G> {
     /// Verifies `proof` that `ciphertext` encrypts a value lying in `range`.
     pub fn verify_range(
         &self,
-        range: &PreparedRangeDecomposition<G>,
+        range: &PreparedRange<G>,
         ciphertext: Ciphertext<G>,
         proof: &RangeProof<G>,
     ) -> bool {
