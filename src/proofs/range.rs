@@ -16,7 +16,6 @@ use crate::{
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 struct RingSpec {
     size: u64,
     step: u64,
@@ -87,7 +86,6 @@ struct RingSpec {
 /// [`RingProof`]: crate::RingProof
 /// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 #[derive(Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct RangeDecomposition {
     rings: Vec<RingSpec>,
 }
