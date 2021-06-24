@@ -195,6 +195,10 @@ impl<G: Group> PublicKey<G> {
     /// # Panics
     ///
     /// Panics if `number_of_variants` is zero, or if `choice` is not in `0..number_of_variants`.
+    ///
+    /// # Examples
+    ///
+    /// See [`EncryptedChoice`] docs for an example of usage.
     pub fn encrypt_choice<R: CryptoRng + RngCore>(
         &self,
         number_of_variants: usize,
@@ -289,6 +293,10 @@ impl<G: Group> PublicKey<G> {
     /// # Panics
     ///
     /// Panics if `value` is out of `range`.
+    ///
+    /// # Examples
+    ///
+    /// See [`Ciphertext`] docs for an example of usage.
     pub fn encrypt_range<R: CryptoRng + RngCore>(
         &self,
         range: &PreparedRange<G>,
@@ -300,6 +308,9 @@ impl<G: Group> PublicKey<G> {
     }
 
     /// Verifies `proof` that `ciphertext` encrypts a value lying in `range`.
+    ///
+    /// The `proof` should be created with a call to [`Self::encrypt_range()`] with the same
+    /// [`PreparedRange`]; otherwise, the proof will not verify.
     pub fn verify_range(
         &self,
         range: &PreparedRange<G>,

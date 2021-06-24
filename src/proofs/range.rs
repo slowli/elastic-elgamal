@@ -32,25 +32,25 @@ struct RingSpec {
 /// To build a decomposition, we use the following generic construction:
 ///
 /// ```text
-/// 0..n = 0..t_0 + k_0 * (0..t_1 + k_1 * (0..t_2 + ...));
+/// 0..n = 0..t_0 + k_0 * (0..t_1 + k_1 * (0..t_2 + …)),
 /// ```
 ///
 /// where `t_i` and `k_i` are integers greater than 1. If `x` is a value in `0..n`,
 /// it is decomposed as
 ///
 /// ```text
-/// x = x_0 + k_0 * x_1 + k_0 * k_1 * x_2 + ...; x_i in 0..t_i.
+/// x = x_0 + k_0 * x_1 + k_0 * k_1 * x_2 + …; x_i in 0..t_i.
 /// ```
 ///
 /// For a decomposition to be valid (i.e., to represent any value in `0..n` and no other values),
 /// the following statements are sufficient:
 ///
 /// - `t_i >= k_i` (no gaps in values)
-/// - `n = t_0 + k_0 * (t_1 - 1 + k_1 * ...)` (exact upper bound)
+/// - `n = t_0 + k_0 * (t_1 - 1 + k_1 * …)` (exact upper bound).
 ///
-/// The size of a `RingProof` is the sum of thresholds `t_i` (= number of responses) + 1
-/// (the common challenge). Additionally, we need a ciphertext per each sub-range (= ring).
-/// In practice, proof size is logarithmic:
+/// The size of a `RingProof` is the sum of upper range bounds `t_i` (= number of responses) + 1
+/// (the common challenge). Additionally, we need a ciphertext per each sub-range `0..t_i`
+/// (i.e., for each ring in `RingProof`). In practice, proof size is logarithmic:
 ///
 /// | Upper bound `n`| Optimal decomposition | Proof size |
 /// |---------------:|-----------------------|-----------:|
@@ -85,6 +85,23 @@ struct RingSpec {
 ///
 /// [`RingProof`]: crate::RingProof
 /// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
+///
+/// # Examples
+///
+/// Finding out the optimal decomposition for a certain range:
+///
+/// ```
+/// # use elastic_elgamal::RangeDecomposition;
+/// let range = RangeDecomposition::optimal(42);
+/// assert_eq!(range.to_string(), "6 * 0..7 + 0..6");
+/// assert_eq!(range.proof_size(), 16); // 14 scalars, 2 elements
+///
+/// let range = RangeDecomposition::optimal(100);
+/// assert_eq!(range.to_string(), "20 * 0..5 + 4 * 0..5 + 0..4");
+/// assert_eq!(range.proof_size(), 19); // 15 scalars, 4 elements
+/// ```
+///
+/// See [`RangeProof`] docs for an end-to-end example of usage.
 #[derive(Debug, Clone, PartialEq)]
 pub struct RangeDecomposition {
     rings: Vec<RingSpec>,
@@ -165,6 +182,13 @@ impl RangeDecomposition {
             .map(|spec| (spec.size - 1) * spec.step)
             .sum::<u64>()
             + 1
+    }
+
+    /// Returns the size of [`RangeProof`]s using this decomposition, measured as a total number
+    /// of scalars and group elements in the proof. Computational complexity of creating and
+    /// verifying proofs is also linear w.r.t. this number.
+    pub fn proof_size(&self) -> u64 {
+        self.rings.iter().map(|spec| spec.size).sum::<u64>() + 2 * self.rings.len() as u64 - 1
     }
 
     fn decompose(&self, value_indexes: &mut Vec<usize>, mut secret_value: u64) {
@@ -328,19 +352,22 @@ impl<G: Group> PreparedRange<G> {
 /// complexity – we use the same trick as for [Pedersen commitments] (used, e.g., for confidential
 /// transaction amounts in [Elements]):
 ///
-/// 1. Represent the encrypted value `x` as `x = x_0 + k_0 * x_1 + k_0 * k_1 * x_2 + ...`,
-///   where `0 <= x_i < t_i` is the decomposition of `x` as per a decomposition of the range,
-///   `0..t_0 + k_0 * (0..t_1 + ...)` (see [`RangeDecomposition`] docs for more details).
-///   As an example, for `n` a power of 2 one can choose a decomposition as the base-2 presentation
-///   of `x`, i.e., `t_i = k_i = 2` for all `i`.
-/// 2. Split the ciphertext correspondingly: `E = E_0 + E_1 + ...`, where `E_0` encrypts
-///   `x_0`, `E_1` encrypts `k_0 * x_1`, etc.
-/// 3. Produce a [`RingProof`] that `E_i` is valid for all `i`. The range proof consists of `E_i`
+/// 1. Represent the encrypted value `x` as `x = x_0 + k_0 * x_1 + k_0 * k_1 * x_2 + …`,
+///   where `0 <= x_i < t_i` is the decomposition of `x` as per the [`RangeDecomposition`],
+///   `0..t_0 + k_0 * (0..t_1 + …)`.
+///   As an example, if `n` is a power of 2, one can choose a decomposition as
+///   the base-2 presentation of `x`, i.e., `t_i = k_i = 2` for all `i`.
+///   For brevity, denote a multiplier of `x_i` in `x` decomposition as `K_i`,
+///   `K_i = k_0 * … * k_{i-1}`; `K_0 = 1` by extension.
+/// 2. Split the ciphertext: `E = E_0 + E_1 + …`, where `E_i` encrypts `K_i * x_i`.
+/// 3. Produce a [`RingProof`] that for all `i` the encrypted scalar for `E_i`
+///   is among 0, `K_i`, …, `K_i * (t_i - 1)`. The range proof consists of all `E_i` ciphertexts
 ///   and this `RingProof`.
 ///
-/// As with "ordinary" range proofs, this construction is not optimal in terms of space
-/// or proving / verification complexity for large ranges; it is linear w.r.t. the bit length
-/// of the range. (Constructions like [Bulletproofs] are *logarithmic* w.r.t. the bit length.)
+/// As with range proofs for Pedersen commitments, this construction is not optimal
+/// in terms of space or proving / verification complexity for large ranges;
+/// it is linear w.r.t. the bit length of the range.
+/// (Constructions like [Bulletproofs] are *logarithmic* w.r.t. the bit length.)
 /// Still, it can be useful for small ranges.
 ///
 /// [Pedersen commitments]: https://en.wikipedia.org/wiki/Commitment_scheme
@@ -360,19 +387,19 @@ impl<G: Group> PreparedRange<G> {
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Find the optimal range decomposition for our range
 /// // and specialize it for the Ristretto group.
-/// let range = RangeDecomposition::optimal(777).into();
+/// let range = RangeDecomposition::optimal(100).into();
 ///
 /// let (ciphertext, proof) = RangeProof::new(
 ///     receiver.public(),
 ///     &range,
-///     555,
+///     55,
 ///     &mut Transcript::new(b"test_proof"),
 ///     &mut rng,
 /// );
 ///
 /// // Check that the ciphertext is valid
-/// let lookup = DiscreteLogTable::new(550..560);
-/// assert_eq!(receiver.secret().decrypt(ciphertext, &lookup), Some(555));
+/// let lookup = DiscreteLogTable::new(0..100);
+/// assert_eq!(receiver.secret().decrypt(ciphertext, &lookup), Some(55));
 /// // ...and that the proof verifies.
 /// assert!(proof.verify(
 ///     receiver.public(),
