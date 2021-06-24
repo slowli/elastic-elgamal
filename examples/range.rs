@@ -1,0 +1,46 @@
+//! Example for using `RangeProof`s.
+
+use rand::{thread_rng, Rng};
+
+use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Keypair, RangeDecomposition};
+
+/// Exclusive upper bound of the plaintext value range.
+const UPPER_BOUND: u64 = 100;
+
+fn main() {
+    let range = RangeDecomposition::optimal(UPPER_BOUND);
+    println!(
+        "Range decomposition: 0..{} = {}",
+        range.upper_bound(),
+        range
+    );
+
+    let mut rng = thread_rng();
+    let receiver = Keypair::<Ristretto>::generate(&mut rng);
+    let range = range.into();
+    let lookup_table = DiscreteLogTable::<Ristretto>::new(0..UPPER_BOUND);
+
+    for _ in 0..5 {
+        let secret_value: u64 = rng.gen_range(0..UPPER_BOUND);
+        println!("\nEncrypting value: {}", secret_value);
+        let (ciphertext, proof) = receiver
+            .public()
+            .encrypt_range(&range, secret_value, &mut rng);
+
+        println!(
+            "Ciphertext: {}",
+            serde_json::to_string_pretty(&ciphertext).unwrap()
+        );
+        println!(
+            "Range proof: {}",
+            serde_json::to_string_pretty(&proof).unwrap()
+        );
+
+        assert!(receiver.public().verify_range(&range, ciphertext, &proof));
+        let decrypted = receiver
+            .secret()
+            .decrypt(ciphertext, &lookup_table)
+            .unwrap();
+        assert_eq!(decrypted, secret_value);
+    }
+}
