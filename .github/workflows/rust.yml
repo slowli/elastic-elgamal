@@ -100,6 +100,11 @@ jobs:
         with:
           command: run
           args: -p elastic-elgamal --all-features --example voting -- k256
+      - name: Run range
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: -p elastic-elgamal --all-features --example range
 
   document:
     if: github.event_name == 'push'

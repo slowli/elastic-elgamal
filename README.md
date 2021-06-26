@@ -14,6 +14,7 @@ The following protocols are included:
 
 - Additively homomorphic ElGamal encryption
 - Zero-knowledge proofs of zero encryption and Boolean value encryption
+- Zero-knowledge range proofs for ElGamal ciphertexts
 - Additively homomorphic 1-of-n choice encryption and the corresponding
   zero-knowledge proof of correctness
 - Threshold ElGamal encryption via [Shamir's secret sharing][sss],

@@ -51,6 +51,11 @@ name = "voting"
 path = "examples/voting.rs"
 required-features = ["serde"]
 
+[[example]]
+name = "range"
+path = "examples/range.rs"
+required-features = ["serde"]
+
 # Speed up `k256` arithmetic.
 [profile.dev.package.k256]
 opt-level = 2

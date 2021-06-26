@@ -15,10 +15,12 @@
 //!
 //! - [`Ciphertext`] provides ElGamal encryption. This and other protocols use
 //!   [`PublicKey`], [`SecretKey`] and [`Keypair`] to represent participants' keys.
-//! - Besides basic encryption, `Ciphertext` also provides zero-knowledge proofs of
+//! - Besides basic encryption, `PublicKey` also provides zero-knowledge proofs of
 //!   [zero encryption](PublicKey::encrypt_zero()) and of
 //!   [Boolean value encryption](PublicKey::encrypt_bool()). These are useful in higher-level
 //!   protocols, e.g., re-encryption.
+//! - Zero-knowledge range proofs for ElGamal ciphertexts are provided via [`RangeProof`]s
+//!   and a high-level [`PublicKey` method](PublicKey::encrypt_range()).
 //! - [`EncryptedChoice`] provides a way to encrypt a choice of one of `n` variants so that
 //!   variant ciphertexts are additively homomorphic and have zero-knowledge proof of correctness.
 //! - [`sharing`](crate::sharing) module exposes a threshold encryption scheme based
@@ -95,5 +97,8 @@ pub mod sharing;
 pub use crate::{
     encryption::{Ciphertext, DiscreteLogTable, EncryptedChoice},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
-    proofs::{LogEqualityProof, ProofOfPossession, RingProof, RingProofBuilder},
+    proofs::{
+        LogEqualityProof, PreparedRange, ProofOfPossession, RangeDecomposition, RangeProof,
+        RingProof, RingProofBuilder,
+    },
 };

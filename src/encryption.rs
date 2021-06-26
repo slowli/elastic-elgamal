@@ -5,13 +5,13 @@ use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashMap, fmt, marker::PhantomData, ops};
+use std::{collections::HashMap, fmt, iter, marker::PhantomData, ops};
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
     group::Group,
-    proofs::{LogEqualityProof, RingProof, RingProofBuilder},
+    proofs::{LogEqualityProof, PreparedRange, RangeProof, RingProof, RingProofBuilder},
     PublicKey, SecretKey,
 };
 
@@ -27,15 +27,15 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Ciphertext, Keypair};
 /// # use rand::thread_rng;
-/// // Generate a keypair for the ciphertext recipient.
+/// // Generate a keypair for the ciphertext receiver.
 /// let mut rng = thread_rng();
-/// let recipient = Keypair::<Ristretto>::generate(&mut rng);
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create a couple of ciphertexts.
-/// let mut enc = recipient.public().encrypt(2_u64, &mut rng);
-/// enc += recipient.public().encrypt(3_u64, &mut rng) * 4;
+/// let mut enc = receiver.public().encrypt(2_u64, &mut rng);
+/// enc += receiver.public().encrypt(3_u64, &mut rng) * 4;
 /// // Check that the ciphertext decrypts to 2 + 3 * 4 = 14.
 /// let lookup_table = DiscreteLogTable::new(0..20);
-/// let decrypted = recipient.secret().decrypt(enc, &lookup_table);
+/// let decrypted = receiver.secret().decrypt(enc, &lookup_table);
 /// assert_eq!(decrypted, Some(14));
 /// ```
 ///
@@ -44,13 +44,35 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Ciphertext, Keypair};
 /// # use rand::thread_rng;
-/// // Generate a keypair for the ciphertext recipient.
+/// // Generate a keypair for the ciphertext receiver.
 /// let mut rng = thread_rng();
-/// let recipient = Keypair::<Ristretto>::generate(&mut rng);
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create and verify a boolean encryption.
 /// let (enc, proof) =
-///     recipient.public().encrypt_bool(false, &mut rng);
-/// assert!(recipient.public().verify_bool(enc, &proof));
+///     receiver.public().encrypt_bool(false, &mut rng);
+/// assert!(receiver.public().verify_bool(enc, &proof));
+/// ```
+///
+/// Creating a ciphertext of an integer value together with a range proof:
+///
+/// ```
+/// # use elastic_elgamal::{group::Ristretto, Keypair, RangeDecomposition};
+/// # use rand::thread_rng;
+/// // Generate the ciphertext receiver.
+/// let mut rng = thread_rng();
+/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
+/// // Find the optimal range decomposition for our range
+/// // and specialize it for the Ristretto group.
+/// let range = RangeDecomposition::optimal(100).into();
+///
+/// let (ciphertext, proof) = receiver
+///     .public()
+///     .encrypt_range(&range, 42, &mut rng);
+///
+/// // Check that the the proof verifies.
+/// assert!(receiver
+///     .public()
+///     .verify_range(&range, ciphertext, &proof));
 /// ```
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -147,7 +169,7 @@ impl<G: Group> PublicKey<G> {
     ) -> (Ciphertext<G>, RingProof<G>) {
         let mut transcript = Transcript::new(b"bool_encryption");
         let admissible_values = [G::identity(), G::generator()];
-        let mut builder = RingProofBuilder::new(self, &mut transcript, rng);
+        let mut builder = RingProofBuilder::new(self, 1, &mut transcript, rng);
         let ciphertext = builder.add_value(&admissible_values, value as usize);
         (ciphertext.inner, builder.build())
     }
@@ -162,8 +184,8 @@ impl<G: Group> PublicKey<G> {
         let admissible_values = [G::identity(), G::generator()];
         proof.verify(
             self,
-            &[&admissible_values],
-            &[ciphertext],
+            iter::once(&admissible_values as &[_]),
+            iter::once(ciphertext),
             &mut Transcript::new(b"bool_encryption"),
         )
     }
@@ -173,6 +195,10 @@ impl<G: Group> PublicKey<G> {
     /// # Panics
     ///
     /// Panics if `number_of_variants` is zero, or if `choice` is not in `0..number_of_variants`.
+    ///
+    /// # Examples
+    ///
+    /// See [`EncryptedChoice`] docs for an example of usage.
     pub fn encrypt_choice<R: CryptoRng + RngCore>(
         &self,
         number_of_variants: usize,
@@ -192,7 +218,8 @@ impl<G: Group> PublicKey<G> {
 
         let admissible_values = [G::identity(), G::generator()];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");
-        let mut proof_builder = RingProofBuilder::new(self, &mut transcript, rng);
+        let mut proof_builder =
+            RingProofBuilder::new(self, number_of_variants, &mut transcript, rng);
 
         let variants: Vec<_> = (0..number_of_variants)
             .map(|i| proof_builder.add_value(&admissible_values, (i == choice) as usize))
@@ -249,17 +276,49 @@ impl<G: Group> PublicKey<G> {
         }
 
         let admissible_values = [G::identity(), G::generator()];
-        let admissible_values = vec![&admissible_values as &[_]; choice.variants.len()];
         if choice.range_proof.verify(
             self,
-            &admissible_values,
-            &choice.variants,
+            iter::repeat(&admissible_values as &[_]).take(choice.variants.len()),
+            choice.variants.iter().copied(),
             &mut Transcript::new(b"encrypted_choice_ranges"),
         ) {
             Some(&choice.variants)
         } else {
             None
         }
+    }
+
+    /// Encrypts `value` and provides a zero-knowledge proof that it lies in the specified `range`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `value` is out of `range`.
+    ///
+    /// # Examples
+    ///
+    /// See [`Ciphertext`] docs for an example of usage.
+    pub fn encrypt_range<R: CryptoRng + RngCore>(
+        &self,
+        range: &PreparedRange<G>,
+        value: u64,
+        rng: &mut R,
+    ) -> (Ciphertext<G>, RangeProof<G>) {
+        let mut transcript = Transcript::new(b"ciphertext_range");
+        RangeProof::new(self, range, value, &mut transcript, rng)
+    }
+
+    /// Verifies `proof` that `ciphertext` encrypts a value lying in `range`.
+    ///
+    /// The `proof` should be created with a call to [`Self::encrypt_range()`] with the same
+    /// [`PreparedRange`]; otherwise, the proof will not verify.
+    pub fn verify_range(
+        &self,
+        range: &PreparedRange<G>,
+        ciphertext: Ciphertext<G>,
+        proof: &RangeProof<G>,
+    ) -> bool {
+        let mut transcript = Transcript::new(b"ciphertext_range");
+        proof.verify(self, range, ciphertext, &mut transcript)
     }
 }
 
