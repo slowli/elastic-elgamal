@@ -475,6 +475,7 @@ impl<G: Group> RangeProof<G> {
     ///
     /// For a proof to verify, all parameters must be identical to ones provided when creating
     /// the proof. In particular, `range` must have the same decomposition.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify(
         &self,
         receiver: &PublicKey<G>,

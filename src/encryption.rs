@@ -148,6 +148,7 @@ impl<G: Group> PublicKey<G> {
     }
 
     /// Verifies that this is an encryption of a zero value.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify_zero(&self, ciphertext: Ciphertext<G>, proof: &LogEqualityProof<G>) -> bool {
         proof.verify(
             self,
@@ -180,6 +181,7 @@ impl<G: Group> PublicKey<G> {
     /// # Examples
     ///
     /// See [`Ciphertext`] docs for an example of usage.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify_bool(&self, ciphertext: Ciphertext<G>, proof: &RingProof<G>) -> bool {
         let admissible_values = [G::identity(), G::generator()];
         proof.verify(
@@ -253,6 +255,7 @@ impl<G: Group> PublicKey<G> {
 
     /// Verifies the zero-knowledge proofs in an [`EncryptedChoice`] and returns variant ciphertexts
     /// if they check out. Otherwise, returns `None`.
+    #[must_use = "verification fail is returned as `None` and should be handled"]
     pub fn verify_choice<'a>(&self, choice: &'a EncryptedChoice<G>) -> Option<&'a [Ciphertext<G>]> {
         // Some sanity checks.
         if choice.len() == 0 || choice.range_proof.total_rings_size() != 2 * choice.variants.len() {
@@ -311,6 +314,7 @@ impl<G: Group> PublicKey<G> {
     ///
     /// The `proof` should be created with a call to [`Self::encrypt_range()`] with the same
     /// [`PreparedRange`]; otherwise, the proof will not verify.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify_range(
         &self,
         range: &PreparedRange<G>,

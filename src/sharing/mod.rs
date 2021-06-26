@@ -560,6 +560,7 @@ impl<G: Group> PublicKeySet<G> {
     /// # Panics
     ///
     /// Panics if `index` does not correspond to a participant.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify_participant(&self, index: usize, proof: &ProofOfPossession<G>) -> bool {
         let participant_key = self.participant_key(index).unwrap_or_else(|| {
             panic!(
@@ -576,6 +577,7 @@ impl<G: Group> PublicKeySet<G> {
 
     /// Verifies a candidate decryption share for `ciphertext` provided by a participant
     /// with the specified `index`.
+    #[must_use = "verification fail is returned as `None` and should be handled"]
     pub fn verify_share(
         &self,
         candidate_share: CandidateShare<G>,

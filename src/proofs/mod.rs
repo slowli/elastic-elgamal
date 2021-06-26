@@ -171,6 +171,7 @@ impl<G: Group> ProofOfPossession<G> {
     }
 
     /// Verifies this proof against the provided `public_keys`.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify<'a>(
         &self,
         public_keys: impl Iterator<Item = &'a PublicKey<G>> + Clone,
@@ -340,6 +341,7 @@ impl<G: Group> LogEqualityProof<G> {
     ///   log base is always the [`Group`] generator.
     /// - `powers` are group elements presumably equal to `[r]G` and `[r]K` respectively,
     ///   where `r` is a secret scalar.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify(
         &self,
         log_base: &PublicKey<G>,

@@ -306,6 +306,7 @@ impl<G: Group> RingProof<G> {
         transcript.append_element_bytes(b"K", &receiver.bytes);
     }
 
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub(crate) fn verify<'a>(
         &self,
         receiver: &PublicKey<G>,
