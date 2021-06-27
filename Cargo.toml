@@ -5,10 +5,16 @@ authors = ["Alex Ostrovski <ostrovski.alex@gmail.com>"]
 edition = "2018"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
+repository = "https://github.com/slowli/elastic-elgamal"
+keywords = ["elgamal", "encryption", "zero-knowledge"]
+categories = ["cryptography"]
 description = """\
 Implementation of ElGamal encryption and related zero-knowledge proofs
 with pluggable crypto backend
 """
+
+[package.metadata.docs.rs]
+all-features = true
 
 [dependencies]
 # Public dependencies (present in public API of the crate).
