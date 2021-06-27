@@ -320,7 +320,7 @@ impl<G: Group> LogEqualityProof<G> {
 
     /// Attempts to parse the proof from `bytes`. Returns `None` if `bytes` do not represent
     /// a well-formed proof.
-    pub fn from_slice(bytes: &[u8]) -> Option<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() != 2 * G::SCALAR_SIZE {
             return None;
         }
