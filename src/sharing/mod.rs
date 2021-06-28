@@ -113,6 +113,7 @@
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use subtle::ConstantTimeEq;
 
 use std::{cmp::Ordering, fmt, iter, ops};
 
@@ -181,6 +182,11 @@ pub enum Error {
     /// Secret received from the dealer does not correspond to their commitment via
     /// the public polynomial.
     InvalidSecret,
+    /// Number of participants specified in [`Params`] does not match the number
+    /// of provided public keys.
+    ParticipantCountMismatch,
+    /// Participants' public keys do not correspond to a single shared key.
+    MalformedParticipantKeys,
 }
 
 impl fmt::Display for Error {
@@ -195,6 +201,13 @@ impl fmt::Display for Error {
             Self::InvalidSecret => {
                 "secret received from the dealer does not correspond to their commitment via \
                  public polynomial"
+            }
+            Self::ParticipantCountMismatch => {
+                "number of participants specified in `Params` does not match the number \
+                 of provided public keys"
+            }
+            Self::MalformedParticipantKeys => {
+                "participants' public keys do not correspond to a single shared key"
             }
         })
     }
@@ -336,28 +349,68 @@ impl<G: Group> PublicKeySet<G> {
 
     /// Creates a key set from the parameters and public keys of all participants.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the number of keys in `participant_keys` does not match the number
-    /// of participants in `params`.
-    pub fn from_participants(params: Params, participant_keys: Vec<PublicKey<G>>) -> Self {
-        assert_eq!(params.shares, participant_keys.len());
+    /// Returns an error if the number of keys in `participant_keys` does not match the number
+    /// of participants in `params`, or if `participant_keys` are inconsistent (do not correspond
+    /// to a single shared key).
+    pub fn from_participants(
+        params: Params,
+        participant_keys: Vec<PublicKey<G>>,
+    ) -> Result<Self, Error> {
+        if params.shares != participant_keys.len() {
+            return Err(Error::ParticipantCountMismatch);
+        }
 
+        // Reconstruct the shared key based on first `t` participant keys.
         let indexes: Vec<_> = (0..params.threshold).collect();
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
-        let shared_key = G::vartime_multi_mul(
-            &denominators,
-            participant_keys
-                .iter()
-                .map(|key| key.element)
-                .take(params.threshold),
-        );
+        let starting_keys = participant_keys
+            .iter()
+            .map(|key| key.element)
+            .take(params.threshold);
+        let shared_key = G::vartime_multi_mul(&denominators, starting_keys.clone());
+        let shared_key = PublicKey::from_element(shared_key * &scale);
 
-        Self {
-            params,
-            shared_key: PublicKey::from_element(shared_key * &scale),
-            participant_keys,
+        // Check that the remaining participant keys are correct.
+
+        // Prepare multiplicative inverses for `1..=n`.
+        let mut inverses: Vec<_> = (1_u64..=params.shares as u64)
+            .map(G::Scalar::from)
+            .collect();
+        G::invert_scalars(&mut inverses);
+
+        for (x, key) in participant_keys.iter().enumerate().skip(params.threshold) {
+            let mut key_scale = indexes
+                .iter()
+                .map(|&idx| G::Scalar::from((x - idx) as u64))
+                .fold(G::Scalar::from(1), |acc, value| acc * value);
+
+            let key_denominators: Vec<_> = denominators
+                .iter()
+                .enumerate()
+                .map(|(idx, &d)| d * G::Scalar::from(idx as u64 + 1) * inverses[x - idx - 1])
+                .collect();
+
+            // We've ignored the sign in the calculations above. The sign is negative iff
+            // threshold `t` is even; indeed, all `t` multiplicands in `key_scale` are negative,
+            // as well as the `1 / (idx - x)` multiplicand in each of `key_denominators`.
+            if params.threshold % 2 == 0 {
+                key_scale = -key_scale;
+            }
+
+            let interpolated_key = G::vartime_multi_mul(&key_denominators, starting_keys.clone());
+            let interpolated_key = interpolated_key * &key_scale;
+            if !bool::from(interpolated_key.ct_eq(&key.element)) {
+                return Err(Error::MalformedParticipantKeys);
+            }
         }
+
+        Ok(Self {
+            params,
+            shared_key,
+            participant_keys,
+        })
     }
 
     /// Returns parameters for this scheme.
@@ -444,9 +497,10 @@ impl<G: Group> PublicKeySet<G> {
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::scalar::Scalar as Scalar25519;
+    use rand::thread_rng;
 
     use super::*;
-    use crate::group::Ristretto;
+    use crate::group::{ElementOps, Ristretto};
 
     #[test]
     fn lagrange_coeffs_are_computed_correctly() {
@@ -484,5 +538,38 @@ mod tests {
             ]
         );
         assert_eq!(scale, Scalar25519::from(20_u32));
+    }
+
+    #[test]
+    fn restoring_key_set_from_participant_keys_errors() {
+        let mut rng = thread_rng();
+        let params = Params::new(10, 7);
+
+        let dealer = Dealer::<Ristretto>::new(params, &mut rng);
+        let (public_poly, _) = dealer.public_info();
+        let public_poly = PublicPolynomial::<Ristretto>(public_poly);
+        let participant_keys: Vec<PublicKey<Ristretto>> = (1..=params.shares)
+            .map(|i| PublicKey::from_element(public_poly.value_at((i as u64).into())))
+            .collect();
+
+        // Check that `participant_keys` are computed correctly.
+        PublicKeySet::from_participants(params, participant_keys.clone()).unwrap();
+
+        let err =
+            PublicKeySet::from_participants(params, participant_keys[1..].to_vec()).unwrap_err();
+        assert!(matches!(err, Error::ParticipantCountMismatch));
+
+        // Order of keys matters!
+        let mut bogus_keys = participant_keys.clone();
+        bogus_keys.swap(1, 5);
+        let err = PublicKeySet::from_participants(params, bogus_keys).unwrap_err();
+        assert!(matches!(err, Error::MalformedParticipantKeys));
+
+        for i in 0..params.shares {
+            let mut bogus_keys = participant_keys.clone();
+            bogus_keys[i] = PublicKey::from_element(bogus_keys[i].element + Ristretto::generator());
+            let err = PublicKeySet::from_participants(params, bogus_keys).unwrap_err();
+            assert!(matches!(err, Error::MalformedParticipantKeys));
+        }
     }
 }

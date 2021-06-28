@@ -46,12 +46,11 @@ impl<G: Group> Rig<G> {
     }
 }
 
-fn test_group_info_can_be_restored_from_participants<G: Group>() {
-    let params = Params::new(10, 7);
+fn test_group_info_can_be_restored_from_participants<G: Group>(params: Params) {
     let rig: Rig<G> = Rig::new(params, &mut thread_rng());
     let expected_shared_key = rig.key_set.shared_key();
     let restored_info =
-        PublicKeySet::from_participants(params, rig.key_set.participant_keys().to_vec());
+        PublicKeySet::from_participants(params, rig.key_set.participant_keys().to_vec()).unwrap();
     assert_eq!(restored_info.shared_key(), expected_shared_key);
 }
 
@@ -120,7 +119,8 @@ mod curve25519 {
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
-        test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>();
+        test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>(Params::new(10, 7));
+        test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>(Params::new(10, 8));
     }
 
     #[test]
@@ -200,7 +200,8 @@ mod ristretto {
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
-        test_group_info_can_be_restored_from_participants::<Ristretto>();
+        test_group_info_can_be_restored_from_participants::<Ristretto>(Params::new(10, 7));
+        test_group_info_can_be_restored_from_participants::<Ristretto>(Params::new(10, 8));
     }
 
     #[test]
@@ -282,7 +283,8 @@ mod k256 {
 
     #[test]
     fn group_info_can_be_restored_from_participants() {
-        test_group_info_can_be_restored_from_participants::<K256>();
+        test_group_info_can_be_restored_from_participants::<K256>(Params::new(10, 7));
+        test_group_info_can_be_restored_from_participants::<K256>(Params::new(10, 8));
     }
 
     #[test]

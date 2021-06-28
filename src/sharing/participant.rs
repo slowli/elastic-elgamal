@@ -1,5 +1,8 @@
 //! Types representing participant state.
 
+// TODO: Use a publicly verifiable scheme, e.g. Schoenmakers?
+// https://www.win.tue.nl/~berry/papers/crypto99.pdf
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
@@ -17,7 +20,7 @@ use crate::{
     Ciphertext, Keypair, PublicKey, SecretKey,
 };
 
-/// Dealer in a [Feldman verifiable secret sharing] scheme.
+/// Dealer in a [Feldman verifiable secret sharing][feldman-vss] scheme.
 ///
 /// [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
 #[derive(Debug, Clone)]
