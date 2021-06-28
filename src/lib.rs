@@ -24,9 +24,8 @@
 //! - [`EncryptedChoice`] provides a way to encrypt a choice of one of `n` variants so that
 //!   variant ciphertexts are additively homomorphic and have zero-knowledge proof of correctness.
 //! - [`sharing`](crate::sharing) module exposes a threshold encryption scheme based
-//!   on [Shamir's secret sharing][sss], including distributed key generation
-//!   and verifiable shared decryption. Some crypto primitives used in the module
-//!   can be used independently, e.g., [`ProofOfPossession`].
+//!   on [Feldman's verifiable secret sharing][feldman-vss], including verifiable distributed
+//!   decryption.
 //!
 //! # Backends
 //!
@@ -65,7 +64,7 @@
 //!
 //! [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
 //! [CCA]: https://en.wikipedia.org/wiki/Chosen-ciphertext_attack
-//! [sss]: https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing
+//! [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
 //! [`Group`]: crate::group::Group
 //! [`Ristretto`]: crate::group::Ristretto
 //! [`Curve25519Subgroup`]: crate::group::Curve25519Subgroup

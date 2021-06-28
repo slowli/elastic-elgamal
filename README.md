@@ -17,8 +17,8 @@ The following protocols are included:
 - Zero-knowledge range proofs for ElGamal ciphertexts
 - Additively homomorphic 1-of-n choice encryption and the corresponding
   zero-knowledge proof of correctness
-- Threshold ElGamal encryption via [Shamir's secret sharing][sss],
-  including distributed key generation and verifiable distributed decryption.
+- Threshold ElGamal encryption via [Feldman's verifiable secret sharing][feldman-vss],
+  including verifiable distributed decryption.
 
 ## ⚠ Warnings
 
@@ -71,7 +71,7 @@ for inclusion in `elastic-elgamal` by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.</small>
 
 [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
-[sss]: https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing
+[feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
 [DDH]: https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption
 [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm

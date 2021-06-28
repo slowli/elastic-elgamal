@@ -6,50 +6,32 @@ use rand_core::{CryptoRng, RngCore};
 use crate::assert_ct_eq;
 use elastic_elgamal::{
     group::Group,
-    sharing::{
-        ActiveParticipant, DecryptionShare, Params, PartialPublicKeySet, PublicKeySet,
-        StartingParticipant,
-    },
+    sharing::{ActiveParticipant, Dealer, DecryptionShare, Params, PublicKeySet},
     Ciphertext, DiscreteLogTable,
 };
 
 struct Rig<G: Group> {
-    info: PublicKeySet<G>,
+    key_set: PublicKeySet<G>,
     participants: Vec<ActiveParticipant<G>>,
 }
 
 impl<G: Group> Rig<G> {
     fn new(params: Params, rng: &mut (impl RngCore + CryptoRng)) -> Self {
+        let dealer = Dealer::<G>::new(params, rng);
+        let (public_poly, public_poly_proof) = dealer.public_info();
+        let key_set = PublicKeySet::new(params, public_poly, public_poly_proof).unwrap();
+
         let participants: Vec<_> = (0..params.shares)
-            .map(|i| StartingParticipant::<G>::new(params, i, rng))
+            .map(|i| {
+                ActiveParticipant::new(key_set.clone(), i, dealer.secret_share_for_participant(i))
+                    .unwrap()
+            })
             .collect();
 
-        let mut partial_info = PartialPublicKeySet::<G>::new(params);
-        for (i, participant) in participants.iter().enumerate() {
-            let (poly, proof) = participant.public_info();
-            partial_info
-                .add_participant(i, poly.to_vec(), proof)
-                .unwrap();
+        Self {
+            key_set,
+            participants,
         }
-        let info = partial_info.complete().unwrap();
-
-        let mut participants: Vec<_> = participants
-            .into_iter()
-            .map(|participant| participant.finalize_key_set(&partial_info).unwrap())
-            .collect();
-        for i in 0..participants.len() {
-            for j in 0..participants.len() {
-                if j != i {
-                    let message = participants[i].message(j).clone();
-                    participants[j].process_message(i, message).unwrap();
-                }
-            }
-        }
-        let participants = participants
-            .into_iter()
-            .map(|participant| participant.complete())
-            .collect();
-        Self { info, participants }
     }
 
     fn decryption_shares(
@@ -67,9 +49,9 @@ impl<G: Group> Rig<G> {
 fn test_group_info_can_be_restored_from_participants<G: Group>() {
     let params = Params::new(10, 7);
     let rig: Rig<G> = Rig::new(params, &mut thread_rng());
-    let expected_shared_key = rig.info.shared_key();
+    let expected_shared_key = rig.key_set.shared_key();
     let restored_info =
-        PublicKeySet::from_participants(params, rig.info.participant_keys().to_vec());
+        PublicKeySet::from_participants(params, rig.key_set.participant_keys().to_vec());
     assert_eq!(restored_info.shared_key(), expected_shared_key);
 }
 
@@ -78,7 +60,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
     let rig: Rig<G> = Rig::new(params, &mut rng);
     for _ in 0..20 {
         let value = G::generate_scalar(&mut rng);
-        let encrypted = rig.info.shared_key().encrypt(value, &mut rng);
+        let encrypted = rig.key_set.shared_key().encrypt(value, &mut rng);
         let shares = rig.decryption_shares(encrypted, &mut rng);
         for _ in 0..5 {
             let chosen_shares = shares
@@ -101,7 +83,7 @@ fn test_simple_voting<G: Group>() {
     let mut rng = thread_rng();
     let params = Params::new(10, 7);
     let rig = Rig::<G>::new(params, &mut rng);
-    let shared_key = rig.info.shared_key();
+    let shared_key = rig.key_set.shared_key();
 
     let mut expected_totals = [0; CHOICE_COUNT];
     let mut encrypted_totals = [Ciphertext::zero(); CHOICE_COUNT];
