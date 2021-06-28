@@ -76,7 +76,7 @@ struct RingSpec {
 ///   recursively.
 /// - If we know how to create / verify range proofs for `0..N`, proofs for all ranges `0..n`,
 ///   `n < N` can be constructed as a combination of 2 proofs: a proof that encrypted value `x`
-///   is in `0..N` and that `n - x` is in `0..N`. (The latter is proved for a ciphertext
+///   is in `0..N` and that `n - 1 - x` is in `0..N`. (The latter is proved for a ciphertext
 ///   obtained by the matching linear transform of the original ciphertext of `x`.)
 ///   This does not help us if proofs for `0..N` are constructed using [`RingProof`]s,
 ///   but allows estimating for which `n` a [Bulletproofs]-like construction would become

@@ -98,8 +98,7 @@ pub struct ActiveParticipant<G: Group> {
 }
 
 impl<G: Group> ActiveParticipant<G> {
-    /// Creates the participant state based on readily available components. This is
-    /// useful to restore previously persisted state.
+    /// Creates the participant state based on readily available components.
     ///
     /// # Errors
     ///
