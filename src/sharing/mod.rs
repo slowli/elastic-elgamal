@@ -174,27 +174,27 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
-    /// Public polynomial received from a participant is malformed.
-    MalformedParticipantPolynomial,
-    /// Secret received from a participant does not correspond to their commitment via
-    /// public polynomial.
+    /// Public polynomial received from the dealer is malformed.
+    MalformedDealerPolynomial,
+    /// Proof of possession supplied with the dealer's public polynomial is invalid.
+    InvalidDealerProof,
+    /// Secret received from the dealer does not correspond to their commitment via
+    /// the public polynomial.
     InvalidSecret,
-    /// Proof of possession supplied with a participant's public polynomial is invalid.
-    InvalidProofOfPossession,
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
-            Self::MalformedParticipantPolynomial => {
-                "public polynomial received from a participant is malformed"
+            Self::MalformedDealerPolynomial => {
+                "public polynomial received from the dealer is malformed"
+            }
+            Self::InvalidDealerProof => {
+                "proof of possession supplied with the dealer's public polynomial is invalid"
             }
             Self::InvalidSecret => {
-                "secret received from a participant does not correspond to their commitment via \
+                "secret received from the dealer does not correspond to their commitment via \
                  public polynomial"
-            }
-            Self::InvalidProofOfPossession => {
-                "proof of possession supplied with a participant's public polynomial is invalid"
             }
         })
     }
@@ -304,8 +304,7 @@ impl<G: Group> PublicKeySet<G> {
         public_poly_proof: &ProofOfPossession<G>,
     ) -> Result<Self, Error> {
         if public_poly.len() != params.threshold {
-            // FIXME: change error type
-            return Err(Error::MalformedParticipantPolynomial);
+            return Err(Error::MalformedDealerPolynomial);
         }
 
         let mut transcript = Transcript::new(b"elgamal_share_poly");
@@ -319,7 +318,7 @@ impl<G: Group> PublicKeySet<G> {
             .collect();
         let is_valid_proof = public_poly_proof.verify(public_poly_keys.iter(), &mut transcript);
         if !is_valid_proof {
-            return Err(Error::InvalidProofOfPossession);
+            return Err(Error::InvalidDealerProof);
         }
 
         let public_poly = PublicPolynomial::<G>(public_poly);
