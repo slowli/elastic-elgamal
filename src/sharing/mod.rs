@@ -1,101 +1,61 @@
-//! [Shamir's secret sharing][sss] for ElGamal encryption.
+//! [Feldman's verifiable secret sharing][feldman-vss] (VSS) for ElGamal encryption.
 //!
-//! # Problem
+//! Feldman's VSS is an extension of [Shamir's secret sharing][sss] that provides a degree
+//! of verifiability for the scheme participants and the public. As with other VSS schemes,
+//! the goal is to securely distribute a secret among `n` participants so that the secret can
+//! be recombined by any `t` (but not less) of these participants. Unlike distributed key
+//! generation (DKG), VSS assumes a central authority (a *dealer*) generating the secret
+//! and distributing its shares among participants.
 //!
-//! We want to instantiate `(n, t)` threshold encryption scheme, i.e., a scheme with
-//! `n` participants, each `t + 1` of which (but not less!) can jointly decrypt any ciphertext
-//! encrypted under the joint public key `K`.
+//! # Construction
 //!
-//! Assumptions:
+//! **Inputs:**
 //!
-//! - There is a secure broadcast among participants, which acts as a single source of truth.
-//!  (E.g., a blockchain.) The broadcast is synchronous w.r.t. the protocol steps (in practice,
-//!  this means that protocol steps take sufficiently long amount of time).
+//! - Total number of participants `n`
+//! - Minimum number of participants necessary to restore secret `t`
+//! - Prime-order group with discrete log assumption with generator `G`
 //!
-//! # Distributed key generation
+//! **Assumptions:**
 //!
-//! **1.** Each participant in the `(n, t)` scheme generates a *secret polynomial* of degree `t`
-//! with random scalar coefficients:
+//! - There is a secure broadcast among participants, which acts as a single source of truth
+//!   (e.g., a blockchain). The broadcast is synchronous w.r.t. the protocol steps (in practice,
+//!   this means that protocol steps take sufficiently long amount of time).
+//! - Secure synchronous P2P channels can be established between the dealer and participants.
+//! - The adversary is static (corrupts parties before protocol instantiation) and can corrupt
+//!   less than a half of participants (including the dealer).
 //!
-//! ```text
-//! P_i(x) = a_i0 + a_i1 * x + ... + a_it * x^t,
-//! ```
+//! Feldman's VSS proceeds as follows:
 //!
-//! where `1 <= i <= n` is the participant's index.
+//! 1. The dealer generates a secret `x` (a scalar in a group with discrete log assumption).
+//!   Along with this scalar, the dealer generates `t` other scalars that are also kept secret.
+//!   These scalars form a secret polynomial of degree `t`: `P(z) = x + x_1 * z + x_2 * z^2 + …`.
+//! 2. The dealer publishes coefficients `[x]G`, `[x_1]G`, ..., `[x_t]G` of the *public polynomial*
+//!   corresponding to `P`: `Q(z) = [x]G + [z][x_1]G + [z^2][x_2]G + …`. Here, `[x]G` is the shared
+//!   public key, and values `Q(i)` at `i = 1..=n` are public key shares of participants.
+//! 3. The dealer distributes secret key shares `s_i = P(i)` among participants `i = 1..=n`
+//!   via secure P2P channels. Each participant can verify share validity by calculating
+//!   `[s_i]G ?= Q(i)`.
 //!
-//! Each participant then broadcasts their *public polynomial*, i.e., the group elements
-//! corresponding to partipant's coefficients:
+//! If a participant receives an incorrect secret share, the participant broadcasts a *complaint*
+//! against the dealer. The dealer responds by broadcasting the participant's share. Either the
+//! share is correct (in which case the complaining participant is at fault), or it is not
+//! (in which case the dealer is at fault).
 //!
-//! ```text
-//! Q_i(x) = [a_i0]G + [x][a_i1]G + ... + [x^t][a_it]G,
-//! ```
+//! To improve auditability, the implemented version of VSS provides zero-knowledge proofs
+//! of possession both for the dealer and participants. The dealer must broadcast the public
+//! polynomial together with the proof; participants should broadcast proof of knowledge of
+//! a secret share once they receive the share from the dealer.
 //!
-//! together with a zero-knowledge proof of possession of `a_i0`, ..., `a_it`.
+//! # On distributed key generation
 //!
-//! At this point, all participants know the joint polynomial equal to the sum
-//!
-//! ```text
-//! Q(x) = Q_1(x) + Q_2(x) + ... + Q_n(x),
-//! ```
-//!
-//! with the shared public key `K = Q(0)` and the participant key shares `K_i = Q(i)`.
-//! (Secret key `x` corresponding to `K` is not known by any single entity.)
-//! Each participant now needs a secret key `x_i` corresponding to her share, `[x_i]G = K_i`.
-//!
-//! **2.** To obtain `x_i`, every participant `i` sends to every participant `j != i`
-//! a scalar value `P_i(j)` via the corresponding peer channel.
-//! The participant can verify incoming messages by checking
-//! `[P_i(j)]G ?= Q_i(j)`.
-//!
-//! **3.** Once all messages are exchanged, the participant computes
-//!
-//! ```text
-//! x_j = P_1(j) + P_2(j) + ... + P_n(j).
-//! ```
-//!
-//! If at any step any participant deviates from the protocol, the protocol **MUST** be aborted.
-//! Indeed, [Gennaro et al.] show that the protocol with "fault tolerance"
-//! allows an adversary to influence the distribution of the shared secret `x`.
-//!
-//! ## Accountability during key generation
-//!
-//! Fault attribution can be built into the protocol in the following way:
-//!
-//! - Replace P2P channels with broadcast + asymmetric encryption (such as libsodium's `box`).
-//!   The participants choose encryption keypairs at the protocol
-//!   start and destroy their secrets once the protocol is finished.
-//! - If a participant does not publish a polynomial `Q_i` at step 1, they are at fault.
-//! - If a participant does not send a message to any other participant during step 2,
-//!   they are at fault.
-//! - If the sent share is incorrect, the receiving participant must publish an incorrectness proof
-//!   (i.e., a proof of decryption). In this case, the message sender is at fault.
-//! - If the participant has received all messages and did not publish incorrectness proofs,
-//!   we assume that the participant should have `x_i` restored. We may demand a corresponding
-//!   proof of possession; if the participant does not publish such a proof, they are at fault.
-//!
-//! If there are any faulting participants during protocol execution
-//! the protocol starts anew (presumably, after punishing the faulting participants and excluding
-//! them from further protocol runs). We may tolerate up to `t` faults at the last stage
-//! (or not demand proof of possession at all); at this stage,
-//! the shared secret `x` is already fixed, hence the attack from [Gennaro et al.]
-//! is no longer feasible.
-//!
-//! # Verifiable decryption
-//!
-//! Assume `(R, B) = ([r]G, [m]G + [r]K)` encrypts scalar `m` for the shared key `K`.
-//! In order to decrypt it, participants perform Diffie–Hellman exchange with the random part
-//! of the ciphertext: `D_i = [x_i]R`. Validity of this *decryption share* can be verified
-//! via a ZKP of discrete log equality:
-//!
-//! ```text
-//! x_i = dlog_G(K_i) = dlog_R(D_i).
-//! ```
-//!
-//! Given any `t + 1` decryption shares, it is possible to restore `D = [x]R` using Lagrange
-//! interpolation. (Indeed, `D_i` are tied to `D` by the same relations as key shares `x_i`
-//! are to `x`.) Once we have `D`, the encrypted value is restored as `[m]G = B - D`.
+//! While DKG allows for a fully decentralized setup unlike VSS, it is difficult to get right.
+//! For example, [Gennaro et al.] show that DKG via parallel Feldman's VSS instances where
+//! each participant is a dealer in one of the instances is not secure; the adversary
+//! can bias distribution of the shared public key. Hence, DKG is not (yet?) implemented
+//! in this crate.
 //!
 //! [sss]: https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing
+//! [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
 //! [Gennaro et al.]: https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf
 //!
 //! # Examples
@@ -105,45 +65,24 @@
 //! ```
 //! # use elastic_elgamal::{group::Ristretto, sharing::*, Ciphertext, DiscreteLogTable};
 //! # use rand::thread_rng;
+//! # use std::error::Error as StdError;
+//! # fn main() -> Result<(), Box<dyn StdError>> {
 //! let mut rng = thread_rng();
 //! let params = Params::new(3, 2);
 //!
-//! // Initialize participants of the scheme.
-//! let participants: Vec<_> = (0..3)
-//!     .map(|i| StartingParticipant::<Ristretto>::new(params, i, &mut rng))
-//!     .collect();
+//! // Initialize the dealer.
+//! let dealer = Dealer::<Ristretto>::new(params, &mut rng);
+//! let (public_poly, poly_proof) = dealer.public_info();
+//! let key_set = PublicKeySet::new(params, public_poly, poly_proof)?;
 //!
-//! // Get public info from all participants. This info should be broadcast.
-//! let public_infos = participants.iter().map(StartingParticipant::public_info);
-//! let mut key_set = PartialPublicKeySet::new(params);
-//! for (i, (poly, proof)) in public_infos.enumerate() {
-//!     key_set.add_participant(i, poly, proof);
-//! }
-//! assert!(key_set.is_complete());
-//!
-//! // Once all commitments are collected, all participants may proceed
-//! // to the next stage: exchanging secret shares.
-//! let mut participants: Vec<_> = participants
-//!     .into_iter()
-//!     .map(|p| p.finalize_key_set(&key_set).unwrap())
-//!     .collect();
-//! let key_set = key_set.complete().unwrap();
-//!
-//! // Exchange P2P messages. In real setting, this should be performed
-//! // via secure channels.
-//! for i in 0..3 {
-//!     for j in 0..3 {
-//!         if j != i {
-//!              let message = participants[i].message(j).clone();
-//!              participants[j].process_message(i, message).unwrap();
-//!         }
-//!     }
-//! }
-//!
-//! let participants: Vec<_> = participants
-//!     .into_iter()
-//!     .map(ParticipantExchangingSecrets::complete)
-//!     .collect();
+//! // Initialize participants based on secret shares provided by the dealer.
+//! let participants = (0..3)
+//!     .map(|i| ActiveParticipant::new(
+//!         key_set.clone(),
+//!         i,
+//!         dealer.secret_share_for_participant(i),
+//!     ))
+//!     .collect::<Result<Vec<_>, _>>()?;
 //!
 //! // At last, participants can decrypt messages!
 //! let encrypted_value = 5_u64;
@@ -167,11 +106,14 @@
 //! // Use lookup table to map decryption back to scalar.
 //! let lookup_table = DiscreteLogTable::<Ristretto>::new(0..10);
 //! assert_eq!(lookup_table.get(&dec), Some(encrypted_value));
+//! # Ok(())
+//! # }
 //! ```
 
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use subtle::ConstantTimeEq;
 
 use std::{cmp::Ordering, fmt, iter, ops};
 
@@ -184,10 +126,7 @@ use crate::{
 };
 
 mod participant;
-pub use self::participant::{
-    ActiveParticipant, CandidateShare, DecryptionShare, ParticipantExchangingSecrets,
-    StartingParticipant,
-};
+pub use self::participant::{ActiveParticipant, CandidateShare, Dealer, DecryptionShare};
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
 /// at the given points. The indexes are zero-based, hence points are determined as
@@ -236,27 +175,39 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum Error {
-    /// Public polynomial received from a participant is malformed.
-    MalformedParticipantPolynomial,
-    /// Secret received from a participant does not correspond to their commitment via
-    /// public polynomial.
+    /// Public polynomial received from the dealer is malformed.
+    MalformedDealerPolynomial,
+    /// Proof of possession supplied with the dealer's public polynomial is invalid.
+    InvalidDealerProof,
+    /// Secret received from the dealer does not correspond to their commitment via
+    /// the public polynomial.
     InvalidSecret,
-    /// Proof of possession supplied with a participant's public polynomial is invalid.
-    InvalidProofOfPossession,
+    /// Number of participants specified in [`Params`] does not match the number
+    /// of provided public keys.
+    ParticipantCountMismatch,
+    /// Participants' public keys do not correspond to a single shared key.
+    MalformedParticipantKeys,
 }
 
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter.write_str(match self {
-            Self::MalformedParticipantPolynomial => {
-                "public polynomial received from a participant is malformed"
+            Self::MalformedDealerPolynomial => {
+                "public polynomial received from the dealer is malformed"
+            }
+            Self::InvalidDealerProof => {
+                "proof of possession supplied with the dealer's public polynomial is invalid"
             }
             Self::InvalidSecret => {
-                "secret received from a participant does not correspond to their commitment via \
+                "secret received from the dealer does not correspond to their commitment via \
                  public polynomial"
             }
-            Self::InvalidProofOfPossession => {
-                "proof of possession supplied with a participant's public polynomial is invalid"
+            Self::ParticipantCountMismatch => {
+                "number of participants specified in `Params` does not match the number \
+                 of provided public keys"
+            }
+            Self::MalformedParticipantKeys => {
+                "participants' public keys do not correspond to a single shared key"
             }
         })
     }
@@ -291,10 +242,6 @@ impl Params {
 struct PublicPolynomial<G: Group>(Vec<G::Element>);
 
 impl<G: Group> PublicPolynomial<G> {
-    fn identity(len: usize) -> Self {
-        Self(vec![G::identity(); len])
-    }
-
     fn value_at_zero(&self) -> G::Element {
         self.0[0]
     }
@@ -347,145 +294,6 @@ impl<'de, G: Group> Deserialize<'de> for PublicPolynomial<G> {
     }
 }
 
-/// In-progress information about the participants of a threshold ElGamal encryption scheme
-/// before all participants' commitments are collected.
-#[derive(Debug)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(bound = ""))]
-pub struct PartialPublicKeySet<G: Group> {
-    params: Params,
-    received_polynomials: Vec<Option<PublicPolynomial<G>>>,
-}
-
-impl<G: Group> PartialPublicKeySet<G> {
-    /// Creates an instance without information about any participants.
-    pub fn new(params: Params) -> Self {
-        Self {
-            params,
-            received_polynomials: vec![None; params.shares],
-        }
-    }
-
-    /// Checks whether a valid polynomial commitment was received from a participant with
-    /// the specified `index`.
-    pub fn has_participant(&self, index: usize) -> bool {
-        self.received_polynomials
-            .get(index)
-            .map_or(false, Option::is_some)
-    }
-
-    /// Checks whether this set is complete (has commitments from all participants).
-    pub fn is_complete(&self) -> bool {
-        self.received_polynomials.iter().all(Option::is_some)
-    }
-
-    fn all_polynomials(&self) -> impl Iterator<Item = &PublicPolynomial<G>> + '_ {
-        self.received_polynomials
-            .iter()
-            .map(|poly| poly.as_ref().unwrap())
-    }
-
-    /// Completes this set returning [`PublicKeySet`]. Returns `None` if this set is currently
-    /// not complete (i.e., [`Self::is_complete()`] returns `false`).
-    pub fn complete(&self) -> Option<PublicKeySet<G>> {
-        if !self.is_complete() {
-            return None;
-        }
-
-        let coefficients = self.all_polynomials().fold(
-            PublicPolynomial::identity(self.params.threshold),
-            |mut acc, val| {
-                acc += val;
-                acc
-            },
-        );
-
-        // The shared public key is the value of the resulting polynomial at `0`.
-        let shared_key = PublicKey::from_element(coefficients.value_at_zero());
-        // A participant's public key is the value of the resulting polynomial at their index
-        // (1-based).
-        let participant_keys: Vec<_> = (0..self.params.shares)
-            .map(|index| {
-                let x = G::Scalar::from(index as u64 + 1);
-                PublicKey::from_element(coefficients.value_at(x))
-            })
-            .collect();
-
-        Some(PublicKeySet {
-            params: self.params,
-            shared_key,
-            participant_keys,
-        })
-    }
-
-    /// Adds information about the participant, which was previously obtained
-    /// with [`public_info()`].
-    ///
-    /// # Errors
-    ///
-    /// This method returns an error if the participant info is malformed.
-    ///
-    /// # Panics
-    ///
-    /// - `index` must be within the bounds determined by the scheme parameters.
-    /// - The participant with this index must not be added previously.
-    ///
-    /// [`public_info()`]: StartingParticipant::public_info()
-    pub fn add_participant(
-        &mut self,
-        index: usize,
-        polynomial: Vec<G::Element>,
-        proof_of_possession: &ProofOfPossession<G>,
-    ) -> Result<(), Error> {
-        assert!(
-            index < self.params.shares,
-            "participant index {} out of bounds, expected a value in 0..{}",
-            index,
-            self.params.shares
-        );
-        assert!(
-            !self.has_participant(index),
-            "participant #{} was already initialized",
-            index
-        );
-
-        if polynomial.len() != self.params.threshold {
-            return Err(Error::MalformedParticipantPolynomial);
-        }
-
-        let mut transcript = Transcript::new(b"elgamal_share_poly");
-        transcript.append_u64(b"n", self.params.shares as u64);
-        transcript.append_u64(b"t", self.params.threshold as u64);
-        transcript.append_u64(b"i", index as u64);
-
-        let public_keys: Vec<_> = polynomial
-            .iter()
-            .copied()
-            .map(PublicKey::from_element)
-            .collect();
-        if proof_of_possession.verify(public_keys.iter(), &mut transcript) {
-            self.received_polynomials[index] = Some(PublicPolynomial(polynomial));
-            Ok(())
-        } else {
-            Err(Error::InvalidProofOfPossession)
-        }
-    }
-
-    fn commitments_for_participant(&self, participant_index: usize) -> Option<Vec<G::Element>> {
-        assert!(participant_index < self.params.shares);
-        if !self.is_complete() {
-            return None;
-        }
-
-        let power = G::Scalar::from(participant_index as u64 + 1);
-        Some(
-            self.all_polynomials()
-                .map(|polynomial| polynomial.value_at(power))
-                .collect(),
-        )
-    }
-}
-
 /// Full public information about the participants of a threshold ElGamal encryption scheme
 /// after all participants' commitments are collected.
 #[derive(Debug, Clone)]
@@ -498,30 +306,111 @@ pub struct PublicKeySet<G: Group> {
 }
 
 impl<G: Group> PublicKeySet<G> {
+    /// Creates an instance based on information provided by the [`Dealer`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the information provided by the dealer is malformed.
+    pub fn new(
+        params: Params,
+        public_poly: Vec<G::Element>,
+        public_poly_proof: &ProofOfPossession<G>,
+    ) -> Result<Self, Error> {
+        if public_poly.len() != params.threshold {
+            return Err(Error::MalformedDealerPolynomial);
+        }
+
+        let mut transcript = Transcript::new(b"elgamal_share_poly");
+        transcript.append_u64(b"n", params.shares as u64);
+        transcript.append_u64(b"t", params.threshold as u64);
+
+        let public_poly_keys: Vec<_> = public_poly
+            .iter()
+            .copied()
+            .map(PublicKey::from_element)
+            .collect();
+        let is_valid_proof = public_poly_proof.verify(public_poly_keys.iter(), &mut transcript);
+        if !is_valid_proof {
+            return Err(Error::InvalidDealerProof);
+        }
+
+        let public_poly = PublicPolynomial::<G>(public_poly);
+        let shared_key = PublicKey::from_element(public_poly.value_at_zero());
+        let participant_keys = (0..params.shares)
+            .map(|idx| PublicKey::from_element(public_poly.value_at((idx as u64 + 1).into())))
+            .collect();
+
+        Ok(Self {
+            params,
+            shared_key,
+            participant_keys,
+        })
+    }
+
     /// Creates a key set from the parameters and public keys of all participants.
     ///
-    /// # Panics
+    /// # Errors
     ///
-    /// Panics if the number of keys in `participant_keys` does not match the number
-    /// of participants in `params`.
-    pub fn from_participants(params: Params, participant_keys: Vec<PublicKey<G>>) -> Self {
-        assert_eq!(params.shares, participant_keys.len());
+    /// Returns an error if the number of keys in `participant_keys` does not match the number
+    /// of participants in `params`, or if `participant_keys` are inconsistent (do not correspond
+    /// to a single shared key).
+    pub fn from_participants(
+        params: Params,
+        participant_keys: Vec<PublicKey<G>>,
+    ) -> Result<Self, Error> {
+        if params.shares != participant_keys.len() {
+            return Err(Error::ParticipantCountMismatch);
+        }
 
+        // Reconstruct the shared key based on first `t` participant keys.
         let indexes: Vec<_> = (0..params.threshold).collect();
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
-        let shared_key = G::vartime_multi_mul(
-            &denominators,
-            participant_keys
-                .iter()
-                .map(|key| key.element)
-                .take(params.threshold),
-        );
+        let starting_keys = participant_keys
+            .iter()
+            .map(|key| key.element)
+            .take(params.threshold);
+        let shared_key = G::vartime_multi_mul(&denominators, starting_keys.clone());
+        let shared_key = PublicKey::from_element(shared_key * &scale);
 
-        Self {
-            params,
-            shared_key: PublicKey::from_element(shared_key * &scale),
-            participant_keys,
+        // Check that the remaining participant keys are correct.
+
+        // Prepare multiplicative inverses for `1..=n`.
+        let mut inverses: Vec<_> = (1_u64..=params.shares as u64)
+            .map(G::Scalar::from)
+            .collect();
+        G::invert_scalars(&mut inverses);
+
+        for (x, key) in participant_keys.iter().enumerate().skip(params.threshold) {
+            let mut key_scale = indexes
+                .iter()
+                .map(|&idx| G::Scalar::from((x - idx) as u64))
+                .fold(G::Scalar::from(1), |acc, value| acc * value);
+
+            let key_denominators: Vec<_> = denominators
+                .iter()
+                .enumerate()
+                .map(|(idx, &d)| d * G::Scalar::from(idx as u64 + 1) * inverses[x - idx - 1])
+                .collect();
+
+            // We've ignored the sign in the calculations above. The sign is negative iff
+            // threshold `t` is even; indeed, all `t` multiplicands in `key_scale` are negative,
+            // as well as the `1 / (idx - x)` multiplicand in each of `key_denominators`.
+            if params.threshold % 2 == 0 {
+                key_scale = -key_scale;
+            }
+
+            let interpolated_key = G::vartime_multi_mul(&key_denominators, starting_keys.clone());
+            let interpolated_key = interpolated_key * &key_scale;
+            if !bool::from(interpolated_key.ct_eq(&key.element)) {
+                return Err(Error::MalformedParticipantKeys);
+            }
         }
+
+        Ok(Self {
+            params,
+            shared_key,
+            participant_keys,
+        })
     }
 
     /// Returns parameters for this scheme.
@@ -560,6 +449,7 @@ impl<G: Group> PublicKeySet<G> {
     /// # Panics
     ///
     /// Panics if `index` does not correspond to a participant.
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub fn verify_participant(&self, index: usize, proof: &ProofOfPossession<G>) -> bool {
         let participant_key = self.participant_key(index).unwrap_or_else(|| {
             panic!(
@@ -576,6 +466,7 @@ impl<G: Group> PublicKeySet<G> {
 
     /// Verifies a candidate decryption share for `ciphertext` provided by a participant
     /// with the specified `index`.
+    #[must_use = "verification fail is returned as `None` and should be handled"]
     pub fn verify_share(
         &self,
         candidate_share: CandidateShare<G>,
@@ -606,9 +497,10 @@ impl<G: Group> PublicKeySet<G> {
 #[cfg(test)]
 mod tests {
     use curve25519_dalek::scalar::Scalar as Scalar25519;
+    use rand::thread_rng;
 
     use super::*;
-    use crate::group::Ristretto;
+    use crate::group::{ElementOps, Ristretto};
 
     #[test]
     fn lagrange_coeffs_are_computed_correctly() {
@@ -646,5 +538,38 @@ mod tests {
             ]
         );
         assert_eq!(scale, Scalar25519::from(20_u32));
+    }
+
+    #[test]
+    fn restoring_key_set_from_participant_keys_errors() {
+        let mut rng = thread_rng();
+        let params = Params::new(10, 7);
+
+        let dealer = Dealer::<Ristretto>::new(params, &mut rng);
+        let (public_poly, _) = dealer.public_info();
+        let public_poly = PublicPolynomial::<Ristretto>(public_poly);
+        let participant_keys: Vec<PublicKey<Ristretto>> = (1..=params.shares)
+            .map(|i| PublicKey::from_element(public_poly.value_at((i as u64).into())))
+            .collect();
+
+        // Check that `participant_keys` are computed correctly.
+        PublicKeySet::from_participants(params, participant_keys.clone()).unwrap();
+
+        let err =
+            PublicKeySet::from_participants(params, participant_keys[1..].to_vec()).unwrap_err();
+        assert!(matches!(err, Error::ParticipantCountMismatch));
+
+        // Order of keys matters!
+        let mut bogus_keys = participant_keys.clone();
+        bogus_keys.swap(1, 5);
+        let err = PublicKeySet::from_participants(params, bogus_keys).unwrap_err();
+        assert!(matches!(err, Error::MalformedParticipantKeys));
+
+        for i in 0..params.shares {
+            let mut bogus_keys = participant_keys.clone();
+            bogus_keys[i] = PublicKey::from_element(bogus_keys[i].element + Ristretto::generator());
+            let err = PublicKeySet::from_participants(params, bogus_keys).unwrap_err();
+            assert!(matches!(err, Error::MalformedParticipantKeys));
+        }
     }
 }

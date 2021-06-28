@@ -57,7 +57,7 @@ fn test_zero_proof_serialization<G: Group>() {
     }
     assert_eq!(ciphertexts.len(), 100);
     for (bytes, ciphertext) in ciphertexts {
-        let proof = LogEqualityProof::<G>::from_slice(&bytes).unwrap();
+        let proof = LogEqualityProof::<G>::from_bytes(&bytes).unwrap();
         assert!(keypair.public().verify_zero(ciphertext, &proof));
     }
 }
@@ -106,7 +106,7 @@ fn test_bool_proof_serialization<G: Group>() {
     }
     assert_eq!(ciphertexts.len(), 100);
     for (bytes, ciphertext) in ciphertexts {
-        let proof = RingProof::<G>::from_slice(&bytes).unwrap();
+        let proof = RingProof::<G>::from_bytes(&bytes).unwrap();
         assert!(keypair.public().verify_bool(ciphertext, &proof));
     }
 }

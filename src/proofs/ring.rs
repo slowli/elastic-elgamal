@@ -306,6 +306,7 @@ impl<G: Group> RingProof<G> {
         transcript.append_element_bytes(b"K", &receiver.bytes);
     }
 
+    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub(crate) fn verify<'a>(
         &self,
         receiver: &PublicKey<G>,
@@ -395,7 +396,7 @@ impl<G: Group> RingProof<G> {
     /// Attempts to deserialize a proof from bytes. Returns `None` if `bytes` do not represent
     /// a well-formed proof.
     #[allow(clippy::missing_panics_doc)] // triggered by `debug_assert`
-    pub fn from_slice(bytes: &[u8]) -> Option<Self> {
+    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
         if bytes.len() % G::SCALAR_SIZE != 0 || bytes.len() < 3 * G::SCALAR_SIZE {
             return None;
         }

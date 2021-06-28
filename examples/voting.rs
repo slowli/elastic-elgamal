@@ -13,10 +13,7 @@ use std::env;
 
 use elastic_elgamal::{
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
-    sharing::{
-        ActiveParticipant, CandidateShare, DecryptionShare, Params, PartialPublicKeySet,
-        PublicKeySet, StartingParticipant,
-    },
+    sharing::{ActiveParticipant, CandidateShare, Dealer, DecryptionShare, Params, PublicKeySet},
     Ciphertext, DiscreteLogTable,
 };
 
@@ -34,64 +31,16 @@ fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
     params: Params,
     rng: &mut R,
 ) -> (PublicKeySet<G>, Vec<ActiveParticipant<G>>) {
+    let dealer = Dealer::<G>::new(params, rng);
+    let (public_poly, public_poly_proof) = dealer.public_info();
+    let key_set = PublicKeySet::new(params, public_poly, public_poly_proof).unwrap();
+
     let talliers: Vec<_> = (0..params.shares)
-        .map(|i| StartingParticipant::<G>::new(params, i, rng))
+        .map(|i| {
+            ActiveParticipant::new(key_set.clone(), i, dealer.secret_share_for_participant(i))
+                .unwrap()
+        })
         .collect();
-    println!(
-        "Talliers: {}",
-        serde_json::to_string_pretty(&talliers).unwrap()
-    );
-
-    // Public tallier parameters together with proofs may be shared publicly
-    // (e.g., on a blockchain).
-    let mut partial_info = PartialPublicKeySet::<G>::new(params);
-    for (i, tallier) in talliers.iter().enumerate() {
-        let (poly, proof) = tallier.public_info();
-        partial_info
-            .add_participant(i, poly.to_vec(), proof)
-            .unwrap();
-    }
-    println!(
-        "Partial public key set after receiving all commitments: {}",
-        serde_json::to_string_pretty(&partial_info).unwrap()
-    );
-
-    let key_set = partial_info.complete().unwrap();
-
-    println!(
-        "Threshold encryption params: {}",
-        serde_json::to_string_pretty(&key_set).unwrap()
-    );
-
-    let mut talliers: Vec<_> = talliers
-        .into_iter()
-        .map(|tallier| tallier.finalize_key_set(&partial_info).unwrap())
-        .collect();
-    println!(
-        "Talliers after finalizing key set: {}",
-        serde_json::to_string_pretty(&talliers).unwrap()
-    );
-
-    // Then, talliers exchange private shares with each other.
-    // This is the only private / non-auditable part of the protocol, although it can be made
-    // auditable as described in the `sharing` module docs.
-    for i in 0..talliers.len() {
-        for j in 0..talliers.len() {
-            if j != i {
-                let message = talliers[i].message(j).clone();
-                talliers[j].process_message(i, message).unwrap();
-            }
-        }
-    }
-
-    let talliers = talliers
-        .into_iter()
-        .map(|tallier| tallier.complete())
-        .collect();
-    println!(
-        "Active talliers: {}",
-        serde_json::to_string_pretty(&talliers).unwrap()
-    );
     (key_set, talliers)
 }
 
