@@ -40,7 +40,7 @@ impl ScalarOps for Ristretto {
     }
 
     fn serialize_scalar(scalar: &Self::Scalar, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&scalar.to_bytes())
+        buffer.copy_from_slice(&scalar.to_bytes());
     }
 
     fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
