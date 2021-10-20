@@ -91,7 +91,7 @@ where
 
     fn serialize_element(element: &Self::Element, buffer: &mut [u8]) {
         let encoded_point = element.to_encoded_point(true);
-        buffer.copy_from_slice(encoded_point.as_bytes())
+        buffer.copy_from_slice(encoded_point.as_bytes());
     }
 
     fn deserialize_element(input: &[u8]) -> Option<Self::Element> {

@@ -722,6 +722,8 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_collect)]
+    // ^-- false positive; `builder` is captured by the iterator and moved by creating a `proof`
     fn proof_builder_works() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
