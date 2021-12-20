@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use subtle::{ConditionallySelectable, ConstantTimeGreater};
 use zeroize::Zeroizing;
 
-use std::{collections::HashMap, fmt};
+use std::{collections::HashMap, convert::TryFrom, fmt};
 
 use crate::{
     group::Group,
@@ -184,11 +184,16 @@ impl RangeDecomposition {
             + 1
     }
 
+    /// Returns the total number of items in all rings.
+    fn rings_size(&self) -> u64 {
+        self.rings.iter().map(|spec| spec.size).sum::<u64>()
+    }
+
     /// Returns the size of [`RangeProof`]s using this decomposition, measured as a total number
     /// of scalars and group elements in the proof. Computational complexity of creating and
     /// verifying proofs is also linear w.r.t. this number.
     pub fn proof_size(&self) -> u64 {
-        self.rings.iter().map(|spec| spec.size).sum::<u64>() + 2 * self.rings.len() as u64 - 1
+        self.rings_size() + 2 * self.rings.len() as u64 - 1
     }
 
     fn decompose(&self, value_indexes: &mut Vec<usize>, mut secret_value: u64) {
@@ -439,8 +444,17 @@ impl<G: Group> RangeProof<G> {
         transcript.start_proof(b"encryption_range_proof");
         transcript.append_message(b"range", range.inner.to_string().as_bytes());
 
-        let mut proof_builder =
-            RingProofBuilder::new(receiver, range.admissible_values.len(), transcript, rng);
+        let ring_responses_size = usize::try_from(range.inner.rings_size())
+            .expect("Integer overflow when allocating ring responses");
+        let mut ring_responses = vec![G::Scalar::default(); ring_responses_size];
+
+        let mut proof_builder = RingProofBuilder::new(
+            receiver,
+            range.admissible_values.len(),
+            &mut ring_responses,
+            transcript,
+            rng,
+        );
         let partial_ciphertexts = value_indexes
             .iter()
             .zip(&range.admissible_values)
@@ -453,7 +467,7 @@ impl<G: Group> RangeProof<G> {
 
         let mut proof = Self {
             partial_ciphertexts,
-            inner: proof_builder.build(),
+            inner: RingProof::new(proof_builder.build(), ring_responses),
         };
         let ciphertext = proof.extract_cumulative_ciphertext();
         (ciphertext, proof)
