@@ -51,7 +51,7 @@ impl ScalarOps for Curve25519Subgroup {
     }
 
     fn serialize_scalar(scalar: &Self::Scalar, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&scalar.to_bytes())
+        buffer.copy_from_slice(&scalar.to_bytes());
     }
 
     fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
@@ -78,7 +78,7 @@ impl ElementOps for Curve25519Subgroup {
     }
 
     fn serialize_element(element: &Self::Element, buffer: &mut [u8]) {
-        buffer.copy_from_slice(&element.compress().to_bytes())
+        buffer.copy_from_slice(&element.compress().to_bytes());
     }
 
     fn deserialize_element(buffer: &[u8]) -> Option<Self::Element> {

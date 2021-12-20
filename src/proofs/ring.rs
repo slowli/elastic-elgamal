@@ -315,7 +315,7 @@ impl<G: Group> RingProof<G> {
         transcript: &mut Transcript,
     ) -> bool {
         // Do quick preliminary checks.
-        let total_rings_size: usize = admissible_values.clone().map(|values| values.len()).sum();
+        let total_rings_size: usize = admissible_values.clone().map(<[_]>::len).sum();
         if total_rings_size != self.total_rings_size() {
             return false;
         }
@@ -722,6 +722,9 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::needless_collect)]
+    // ^ false positive; if `ciphertexts` are not collected, `builder` is mutably borrowed
+    // by the iterator
     fn proof_builder_works() {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);

@@ -1,17 +1,13 @@
 use elliptic_curve::{
-    consts::U1,
-    generic_array::{typenum::Unsigned, ArrayLength, GenericArray},
-    sec1::{
-        EncodedPoint, FromEncodedPoint, ToEncodedPoint, UncompressedPointSize, UntaggedPointSize,
-    },
-    weierstrass::Curve as WeierstrassCurve,
+    ff::PrimeField,
+    generic_array::{typenum::Unsigned, GenericArray},
+    sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
     Field, FieldSize, Group as _, ProjectiveArithmetic, ProjectivePoint, Scalar,
 };
-use ff::PrimeField;
 use rand_core::{CryptoRng, RngCore};
 use zeroize::Zeroize;
 
-use std::{marker::PhantomData, ops};
+use std::marker::PhantomData;
 
 use super::{ElementOps, Group, ScalarOps};
 
@@ -58,16 +54,15 @@ where
 
     fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
         // For most curves, cloning will be resolved as a copy.
-        Scalar::<C>::from_repr(GenericArray::from_slice(buffer).clone())
+        Scalar::<C>::from_repr(GenericArray::from_slice(buffer).clone()).into()
     }
 }
 
 impl<C> ElementOps for Generic<C>
 where
-    C: ProjectiveArithmetic + WeierstrassCurve,
+    C: ProjectiveArithmetic,
     Scalar<C>: Zeroize,
-    UntaggedPointSize<C>: ops::Add<U1> + ArrayLength<u8>,
-    UncompressedPointSize<C>: ArrayLength<u8>,
+    FieldSize<C>: ModulusSize,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
 {
     type Element = ProjectivePoint<C>;
@@ -91,21 +86,20 @@ where
 
     fn serialize_element(element: &Self::Element, buffer: &mut [u8]) {
         let encoded_point = element.to_encoded_point(true);
-        buffer.copy_from_slice(encoded_point.as_bytes())
+        buffer.copy_from_slice(encoded_point.as_bytes());
     }
 
     fn deserialize_element(input: &[u8]) -> Option<Self::Element> {
         let encoded_point = EncodedPoint::<C>::from_bytes(input).ok()?;
-        ProjectivePoint::<C>::from_encoded_point(&encoded_point)
+        ProjectivePoint::<C>::from_encoded_point(&encoded_point).into()
     }
 }
 
 impl<C> Group for Generic<C>
 where
-    C: ProjectiveArithmetic + WeierstrassCurve + 'static,
+    C: ProjectiveArithmetic + 'static,
     Scalar<C>: Zeroize,
-    UntaggedPointSize<C>: ops::Add<U1> + ArrayLength<u8>,
-    UncompressedPointSize<C>: ArrayLength<u8>,
+    FieldSize<C>: ModulusSize,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
 {
     // Default implementations are fine.
