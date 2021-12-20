@@ -111,7 +111,9 @@ fn bench_ring<G: Group>(b: &mut Bencher, chosen_values: Option<[usize; 5]>) {
     ];
     b.iter(|| {
         let mut transcript = Transcript::new(b"bench_ring");
-        let mut builder = RingProofBuilder::new(&receiver, 5, &mut transcript, &mut rng);
+        let mut ring_responses = [G::Scalar::default(); 20];
+        let mut builder =
+            RingProofBuilder::new(&receiver, 5, &mut ring_responses, &mut transcript, &mut rng);
         for &value_index in &chosen_values {
             builder.add_value(&admissible_values, value_index);
         }

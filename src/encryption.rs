@@ -170,9 +170,11 @@ impl<G: Group> PublicKey<G> {
     ) -> (Ciphertext<G>, RingProof<G>) {
         let mut transcript = Transcript::new(b"bool_encryption");
         let admissible_values = [G::identity(), G::generator()];
-        let mut builder = RingProofBuilder::new(self, 1, &mut transcript, rng);
+        let mut ring_responses = vec![G::Scalar::default(); 2];
+        let mut builder = RingProofBuilder::new(self, 1, &mut ring_responses, &mut transcript, rng);
         let ciphertext = builder.add_value(&admissible_values, value as usize);
-        (ciphertext.inner, builder.build())
+        let proof = RingProof::new(builder.build(), ring_responses);
+        (ciphertext.inner, proof)
     }
 
     /// Verifies a proof of encryption correctness of a boolean value, which was presumably
@@ -219,14 +221,20 @@ impl<G: Group> PublicKey<G> {
         );
 
         let admissible_values = [G::identity(), G::generator()];
+        let mut ring_responses = vec![G::Scalar::default(); 2 * number_of_variants];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");
-        let mut proof_builder =
-            RingProofBuilder::new(self, number_of_variants, &mut transcript, rng);
+        let mut proof_builder = RingProofBuilder::new(
+            self,
+            number_of_variants,
+            &mut ring_responses,
+            &mut transcript,
+            rng,
+        );
 
         let variants: Vec<_> = (0..number_of_variants)
             .map(|i| proof_builder.add_value(&admissible_values, (i == choice) as usize))
             .collect();
-        let range_proofs = proof_builder.build();
+        let range_proof = RingProof::new(proof_builder.build(), ring_responses);
 
         let mut sum_log = variants[0].random_scalar.clone();
         let mut sum_ciphertext = variants[0].inner;
@@ -248,7 +256,7 @@ impl<G: Group> PublicKey<G> {
 
         EncryptedChoice {
             variants: variants.into_iter().map(|variant| variant.inner).collect(),
-            range_proof: range_proofs,
+            range_proof,
             sum_proof,
         }
     }
