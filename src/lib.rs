@@ -112,10 +112,10 @@ mod alloc {
 }
 
 pub use crate::{
-    encryption::{Ciphertext, DiscreteLogTable, EncryptedChoice},
+    encryption::{ChoiceVerificationError, Ciphertext, DiscreteLogTable, EncryptedChoice},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
     proofs::{
         LogEqualityProof, PreparedRange, ProofOfPossession, RangeDecomposition, RangeProof,
-        RingProof, RingProofBuilder,
+        RingProof, RingProofBuilder, VerificationError,
     },
 };

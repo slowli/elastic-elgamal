@@ -21,28 +21,44 @@ fn test_zero_encryption_works<G: Group>() {
     let mut rng = thread_rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let (zero_ciphertext, proof) = keypair.public().encrypt_zero(&mut rng);
-    assert!(keypair.public().verify_zero(zero_ciphertext, &proof));
+    keypair
+        .public()
+        .verify_zero(zero_ciphertext, &proof)
+        .unwrap();
     let decrypted = keypair.secret().decrypt_to_element(zero_ciphertext);
     assert_ct_eq(&decrypted, &G::identity());
 
     // The proof should not verify for non-zero messages.
     let ciphertext = keypair.public().encrypt(123_u64, &mut rng);
-    assert!(!keypair.public().verify_zero(ciphertext, &proof));
+    assert!(keypair.public().verify_zero(ciphertext, &proof).is_err());
 
     // ...or for another receiver key
     let other_keypair = Keypair::generate(&mut rng);
-    assert!(!other_keypair.public().verify_zero(ciphertext, &proof));
+    assert!(other_keypair
+        .public()
+        .verify_zero(ciphertext, &proof)
+        .is_err());
 
     // ...or for another secret scalar used.
     let (other_zero_ciphertext, other_proof) = keypair.public().encrypt_zero(&mut rng);
-    assert!(!keypair.public().verify_zero(other_zero_ciphertext, &proof));
-    assert!(!keypair.public().verify_zero(zero_ciphertext, &other_proof));
+    assert!(keypair
+        .public()
+        .verify_zero(other_zero_ciphertext, &proof)
+        .is_err());
+    assert!(keypair
+        .public()
+        .verify_zero(zero_ciphertext, &other_proof)
+        .is_err());
 
     let combined_ciphertext = other_zero_ciphertext + zero_ciphertext;
-    assert!(!keypair.public().verify_zero(combined_ciphertext, &proof));
-    assert!(!keypair
+    assert!(keypair
         .public()
-        .verify_zero(combined_ciphertext, &other_proof));
+        .verify_zero(combined_ciphertext, &proof)
+        .is_err());
+    assert!(keypair
+        .public()
+        .verify_zero(combined_ciphertext, &other_proof)
+        .is_err());
 }
 
 fn test_zero_proof_serialization<G: Group>() {
@@ -58,7 +74,7 @@ fn test_zero_proof_serialization<G: Group>() {
     assert_eq!(ciphertexts.len(), 100);
     for (bytes, ciphertext) in ciphertexts {
         let proof = LogEqualityProof::<G>::from_bytes(&bytes).unwrap();
-        assert!(keypair.public().verify_zero(ciphertext, &proof));
+        keypair.public().verify_zero(ciphertext, &proof).unwrap();
     }
 }
 
@@ -71,18 +87,27 @@ fn test_bool_encryption_works<G: Group>() {
         &keypair.secret().decrypt_to_element(ciphertext),
         &G::identity(),
     );
-    assert!(keypair.public().verify_bool(ciphertext, &proof));
+    keypair.public().verify_bool(ciphertext, &proof).unwrap();
 
     let (other_ciphertext, other_proof) = keypair.public().encrypt_bool(true, &mut rng);
     assert_ct_eq(
         &keypair.secret().decrypt_to_element(other_ciphertext),
         &G::generator(),
     );
-    assert!(keypair.public().verify_bool(other_ciphertext, &other_proof));
+    keypair
+        .public()
+        .verify_bool(other_ciphertext, &other_proof)
+        .unwrap();
 
     // The proofs should not verify for another encryption.
-    assert!(!keypair.public().verify_bool(other_ciphertext, &proof));
-    assert!(!keypair.public().verify_bool(ciphertext, &other_proof));
+    assert!(keypair
+        .public()
+        .verify_bool(other_ciphertext, &proof)
+        .is_err());
+    assert!(keypair
+        .public()
+        .verify_bool(ciphertext, &other_proof)
+        .is_err());
 
     // ...even if the encryption is obtained from the "correct" value.
     let combined_ciphertext = ciphertext + other_ciphertext;
@@ -90,7 +115,10 @@ fn test_bool_encryption_works<G: Group>() {
         &keypair.secret().decrypt_to_element(combined_ciphertext),
         &G::generator(),
     );
-    assert!(!keypair.public().verify_bool(combined_ciphertext, &proof));
+    assert!(keypair
+        .public()
+        .verify_bool(combined_ciphertext, &proof)
+        .is_err());
 }
 
 fn test_bool_proof_serialization<G: Group>() {
@@ -107,7 +135,7 @@ fn test_bool_proof_serialization<G: Group>() {
     assert_eq!(ciphertexts.len(), 100);
     for (bytes, ciphertext) in ciphertexts {
         let proof = RingProof::<G>::from_bytes(&bytes).unwrap();
-        assert!(keypair.public().verify_bool(ciphertext, &proof));
+        keypair.public().verify_bool(ciphertext, &proof).unwrap();
     }
 }
 

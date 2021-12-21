@@ -42,7 +42,7 @@ fn bench_zero_encryption_verification<G: Group>(b: &mut Bencher) {
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
         || keypair.public().encrypt_zero(&mut rng),
-        |(ciphertext, proof)| assert!(keypair.public().verify_zero(ciphertext, &proof)),
+        |(ciphertext, proof)| keypair.public().verify_zero(ciphertext, &proof).unwrap(),
         BatchSize::SmallInput,
     );
 }
@@ -58,9 +58,7 @@ fn bench_bool_encryption_verification<G: Group>(b: &mut Bencher) {
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
         || keypair.public().encrypt_bool(rng.gen_bool(0.5), &mut rng),
-        |(ciphertext, proof)| {
-            assert!(keypair.public().verify_bool(ciphertext, &proof));
-        },
+        |(ciphertext, proof)| keypair.public().verify_bool(ciphertext, &proof).unwrap(),
         BatchSize::SmallInput,
     );
 }
@@ -87,7 +85,7 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher, number_of_variants: usiz
                 .encrypt_choice(number_of_variants, choice, &mut rng)
         },
         |encrypted| {
-            assert!(keypair.public().verify_choice(&encrypted).is_some());
+            keypair.public().verify_choice(&encrypted).unwrap();
         },
         BatchSize::SmallInput,
     )

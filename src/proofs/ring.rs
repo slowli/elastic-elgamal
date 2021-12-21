@@ -14,7 +14,7 @@ use crate::{
     alloc::{vec, Vec},
     encryption::ExtendedCiphertext,
     group::Group,
-    proofs::TranscriptForGroup,
+    proofs::{TranscriptForGroup, VerificationError},
     Ciphertext, PublicKey, SecretKey,
 };
 
@@ -307,19 +307,20 @@ impl<G: Group> RingProof<G> {
         }
     }
 
-    #[must_use = "verification fail is returned as `false` and should be handled"]
     pub(crate) fn verify<'a>(
         &self,
         receiver: &PublicKey<G>,
         admissible_values: impl Iterator<Item = &'a [G::Element]> + Clone,
         ciphertexts: impl Iterator<Item = Ciphertext<G>>,
         transcript: &mut Transcript,
-    ) -> bool {
+    ) -> Result<(), VerificationError> {
         // Do quick preliminary checks.
         let total_rings_size: usize = admissible_values.clone().map(<[_]>::len).sum();
-        if total_rings_size != self.total_rings_size() {
-            return false;
-        }
+        VerificationError::check_lengths(
+            "items in all rings",
+            self.total_rings_size(),
+            total_rings_size,
+        )?;
 
         Self::initialize_transcript(transcript, receiver);
         // We add common commitments to the `transcript` as we cycle through rings,
@@ -373,7 +374,11 @@ impl<G: Group> RingProof<G> {
         }
 
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
-        bool::from(expected_challenge.ct_eq(&self.common_challenge))
+        if expected_challenge.ct_eq(&self.common_challenge).into() {
+            Ok(())
+        } else {
+            Err(VerificationError::ChallengeMismatch)
+        }
     }
 
     pub(crate) fn total_rings_size(&self) -> usize {
@@ -540,15 +545,15 @@ mod tests {
             &mut transcript,
             &mut rng,
         );
-        let proof = RingProof::new(common_challenge, ring_responses);
 
-        let mut transcript = Transcript::new(b"test_ring_encryption");
-        assert!(proof.verify(
-            keypair.public(),
-            iter::once(&admissible_values as &[_]),
-            iter::once(ciphertext),
-            &mut transcript
-        ));
+        RingProof::new(common_challenge, ring_responses)
+            .verify(
+                keypair.public(),
+                iter::once(&admissible_values as &[_]),
+                iter::once(ciphertext),
+                &mut Transcript::new(b"test_ring_encryption"),
+            )
+            .unwrap();
 
         // Check a proof for encryption of 1.
         let value = Ristretto::generator();
@@ -574,15 +579,15 @@ mod tests {
             &mut transcript,
             &mut rng,
         );
-        let proof = RingProof::new(common_challenge, ring_responses);
 
-        let mut transcript = Transcript::new(b"test_ring_encryption");
-        assert!(proof.verify(
-            keypair.public(),
-            iter::once(&admissible_values as &[_]),
-            iter::once(ciphertext),
-            &mut transcript
-        ));
+        RingProof::new(common_challenge, ring_responses)
+            .verify(
+                keypair.public(),
+                iter::once(&admissible_values as &[_]),
+                iter::once(ciphertext),
+                &mut Transcript::new(b"test_ring_encryption"),
+            )
+            .unwrap();
     }
 
     #[test]
@@ -619,15 +624,15 @@ mod tests {
                 &mut transcript,
                 &mut rng,
             );
-            let proof = RingProof::new(common_challenge, ring_responses);
 
-            let mut transcript = Transcript::new(b"test_ring_encryption");
-            assert!(proof.verify(
-                keypair.public(),
-                iter::once(admissible_values.as_slice()),
-                iter::once(ciphertext),
-                &mut transcript
-            ));
+            RingProof::new(common_challenge, ring_responses)
+                .verify(
+                    keypair.public(),
+                    iter::once(admissible_values.as_slice()),
+                    iter::once(ciphertext),
+                    &mut Transcript::new(b"test_ring_encryption"),
+                )
+                .unwrap();
         }
     }
 
@@ -672,15 +677,15 @@ mod tests {
 
             let common_challenge =
                 Ring::aggregate(rings, keypair.public().element, &mut transcript, &mut rng);
-            let proof = RingProof::new(common_challenge, ring_responses);
 
-            let mut transcript = Transcript::new(b"test_ring_encryption");
-            assert!(proof.verify(
-                keypair.public(),
-                iter::repeat(&admissible_values as &[_]).take(RING_COUNT),
-                ciphertexts.into_iter(),
-                &mut transcript,
-            ));
+            RingProof::new(common_challenge, ring_responses)
+                .verify(
+                    keypair.public(),
+                    iter::repeat(&admissible_values as &[_]).take(RING_COUNT),
+                    ciphertexts.into_iter(),
+                    &mut Transcript::new(b"test_ring_encryption"),
+                )
+                .unwrap();
         }
     }
 
@@ -744,16 +749,16 @@ mod tests {
 
             let common_challenge =
                 Ring::aggregate(rings, keypair.public().element, &mut transcript, &mut rng);
-            let proof = RingProof::new(common_challenge, ring_responses);
             let admissible_values = admissible_values.iter().map(|values| values as &[_]);
 
-            let mut transcript = Transcript::new(b"test_ring_encryption");
-            assert!(proof.verify(
-                keypair.public(),
-                admissible_values,
-                ciphertexts.into_iter(),
-                &mut transcript
-            ));
+            RingProof::new(common_challenge, ring_responses)
+                .verify(
+                    keypair.public(),
+                    admissible_values,
+                    ciphertexts.into_iter(),
+                    &mut Transcript::new(b"test_ring_encryption"),
+                )
+                .unwrap();
         }
     }
 
@@ -777,13 +782,14 @@ mod tests {
         let ciphertexts: Vec<_> = (0..5)
             .map(|i| builder.add_value(&admissible_values, i & 1).inner)
             .collect();
-        let proof = RingProof::new(builder.build(), ring_responses);
 
-        assert!(proof.verify(
-            keypair.public(),
-            iter::repeat(&admissible_values as &[_]).take(5),
-            ciphertexts.into_iter(),
-            &mut Transcript::new(b"test_ring_encryption"),
-        ));
+        RingProof::new(builder.build(), ring_responses)
+            .verify(
+                keypair.public(),
+                iter::repeat(&admissible_values as &[_]).take(5),
+                ciphertexts.into_iter(),
+                &mut Transcript::new(b"test_ring_encryption"),
+            )
+            .unwrap();
     }
 }

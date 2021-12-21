@@ -122,7 +122,7 @@ use crate::serde::{ElementHelper, VecHelper};
 use crate::{
     alloc::Vec,
     group::Group,
-    proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
+    proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup, VerificationError},
     Ciphertext, PublicKey,
 };
 
@@ -173,13 +173,13 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
 }
 
 /// Errors that can occur during the secret sharing protocol.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
     /// Public polynomial received from the dealer is malformed.
     MalformedDealerPolynomial,
     /// Proof of possession supplied with the dealer's public polynomial is invalid.
-    InvalidDealerProof,
+    InvalidDealerProof(VerificationError),
     /// Secret received from the dealer does not correspond to their commitment via
     /// the public polynomial.
     InvalidSecret,
@@ -192,30 +192,41 @@ pub enum Error {
 
 impl fmt::Display for Error {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        formatter.write_str(match self {
+        match self {
             Self::MalformedDealerPolynomial => {
-                "public polynomial received from the dealer is malformed"
+                formatter.write_str("public polynomial received from the dealer is malformed")
             }
-            Self::InvalidDealerProof => {
-                "proof of possession supplied with the dealer's public polynomial is invalid"
+            Self::InvalidDealerProof(err) => {
+                write!(
+                    formatter,
+                    "proof of possession supplied with the dealer's public polynomial \
+                     is invalid: {}",
+                    err
+                )
             }
-            Self::InvalidSecret => {
+            Self::InvalidSecret => formatter.write_str(
                 "secret received from the dealer does not correspond to their commitment via \
-                 public polynomial"
-            }
-            Self::ParticipantCountMismatch => {
+                 public polynomial",
+            ),
+            Self::ParticipantCountMismatch => formatter.write_str(
                 "number of participants specified in `Params` does not match the number \
-                 of provided public keys"
-            }
-            Self::MalformedParticipantKeys => {
-                "participants' public keys do not correspond to a single shared key"
-            }
-        })
+                 of provided public keys",
+            ),
+            Self::MalformedParticipantKeys => formatter
+                .write_str("participants' public keys do not correspond to a single shared key"),
+        }
     }
 }
 
 #[cfg(feature = "std")]
-impl std::error::Error for Error {}
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::InvalidDealerProof(err) => Some(err),
+            _ => None,
+        }
+    }
+}
 
 /// Parameters of a threshold ElGamal encryption scheme.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -331,10 +342,9 @@ impl<G: Group> PublicKeySet<G> {
             .copied()
             .map(PublicKey::from_element)
             .collect();
-        let is_valid_proof = public_poly_proof.verify(public_poly_keys.iter(), &mut transcript);
-        if !is_valid_proof {
-            return Err(Error::InvalidDealerProof);
-        }
+        public_poly_proof
+            .verify(public_poly_keys.iter(), &mut transcript)
+            .map_err(Error::InvalidDealerProof)?;
 
         let public_poly = PublicPolynomial::<G>(public_poly);
         let shared_key = PublicKey::from_element(public_poly.value_at_zero());
@@ -451,8 +461,15 @@ impl<G: Group> PublicKeySet<G> {
     /// # Panics
     ///
     /// Panics if `index` does not correspond to a participant.
-    #[must_use = "verification fail is returned as `false` and should be handled"]
-    pub fn verify_participant(&self, index: usize, proof: &ProofOfPossession<G>) -> bool {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `proof` does not verify.
+    pub fn verify_participant(
+        &self,
+        index: usize,
+        proof: &ProofOfPossession<G>,
+    ) -> Result<(), VerificationError> {
         let participant_key = self.participant_key(index).unwrap_or_else(|| {
             panic!(
                 "participant index {} out of bounds, expected a value in 0..{}",
@@ -468,31 +485,29 @@ impl<G: Group> PublicKeySet<G> {
 
     /// Verifies a candidate decryption share for `ciphertext` provided by a participant
     /// with the specified `index`.
-    #[must_use = "verification fail is returned as `None` and should be handled"]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `proof` does not verify.
     pub fn verify_share(
         &self,
         candidate_share: CandidateShare<G>,
         ciphertext: Ciphertext<G>,
         index: usize,
         proof: &LogEqualityProof<G>,
-    ) -> Option<DecryptionShare<G>> {
+    ) -> Result<DecryptionShare<G>, VerificationError> {
         let key_share = self.participant_keys[index].element;
         let dh_element = candidate_share.dh_element();
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.commit(&mut transcript);
         transcript.append_u64(b"i", index as u64);
 
-        let is_valid = proof.verify(
+        proof.verify(
             &PublicKey::from_element(ciphertext.random_element),
             (key_share, dh_element),
             &mut transcript,
-        );
-
-        if is_valid {
-            Some(DecryptionShare::new(dh_element))
-        } else {
-            None
-        }
+        )?;
+        Ok(DecryptionShare::new(dh_element))
     }
 }
 
