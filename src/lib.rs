@@ -40,6 +40,12 @@
 //!
 //! # Crate features
 //!
+//! ## `std`
+//!
+//! *(on by default)*
+//!
+//! Enables support of types from `std`, such as the `Error` trait.
+//!
 //! ## `serde`
 //!
 //! *(off by default)*
