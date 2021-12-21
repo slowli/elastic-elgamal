@@ -1,15 +1,17 @@
 //! `Ciphertext` and closely related types.
 
+use hashbrown::HashMap;
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashMap, fmt, iter, marker::PhantomData, ops};
+use core::{fmt, iter, marker::PhantomData, ops};
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
+    alloc::{vec, Vec},
     group::Group,
     proofs::{LogEqualityProof, PreparedRange, RangeProof, RingProof, RingProofBuilder},
     PublicKey, SecretKey,

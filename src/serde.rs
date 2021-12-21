@@ -7,9 +7,13 @@ use serde::{
 };
 use zeroize::Zeroizing;
 
-use std::{fmt, marker::PhantomData};
+use core::{fmt, marker::PhantomData};
 
-use crate::{group::Group, Keypair, PublicKey, SecretKey};
+use crate::{
+    alloc::{vec, ToString, Vec},
+    group::Group,
+    Keypair, PublicKey, SecretKey,
+};
 
 fn serialize_bytes<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
 where
@@ -437,7 +441,7 @@ mod tests {
         let mut json = serde_json::to_value(&object).unwrap();
         json.as_object_mut()
             .unwrap()
-            .insert("scalar".to_owned(), "dGVzdA".into());
+            .insert("scalar".into(), "dGVzdA".into());
 
         let err = serde_json::from_value::<TestObject<Ristretto>>(json.clone()).unwrap_err();
         let err_string = err.to_string();
@@ -448,7 +452,7 @@ mod tests {
         );
 
         json.as_object_mut().unwrap().insert(
-            "scalar".to_owned(),
+            "scalar".into(),
             "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__".into(),
         );
         let err = serde_json::from_value::<TestObject<Ristretto>>(json).unwrap_err();
@@ -466,7 +470,7 @@ mod tests {
         let mut json = serde_json::to_value(&object).unwrap();
         json.as_object_mut()
             .unwrap()
-            .insert("element".to_owned(), "dGVzdA".into());
+            .insert("element".into(), "dGVzdA".into());
 
         let err = serde_json::from_value::<TestObject<Ristretto>>(json.clone()).unwrap_err();
         let err_string = err.to_string();
@@ -477,7 +481,7 @@ mod tests {
         );
 
         json.as_object_mut().unwrap().insert(
-            "element".to_owned(),
+            "element".into(),
             "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__".into(),
         );
         let err = serde_json::from_value::<TestObject<Ristretto>>(json).unwrap_err();

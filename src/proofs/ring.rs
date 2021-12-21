@@ -6,13 +6,16 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use std::{fmt, mem};
+use core::{fmt, mem};
 
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
-    encryption::ExtendedCiphertext, group::Group, proofs::TranscriptForGroup, Ciphertext,
-    PublicKey, SecretKey,
+    alloc::{vec, Vec},
+    encryption::ExtendedCiphertext,
+    group::Group,
+    proofs::TranscriptForGroup,
+    Ciphertext, PublicKey, SecretKey,
 };
 
 /// An incomplete ring proving that the encrypted value is in the a priori known set of
@@ -500,7 +503,7 @@ mod tests {
     };
     use rand::{thread_rng, Rng};
 
-    use std::iter;
+    use core::iter;
 
     use super::*;
     use crate::group::{ElementOps, Ristretto};

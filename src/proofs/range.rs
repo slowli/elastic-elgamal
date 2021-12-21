@@ -1,5 +1,6 @@
 //! Range proofs for ElGamal ciphertexts.
 
+use hashbrown::HashMap;
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
@@ -7,9 +8,10 @@ use serde::{Deserialize, Serialize};
 use subtle::{ConditionallySelectable, ConstantTimeGreater};
 use zeroize::Zeroizing;
 
-use std::{collections::HashMap, convert::TryFrom, fmt};
+use core::{convert::TryFrom, fmt};
 
 use crate::{
+    alloc::{vec, ToString, Vec},
     group::Group,
     proofs::{RingProof, RingProofBuilder, TranscriptForGroup},
     Ciphertext, PublicKey,
@@ -299,8 +301,21 @@ impl RangeDecomposition {
         opt
     }
 
+    #[cfg(feature = "std")]
     fn lower_len_estimate(upper_bound: u64) -> u64 {
         ((upper_bound as f64).log2() * 3.0).ceil() as u64
+    }
+
+    // We may not have floating-point arithmetics on no-std targets; thus, we use
+    // a less precise estimate.
+    #[cfg(not(feature = "std"))]
+    fn lower_len_estimate(upper_bound: u64) -> u64 {
+        let log2_upper_bound = if upper_bound == 0 {
+            0
+        } else {
+            63 - u64::from(upper_bound.leading_zeros()) // rounded down
+        };
+        log2_upper_bound * 3
     }
 }
 
@@ -725,5 +740,33 @@ mod tests {
             ciphertext,
             &mut Transcript::new(b"test"),
         ));
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn int_lower_len_estimate_is_always_not_more_than_exact() {
+        // **NB.** Must correspond to the no-std implementation of
+        // `RangeDecomposition::lower_len_estimate`.
+        fn int_lower_len_estimate(upper_bound: u64) -> u64 {
+            let log2_upper_bound = if upper_bound == 0 {
+                0
+            } else {
+                63 - u64::from(upper_bound.leading_zeros()) // rounded down
+            };
+            log2_upper_bound * 3
+        }
+
+        let samples = (0..1_000).chain((1..1_000).map(|i| i * 1_000));
+        for sample in samples {
+            let floating_point_estimate = RangeDecomposition::lower_len_estimate(sample);
+            let int_estimate = int_lower_len_estimate(sample);
+            assert!(
+                floating_point_estimate >= int_estimate,
+                "Unexpected estimates for {}: floating-point = {}, int = {}",
+                sample,
+                floating_point_estimate,
+                int_estimate
+            );
+        }
     }
 }

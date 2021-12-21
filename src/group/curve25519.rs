@@ -6,9 +6,9 @@ use curve25519_dalek::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-use std::{convert::TryInto, io::Read};
+use core::convert::TryInto;
 
-use crate::group::{ElementOps, Group, ScalarOps};
+use crate::group::{BytesProvider, ElementOps, Group, ScalarOps};
 
 /// Prime-order subgroup of Curve25519 without any transforms performed for EC points.
 ///
@@ -36,9 +36,9 @@ impl ScalarOps for Curve25519Subgroup {
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 
-    fn scalar_from_random_bytes<R: Read>(mut source: R) -> Self::Scalar {
+    fn scalar_from_random_bytes(source: BytesProvider<'_>) -> Self::Scalar {
         let mut scalar_bytes = [0_u8; 64];
-        source.read_exact(&mut scalar_bytes).unwrap();
+        source.read(&mut scalar_bytes);
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 

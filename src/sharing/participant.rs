@@ -9,11 +9,12 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use std::iter;
+use core::iter;
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
+    alloc::{vec, Vec},
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession},
     sharing::{lagrange_coefficients, Error, Params, PublicKeySet},

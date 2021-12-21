@@ -6,11 +6,13 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use std::io;
-
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
-use crate::{group::Group, Keypair, PublicKey, SecretKey};
+use crate::{
+    alloc::{vec, Vec},
+    group::Group,
+    Keypair, PublicKey, SecretKey,
+};
 
 mod range;
 mod ring;
@@ -19,6 +21,7 @@ pub use self::{
     range::{PreparedRange, RangeDecomposition, RangeProof},
     ring::{RingProof, RingProofBuilder},
 };
+use crate::group::BytesProvider;
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
 pub(crate) trait TranscriptForGroup {
@@ -47,22 +50,7 @@ impl TranscriptForGroup for Transcript {
     }
 
     fn challenge_scalar<G: Group>(&mut self, label: &'static [u8]) -> G::Scalar {
-        struct TranscriptReader<'a> {
-            transcript: &'a mut Transcript,
-            label: &'static [u8],
-        }
-
-        impl io::Read for TranscriptReader<'_> {
-            fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-                self.transcript.challenge_bytes(self.label, buffer);
-                Ok(buffer.len())
-            }
-        }
-
-        G::scalar_from_random_bytes(TranscriptReader {
-            transcript: self,
-            label,
-        })
+        G::scalar_from_random_bytes(BytesProvider::new(self, label))
     }
 }
 

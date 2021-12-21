@@ -74,6 +74,7 @@
 //! [`k256`]: https://docs.rs/k256/
 //! [docker-rng]: https://github.com/moby/moby/blob/master/pkg/namesgenerator/names-generator.go
 
+#![cfg_attr(not(feature = "std"), no_std)]
 // Documentation settings.
 #![doc(html_root_url = "https://docs.rs/elastic-elgamal/0.1.0")]
 // Linter settings.
@@ -92,6 +93,17 @@ mod proofs;
 #[cfg(feature = "serde")]
 mod serde;
 pub mod sharing;
+
+// Polyfill for `alloc` types.
+mod alloc {
+    #[cfg(not(feature = "std"))]
+    extern crate alloc;
+
+    #[cfg(not(feature = "std"))]
+    pub use alloc::{string::ToString, vec, vec::Vec};
+    #[cfg(feature = "std")]
+    pub use std::{string::ToString, vec, vec::Vec};
+}
 
 pub use crate::{
     encryption::{Ciphertext, DiscreteLogTable, EncryptedChoice},

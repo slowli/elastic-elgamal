@@ -3,9 +3,12 @@
 use base64ct::{Base64UrlUnpadded, Encoding};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::group::Group;
+use core::{fmt, ops};
 
-use std::{fmt, ops};
+use crate::{
+    alloc::{vec, Vec},
+    group::Group,
+};
 
 /// Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
 /// the [`Group`] scalar.
@@ -195,6 +198,7 @@ impl fmt::Display for PublicKeyConversionError {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for PublicKeyConversionError {}
 
 impl<G: Group> ops::Add<Self> for PublicKey<G> {

@@ -115,11 +115,12 @@ use merlin::Transcript;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use subtle::ConstantTimeEq;
 
-use std::{cmp::Ordering, fmt, iter, ops};
+use core::{cmp::Ordering, fmt, iter, ops};
 
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};
 use crate::{
+    alloc::Vec,
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup},
     Ciphertext, PublicKey,
@@ -213,6 +214,7 @@ impl fmt::Display for Error {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for Error {}
 
 /// Parameters of a threshold ElGamal encryption scheme.
@@ -509,7 +511,7 @@ mod tests {
         let (coeffs, scale) = lagrange_coefficients::<Ristretto>(&[0, 1]);
         assert_eq!(
             coeffs,
-            vec![Scalar25519::from(1_u32), -Scalar25519::from(2_u32).invert()]
+            [Scalar25519::from(1_u32), -Scalar25519::from(2_u32).invert()]
         );
         assert_eq!(scale, Scalar25519::from(2_u32));
 
@@ -518,7 +520,7 @@ mod tests {
         let (coeffs, scale) = lagrange_coefficients::<Ristretto>(&[0, 2]);
         assert_eq!(
             coeffs,
-            vec![
+            [
                 Scalar25519::from(2_u32).invert(),
                 -Scalar25519::from(6_u32).invert(),
             ]
@@ -531,7 +533,7 @@ mod tests {
         let (coeffs, scale) = lagrange_coefficients::<Ristretto>(&[0, 3, 4]);
         assert_eq!(
             coeffs,
-            vec![
+            [
                 Scalar25519::from(12_u32).invert(),
                 -Scalar25519::from(12_u32).invert(),
                 Scalar25519::from(20_u32).invert(),
