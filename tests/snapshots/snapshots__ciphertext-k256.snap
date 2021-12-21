@@ -1,0 +1,8 @@
+---
+source: tests/snapshots.rs
+expression: ciphertext
+
+---
+random_element: AgQbzI7_NulX5AZav0Ty90yRPsu9APHrKvYGo03s3Dn_
+blinded_element: Aqr3F8gU1UEk63HrL2YVqBPPQND2qwBESv2nMM7ITvq8
+

@@ -1,0 +1,33 @@
+---
+source: tests/snapshots.rs
+expression: choice
+
+---
+variants:
+  - random_element: gugt6pqWT9lwtV7WdEdZsVSYTUe0VyNh2w_CzDMKHXQ
+    blinded_element: tExVM936V6m9VXTOFajptSiHhVXsac5ZKPMXE6V7vE8
+  - random_element: MH-LpdrtV4wiXOhpdvyUnyfwRmCev3ggAcaPzjziZUM
+    blinded_element: JuMk1OO70GsOBi0MhkZlGRFSsqI_ZFJFWYPGOTYnMFc
+  - random_element: DoC7TMf3wHn1hAIJp7jMKmEPJ82HAe0zH81-19EmTzI
+    blinded_element: bEl8d_Zc_Omjs3uh4cmiHxQv35AWjvGATRsoMYwEgiA
+  - random_element: 2jmew5jMxQCxZu5AT9vs0Wu57kvk02DX9QhaVOOVcAY
+    blinded_element: zPOBWBOG3e3i0JfZ8aLogcplYL524x3cyzCWMwoNEWk
+  - random_element: uuyUjeIYhQr0k8UWm2tC26blex90gvJMh398ORbY21o
+    blinded_element: CMHNzwOalszXwEvLQyH0x2s8vNeujl0KuS-lvLe2yD8
+range_proof:
+  common_challenge: VOaNeds2oRm3gYD_plo1OJmKCgpJKsn6iSh_cJULBwI
+  ring_responses:
+    - n2Hh1J--wq6v518ePQoXLEMZR9uVH0T63m1VrJ-x-g8
+    - CoNRRFG5wnN2eagD-EIlsKjTU-bcPvJxao51kp6b2Qk
+    - FqJ-TBppAhdtrtYH9Fv7D-3FbF2nh1xdwOvaTI2tyAM
+    - IIDSehrJU_TcRDMQzYCmWxcnaRNyf9ArDdmQjgBngQo
+    - M6RvuJ3lj8VleOyw9C14-ABsHbA0D0Zrwd_4lg9Rdwk
+    - 7wu7Jci5S1Ppz2uIytwiVJ4jj_3WSI8SRRBA0hLsGQQ
+    - EIfmWQ_74uv-AbLAn2ifW1sTu2BiaiqYYb4N6az2XAA
+    - 928-6b3UMgh99udgp7XhuWmffD4LvYdff4-QlaHRZQ0
+    - y-mBVUuKQPTjPwMtWPe4gWwaKPE5cBYn0Af4tglFmgQ
+    - OVQmzJrszYnIb0oUFteCjWKpMx_Y2Ew9KFyEAeFejQg
+sum_proof:
+  challenge: k4MaB59on0AcbS3H89NdPcyAYnmzussAG7B1MlHrVg4
+  response: _e300z9DCxQam2AzF3wTfcS-8Qh9xIbAlxuc1IWeDAM
+
