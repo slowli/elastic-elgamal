@@ -25,30 +25,32 @@ mod generic;
 mod ristretto;
 pub use self::{curve25519::Curve25519Subgroup, generic::Generic, ristretto::Ristretto};
 
-/// Provides an arbitrary number of bytes.
-pub struct BytesProvider<'a> {
+/// Provides an arbitrary number of random bytes.
+///
+/// Unlike [`RngCore::fill_bytes()`], a single provider can only be used once.
+pub struct RandomBytesProvider<'a> {
     transcript: &'a mut Transcript,
     label: &'static [u8],
 }
 
-impl fmt::Debug for BytesProvider<'_> {
+impl fmt::Debug for RandomBytesProvider<'_> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         let label = str::from_utf8(self.label).unwrap_or("(non-utf8 label)");
         formatter
-            .debug_struct("BytesProvider")
+            .debug_struct("RandomBytesProvider")
             .field("label", &label)
             .finish()
     }
 }
 
-impl<'a> BytesProvider<'a> {
+impl<'a> RandomBytesProvider<'a> {
     pub(crate) fn new(transcript: &'a mut Transcript, label: &'static [u8]) -> Self {
         Self { transcript, label }
     }
 
-    /// Writes bytes into the specified buffer. As follows from the signature, this method
-    /// can only be called once.
-    pub fn read(self, dest: &mut [u8]) {
+    /// Writes random bytes into the specified buffer. As follows from the signature, this method
+    /// can only be called once for a provider instance.
+    pub fn fill_bytes(self, dest: &mut [u8]) {
         self.transcript.challenge_bytes(self.label, dest);
     }
 }
@@ -86,9 +88,9 @@ pub trait ScalarOps {
     /// 2. Call [`Self::generate_scalar()`] with the created RNG.
     ///
     /// [ChaCha RNG]: https://docs.rs/rand_chacha/
-    fn scalar_from_random_bytes(source: BytesProvider<'_>) -> Self::Scalar {
+    fn scalar_from_random_bytes(source: RandomBytesProvider<'_>) -> Self::Scalar {
         let mut rng_seed = <ChaChaRng as SeedableRng>::Seed::default();
-        source.read(&mut rng_seed);
+        source.fill_bytes(&mut rng_seed);
         let mut rng = ChaChaRng::from_seed(rng_seed);
         Self::generate_scalar(&mut rng)
     }

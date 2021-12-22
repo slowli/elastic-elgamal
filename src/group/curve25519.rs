@@ -8,7 +8,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use core::convert::TryInto;
 
-use crate::group::{BytesProvider, ElementOps, Group, ScalarOps};
+use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 
 /// Prime-order subgroup of Curve25519 without any transforms performed for EC points.
 ///
@@ -36,9 +36,9 @@ impl ScalarOps for Curve25519Subgroup {
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 
-    fn scalar_from_random_bytes(source: BytesProvider<'_>) -> Self::Scalar {
+    fn scalar_from_random_bytes(source: RandomBytesProvider<'_>) -> Self::Scalar {
         let mut scalar_bytes = [0_u8; 64];
-        source.read(&mut scalar_bytes);
+        source.fill_bytes(&mut scalar_bytes);
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)
     }
 

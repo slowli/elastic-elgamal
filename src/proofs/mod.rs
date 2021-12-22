@@ -12,7 +12,7 @@ use core::fmt;
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
     alloc::{vec, Vec},
-    group::Group,
+    group::{Group, RandomBytesProvider},
     Keypair, PublicKey, SecretKey,
 };
 
@@ -23,7 +23,6 @@ pub use self::{
     range::{PreparedRange, RangeDecomposition, RangeProof},
     ring::{RingProof, RingProofBuilder},
 };
-use crate::group::BytesProvider;
 
 /// Extension trait for Merlin transcripts used in constructing our proofs.
 pub(crate) trait TranscriptForGroup {
@@ -52,7 +51,7 @@ impl TranscriptForGroup for Transcript {
     }
 
     fn challenge_scalar<G: Group>(&mut self, label: &'static [u8]) -> G::Scalar {
-        G::scalar_from_random_bytes(BytesProvider::new(self, label))
+        G::scalar_from_random_bytes(RandomBytesProvider::new(self, label))
     }
 }
 
