@@ -426,7 +426,7 @@ impl<G: Group> LogEqualityProof<G> {
             G::vartime_double_mul_generator(&-self.challenge, powers.0, &self.response),
             G::vartime_multi_mul(
                 &[-self.challenge, self.response],
-                [powers.1, log_base.element].iter().copied(),
+                [powers.1, log_base.element],
             ),
         );
 

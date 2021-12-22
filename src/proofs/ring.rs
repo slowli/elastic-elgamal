@@ -114,10 +114,7 @@ impl<'a, G: Group> Ring<'a, G> {
             let dh_element = blinded_value - admissible_value;
             commitments = (
                 G::mul_generator(&response) - random_element * &challenge,
-                G::multi_mul(
-                    [response, -challenge].iter(),
-                    [log_base, dh_element].iter().copied(),
-                ),
+                G::multi_mul([&response, &-challenge], [log_base, dh_element]),
             );
         }
 
@@ -180,10 +177,7 @@ impl<'a, G: Group> Ring<'a, G> {
             let dh_element = self.ciphertext.blinded_element - admissible_value;
             let commitments = (
                 G::mul_generator(&response) - self.ciphertext.random_element * &challenge,
-                G::multi_mul(
-                    [response, -challenge].iter(),
-                    [log_base, dh_element].iter().copied(),
-                ),
+                G::multi_mul([&response, &-challenge], [log_base, dh_element]),
             );
 
             let mut eq_transcript = self.transcript.clone();
@@ -353,8 +347,8 @@ impl<G: Group> RingProof<G> {
                         response,
                     ),
                     G::vartime_multi_mul(
-                        [response, &neg_challenge].iter().copied(),
-                        [receiver.element, dh_element].iter().copied(),
+                        [response, &neg_challenge],
+                        [receiver.element, dh_element],
                     ),
                 );
 

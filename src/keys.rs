@@ -15,7 +15,7 @@ use crate::{
 pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
 
 impl<G: Group> fmt::Debug for SecretKey<G> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("SecretKey")
             .field("public", &PublicKey::from(self))
@@ -106,7 +106,7 @@ impl<G: Group> Clone for PublicKey<G> {
 }
 
 impl<G: Group> fmt::Debug for PublicKey<G> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_tuple("PublicKey")
             .field(&Base64UrlUnpadded::encode_string(&self.bytes))
