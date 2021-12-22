@@ -7,7 +7,7 @@ use elliptic_curve::{
 use rand_core::{CryptoRng, RngCore};
 use zeroize::Zeroize;
 
-use std::marker::PhantomData;
+use core::marker::PhantomData;
 
 use super::{ElementOps, Group, ScalarOps};
 
@@ -116,7 +116,7 @@ mod tests {
     #[test]
     fn scalar_roundtrip() {
         let mut rng = thread_rng();
-        let mut buffer = vec![0_u8; K256::SCALAR_SIZE];
+        let mut buffer = [0_u8; K256::SCALAR_SIZE];
         for _ in 0..100 {
             let scalar = K256::generate_scalar(&mut rng);
             K256::serialize_scalar(&scalar, &mut buffer);
@@ -127,7 +127,7 @@ mod tests {
     #[test]
     fn point_roundtrip() {
         let mut rng = thread_rng();
-        let mut buffer = vec![0_u8; K256::ELEMENT_SIZE];
+        let mut buffer = [0_u8; K256::ELEMENT_SIZE];
         for _ in 0..100 {
             let point = K256::mul_generator(&K256::generate_scalar(&mut rng));
             K256::serialize_element(&point, &mut buffer);

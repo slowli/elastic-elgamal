@@ -13,14 +13,14 @@ use elastic_elgamal::{
 
 type K256 = Generic<k256::Secp256k1>;
 
-fn bench_encrypt<G: Group>(b: &mut Bencher) {
+fn bench_encrypt<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     let message = G::generate_scalar(&mut rng);
     b.iter(|| keypair.public().encrypt(message, &mut rng));
 }
 
-fn bench_decrypt<G: Group>(b: &mut Bencher) {
+fn bench_decrypt<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     let message = G::generate_scalar(&mut rng);
@@ -31,41 +31,39 @@ fn bench_decrypt<G: Group>(b: &mut Bencher) {
     );
 }
 
-fn bench_zero_encryption_proof<G: Group>(b: &mut Bencher) {
+fn bench_zero_encryption_proof<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter(|| keypair.public().encrypt_zero(&mut rng));
 }
 
-fn bench_zero_encryption_verification<G: Group>(b: &mut Bencher) {
+fn bench_zero_encryption_verification<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
         || keypair.public().encrypt_zero(&mut rng),
-        |(ciphertext, proof)| assert!(keypair.public().verify_zero(ciphertext, &proof)),
+        |(ciphertext, proof)| keypair.public().verify_zero(ciphertext, &proof).unwrap(),
         BatchSize::SmallInput,
     );
 }
 
-fn bench_bool_encryption_proof<G: Group>(b: &mut Bencher) {
+fn bench_bool_encryption_proof<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter(|| keypair.public().encrypt_bool(rng.gen_bool(0.5), &mut rng));
 }
 
-fn bench_bool_encryption_verification<G: Group>(b: &mut Bencher) {
+fn bench_bool_encryption_verification<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
         || keypair.public().encrypt_bool(rng.gen_bool(0.5), &mut rng),
-        |(ciphertext, proof)| {
-            assert!(keypair.public().verify_bool(ciphertext, &proof));
-        },
+        |(ciphertext, proof)| keypair.public().verify_bool(ciphertext, &proof).unwrap(),
         BatchSize::SmallInput,
     );
 }
 
-fn bench_choice_creation<G: Group>(b: &mut Bencher, number_of_variants: usize) {
+fn bench_choice_creation<G: Group>(b: &mut Bencher<'_>, number_of_variants: usize) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter(|| {
@@ -76,7 +74,7 @@ fn bench_choice_creation<G: Group>(b: &mut Bencher, number_of_variants: usize) {
     })
 }
 
-fn bench_choice_verification<G: Group>(b: &mut Bencher, number_of_variants: usize) {
+fn bench_choice_verification<G: Group>(b: &mut Bencher<'_>, number_of_variants: usize) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
@@ -87,13 +85,13 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher, number_of_variants: usiz
                 .encrypt_choice(number_of_variants, choice, &mut rng)
         },
         |encrypted| {
-            assert!(keypair.public().verify_choice(&encrypted).is_some());
+            keypair.public().verify_choice(&encrypted).unwrap();
         },
         BatchSize::SmallInput,
     )
 }
 
-fn bench_ring<G: Group>(b: &mut Bencher, chosen_values: Option<[usize; 5]>) {
+fn bench_ring<G: Group>(b: &mut Bencher<'_>, chosen_values: Option<[usize; 5]>) {
     let mut rng = ChaChaRng::from_seed([120; 32]);
     let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
     let chosen_values = chosen_values.unwrap_or_else(|| {

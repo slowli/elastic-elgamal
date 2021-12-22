@@ -6,11 +6,15 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use std::io;
+use core::fmt;
 
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
-use crate::{group::Group, Keypair, PublicKey, SecretKey};
+use crate::{
+    alloc::{vec, Vec},
+    group::{Group, RandomBytesProvider},
+    Keypair, PublicKey, SecretKey,
+};
 
 mod range;
 mod ring;
@@ -47,24 +51,76 @@ impl TranscriptForGroup for Transcript {
     }
 
     fn challenge_scalar<G: Group>(&mut self, label: &'static [u8]) -> G::Scalar {
-        struct TranscriptReader<'a> {
-            transcript: &'a mut Transcript,
-            label: &'static [u8],
-        }
-
-        impl io::Read for TranscriptReader<'_> {
-            fn read(&mut self, buffer: &mut [u8]) -> io::Result<usize> {
-                self.transcript.challenge_bytes(self.label, buffer);
-                Ok(buffer.len())
-            }
-        }
-
-        G::scalar_from_random_bytes(TranscriptReader {
-            transcript: self,
-            label,
-        })
+        G::scalar_from_random_bytes(RandomBytesProvider::new(self, label))
     }
 }
+
+/// Error verifying base proofs, such as [`RingProof`], [`LogEqualityProof`]
+/// or [`ProofOfPossession`].
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum VerificationError {
+    /// Restored challenge scalar does not match the one provided in the proof.
+    ///
+    /// This error most likely means that the proof itself is malformed, or that it was created
+    /// for a different context than it is being verified for.
+    ChallengeMismatch,
+    /// A collection (e.g., number of responses in a [`RingProof`]) has a different size
+    /// than expected.
+    ///
+    /// This error most likely means that the proof is malformed.
+    LenMismatch {
+        /// Human-readable collection name, such as "public keys".
+        collection: &'static str,
+        /// Expected size of the collection.
+        expected: usize,
+        /// Actual size of the collection.
+        actual: usize,
+    },
+}
+
+impl VerificationError {
+    pub(crate) fn check_lengths(
+        collection: &'static str,
+        expected: usize,
+        actual: usize,
+    ) -> Result<(), Self> {
+        if expected == actual {
+            Ok(())
+        } else {
+            Err(Self::LenMismatch {
+                collection,
+                expected,
+                actual,
+            })
+        }
+    }
+}
+
+impl fmt::Display for VerificationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::ChallengeMismatch => formatter.write_str(
+                "restored challenge scalar does not match the one provided in the proof",
+            ),
+
+            Self::LenMismatch {
+                collection,
+                expected,
+                actual,
+            } => write!(
+                formatter,
+                "number of {collection} ({act}) differs from expected ({exp})",
+                collection = collection,
+                act = actual,
+                exp = expected
+            ),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for VerificationError {}
 
 /// Zero-knowledge proof of possession of one or more secret scalars.
 ///
@@ -85,6 +141,7 @@ impl TranscriptForGroup for Transcript {
 /// # use elastic_elgamal::{group::Ristretto, Keypair, ProofOfPossession};
 /// # use merlin::Transcript;
 /// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut rng = thread_rng();
 /// let keypairs: Vec<_> =
 ///     (0..5).map(|_| Keypair::<Ristretto>::generate(&mut rng)).collect();
@@ -95,21 +152,27 @@ impl TranscriptForGroup for Transcript {
 ///     &mut Transcript::new(b"custom_proof"),
 ///     &mut rng,
 /// );
-/// assert!(proof.verify(
+/// proof.verify(
 ///     keypairs.iter().map(Keypair::public),
 ///     &mut Transcript::new(b"custom_proof"),
-/// ));
+/// )?;
 ///
 /// // If we change the context of the `Transcript`, the proof will not verify.
-/// assert!(!proof.verify(
-///     keypairs.iter().map(Keypair::public),
-///     &mut Transcript::new(b"other_proof"),
-/// ));
+/// assert!(proof
+///     .verify(
+///         keypairs.iter().map(Keypair::public),
+///         &mut Transcript::new(b"other_proof"),
+///     )
+///     .is_err());
 /// // Likewise if the public keys are reordered.
-/// assert!(!proof.verify(
-///     keypairs.iter().rev().map(Keypair::public),
-///     &mut Transcript::new(b"custom_proof"),
-/// ));
+/// assert!(proof
+///     .verify(
+///         keypairs.iter().rev().map(Keypair::public),
+///         &mut Transcript::new(b"custom_proof"),
+///     )
+///     .is_err());
+/// # Ok(())
+/// # }
 /// ```
 // TODO: binary serialization?
 #[derive(Debug, Clone)]
@@ -171,22 +234,22 @@ impl<G: Group> ProofOfPossession<G> {
     }
 
     /// Verifies this proof against the provided `public_keys`.
-    #[must_use = "verification fail is returned as `false` and should be handled"]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this proof does not verify.
     pub fn verify<'a>(
         &self,
         public_keys: impl Iterator<Item = &'a PublicKey<G>> + Clone,
         transcript: &mut Transcript,
-    ) -> bool {
+    ) -> Result<(), VerificationError> {
         let mut key_count = 0;
         transcript.start_proof(b"multi_pop");
         for public_key in public_keys.clone() {
             transcript.append_element_bytes(b"K", &public_key.bytes);
             key_count += 1;
         }
-
-        if key_count != self.responses.len() {
-            return false;
-        }
+        VerificationError::check_lengths("public keys", self.responses.len(), key_count)?;
 
         for (public_key, response) in public_keys.zip(&self.responses) {
             let random_element =
@@ -195,7 +258,11 @@ impl<G: Group> ProofOfPossession<G> {
         }
 
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
-        bool::from(expected_challenge.ct_eq(&self.challenge))
+        if expected_challenge.ct_eq(&self.challenge).into() {
+            Ok(())
+        } else {
+            Err(VerificationError::ChallengeMismatch)
+        }
     }
 }
 
@@ -250,6 +317,7 @@ impl<G: Group> ProofOfPossession<G> {
 /// # use elastic_elgamal::{group::Ristretto, Keypair, SecretKey, LogEqualityProof};
 /// # use merlin::Transcript;
 /// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut rng = thread_rng();
 /// let (log_base, _) =
 ///     Keypair::<Ristretto>::generate(&mut rng).into_tuple();
@@ -264,11 +332,13 @@ impl<G: Group> ProofOfPossession<G> {
 ///     &mut Transcript::new(b"custom_proof"),
 ///     &mut rng,
 /// );
-/// assert!(proof.verify(
+/// proof.verify(
 ///     &log_base,
 ///     (power_g.as_element(), power_k),
 ///     &mut Transcript::new(b"custom_proof"),
-/// ));
+/// )?;
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// [fst]: https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic
@@ -341,18 +411,21 @@ impl<G: Group> LogEqualityProof<G> {
     ///   log base is always the [`Group`] generator.
     /// - `powers` are group elements presumably equal to `[r]G` and `[r]K` respectively,
     ///   where `r` is a secret scalar.
-    #[must_use = "verification fail is returned as `false` and should be handled"]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this proof does not verify.
     pub fn verify(
         &self,
         log_base: &PublicKey<G>,
         powers: (G::Element, G::Element),
         transcript: &mut Transcript,
-    ) -> bool {
+    ) -> Result<(), VerificationError> {
         let commitments = (
             G::vartime_double_mul_generator(&-self.challenge, powers.0, &self.response),
             G::vartime_multi_mul(
                 &[-self.challenge, self.response],
-                [powers.1, log_base.element].iter().copied(),
+                [powers.1, log_base.element],
             ),
         );
 
@@ -363,7 +436,12 @@ impl<G: Group> LogEqualityProof<G> {
         transcript.append_element::<G>(b"[x]G", &commitments.0);
         transcript.append_element::<G>(b"[x]K", &commitments.1);
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
-        bool::from(expected_challenge.ct_eq(&self.challenge))
+
+        if expected_challenge.ct_eq(&self.challenge).into() {
+            Ok(())
+        } else {
+            Err(VerificationError::ChallengeMismatch)
+        }
     }
 
     /// Serializes this proof into bytes. As described [above](#implementation-details),
@@ -390,12 +468,12 @@ mod tests {
         let mut rng = thread_rng();
         let poly: Vec<_> = (0..5).map(|_| Keypair::generate(&mut rng)).collect();
 
-        let proof =
-            ProofOfPossession::new(&poly, &mut Transcript::new(b"test_multi_PoP"), &mut rng);
-        assert!(proof.verify(
-            poly.iter().map(Keypair::public),
-            &mut Transcript::new(b"test_multi_PoP")
-        ));
+        ProofOfPossession::new(&poly, &mut Transcript::new(b"test_multi_PoP"), &mut rng)
+            .verify(
+                poly.iter().map(Keypair::public),
+                &mut Transcript::new(b"test_multi_PoP"),
+            )
+            .unwrap();
     }
 
     #[test]
@@ -413,11 +491,14 @@ mod tests {
                 &mut Transcript::new(b"testing_log_equality"),
                 &mut rng,
             );
-            assert!(proof.verify(
-                &log_base,
-                (generator_val.as_element(), key_val),
-                &mut Transcript::new(b"testing_log_equality")
-            ));
+
+            proof
+                .verify(
+                    &log_base,
+                    (generator_val.as_element(), key_val),
+                    &mut Transcript::new(b"testing_log_equality"),
+                )
+                .unwrap();
         }
     }
 }

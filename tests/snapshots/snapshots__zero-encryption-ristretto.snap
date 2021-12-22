@@ -1,0 +1,12 @@
+---
+source: tests/snapshots.rs
+expression: ciphertext_with_proof
+
+---
+ciphertext:
+  blinded_element: tExVM936V6m9VXTOFajptSiHhVXsac5ZKPMXE6V7vE8
+  random_element: gugt6pqWT9lwtV7WdEdZsVSYTUe0VyNh2w_CzDMKHXQ
+proof:
+  challenge: Hp0IXFKkKoK-GiCLRKdMvbv5d3xKc3mHoMK5SLnXOAE
+  response: "-gvay6Ov_nZCId06jbJxyrRWqzfZHJfe-8yBZf0gWQ0"
+

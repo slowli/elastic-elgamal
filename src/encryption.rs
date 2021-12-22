@@ -1,17 +1,21 @@
 //! `Ciphertext` and closely related types.
 
+use hashbrown::HashMap;
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use std::{collections::HashMap, fmt, iter, marker::PhantomData, ops};
+use core::{fmt, iter, marker::PhantomData, ops};
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
+    alloc::{vec, Vec},
     group::Group,
-    proofs::{LogEqualityProof, PreparedRange, RangeProof, RingProof, RingProofBuilder},
+    proofs::{
+        LogEqualityProof, PreparedRange, RangeProof, RingProof, RingProofBuilder, VerificationError,
+    },
     PublicKey, SecretKey,
 };
 
@@ -44,13 +48,16 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Ciphertext, Keypair};
 /// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Generate a keypair for the ciphertext receiver.
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create and verify a boolean encryption.
 /// let (enc, proof) =
 ///     receiver.public().encrypt_bool(false, &mut rng);
-/// assert!(receiver.public().verify_bool(enc, &proof));
+/// receiver.public().verify_bool(enc, &proof)?;
+/// # Ok(())
+/// # }
 /// ```
 ///
 /// Creating a ciphertext of an integer value together with a range proof:
@@ -58,6 +65,7 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Keypair, RangeDecomposition};
 /// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Generate the ciphertext receiver.
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
@@ -70,9 +78,9 @@ use crate::{
 ///     .encrypt_range(&range, 42, &mut rng);
 ///
 /// // Check that the the proof verifies.
-/// assert!(receiver
-///     .public()
-///     .verify_range(&range, ciphertext, &proof));
+/// receiver.public().verify_range(&range, ciphertext, &proof)?;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -148,8 +156,15 @@ impl<G: Group> PublicKey<G> {
     }
 
     /// Verifies that this is an encryption of a zero value.
-    #[must_use = "verification fail is returned as `false` and should be handled"]
-    pub fn verify_zero(&self, ciphertext: Ciphertext<G>, proof: &LogEqualityProof<G>) -> bool {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `proof` does not verify.
+    pub fn verify_zero(
+        &self,
+        ciphertext: Ciphertext<G>,
+        proof: &LogEqualityProof<G>,
+    ) -> Result<(), VerificationError> {
         proof.verify(
             self,
             (ciphertext.random_element, ciphertext.blinded_element),
@@ -180,11 +195,18 @@ impl<G: Group> PublicKey<G> {
     /// Verifies a proof of encryption correctness of a boolean value, which was presumably
     /// obtained via [`Self::encrypt_bool()`].
     ///
+    /// # Errors
+    ///
+    /// Returns an error if the `proof` does not verify.
+    ///
     /// # Examples
     ///
     /// See [`Ciphertext`] docs for an example of usage.
-    #[must_use = "verification fail is returned as `false` and should be handled"]
-    pub fn verify_bool(&self, ciphertext: Ciphertext<G>, proof: &RingProof<G>) -> bool {
+    pub fn verify_bool(
+        &self,
+        ciphertext: Ciphertext<G>,
+        proof: &RingProof<G>,
+    ) -> Result<(), VerificationError> {
         let admissible_values = [G::identity(), G::generator()];
         proof.verify(
             self,
@@ -262,41 +284,38 @@ impl<G: Group> PublicKey<G> {
     }
 
     /// Verifies the zero-knowledge proofs in an [`EncryptedChoice`] and returns variant ciphertexts
-    /// if they check out. Otherwise, returns `None`.
-    #[must_use = "verification fail is returned as `None` and should be handled"]
-    pub fn verify_choice<'a>(&self, choice: &'a EncryptedChoice<G>) -> Option<&'a [Ciphertext<G>]> {
-        // Some sanity checks.
-        if choice.len() == 0 || choice.range_proof.total_rings_size() != 2 * choice.variants.len() {
-            return None;
-        }
-
-        let mut sum_ciphertexts = choice.variants[0];
-        for &variant in choice.variants.iter().skip(1) {
-            sum_ciphertexts += variant;
-        }
+    /// if they check out.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `choice` is malformed or its proofs fail verification.
+    pub fn verify_choice<'a>(
+        &self,
+        choice: &'a EncryptedChoice<G>,
+    ) -> Result<&'a [Ciphertext<G>], ChoiceVerificationError> {
+        let sum_ciphertexts = choice.variants.iter().copied().reduce(ops::Add::add);
+        let sum_ciphertexts = sum_ciphertexts.ok_or(ChoiceVerificationError::Empty)?;
 
         let powers = (
             sum_ciphertexts.random_element,
             sum_ciphertexts.blinded_element - G::generator(),
         );
-        if !choice
+        choice
             .sum_proof
             .verify(self, powers, &mut Transcript::new(b"choice_encryption_sum"))
-        {
-            return None;
-        }
+            .map_err(ChoiceVerificationError::Sum)?;
 
         let admissible_values = [G::identity(), G::generator()];
-        if choice.range_proof.verify(
-            self,
-            iter::repeat(&admissible_values as &[_]).take(choice.variants.len()),
-            choice.variants.iter().copied(),
-            &mut Transcript::new(b"encrypted_choice_ranges"),
-        ) {
-            Some(&choice.variants)
-        } else {
-            None
-        }
+        choice
+            .range_proof
+            .verify(
+                self,
+                iter::repeat(&admissible_values as &[_]).take(choice.variants.len()),
+                choice.variants.iter().copied(),
+                &mut Transcript::new(b"encrypted_choice_ranges"),
+            )
+            .map(|()| choice.variants.as_slice())
+            .map_err(ChoiceVerificationError::Range)
     }
 
     /// Encrypts `value` and provides a zero-knowledge proof that it lies in the specified `range`.
@@ -322,13 +341,16 @@ impl<G: Group> PublicKey<G> {
     ///
     /// The `proof` should be created with a call to [`Self::encrypt_range()`] with the same
     /// [`PreparedRange`]; otherwise, the proof will not verify.
-    #[must_use = "verification fail is returned as `false` and should be handled"]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the `proof` does not verify.
     pub fn verify_range(
         &self,
         range: &PreparedRange<G>,
         ciphertext: Ciphertext<G>,
         proof: &RangeProof<G>,
-    ) -> bool {
+    ) -> Result<(), VerificationError> {
         let mut transcript = Transcript::new(b"ciphertext_range");
         proof.verify(self, range, ciphertext, &mut transcript)
     }
@@ -539,11 +561,12 @@ impl<G: Group> ExtendedCiphertext<G> {
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, EncryptedChoice, Keypair};
 /// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// let choice = 2;
 /// let enc = receiver.public().encrypt_choice(5, choice, &mut rng);
-/// let variants = receiver.public().verify_choice(&enc).unwrap();
+/// let variants = receiver.public().verify_choice(&enc)?;
 ///
 /// // `variants` is a slice of 5 Boolean value ciphertexts
 /// assert_eq!(variants.len(), 5);
@@ -554,6 +577,8 @@ impl<G: Group> ExtendedCiphertext<G> {
 ///         Some((idx == choice) as u64)
 ///     );
 /// }
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -587,6 +612,41 @@ impl<G: Group> EncryptedChoice<G> {
     }
 }
 
+/// Error verifying an [`EncryptedChoice`].
+#[derive(Debug)]
+#[non_exhaustive]
+pub enum ChoiceVerificationError {
+    /// [`EncryptedChoice`] does not have variants.
+    ///
+    /// This error means that the `EncryptedChoice` is malformed (e.g., after deserializing it
+    /// from an untrusted source).
+    Empty,
+    /// Error verifying [`EncryptedChoice::sum_proof()`].
+    Sum(VerificationError),
+    /// Error verifying [`EncryptedChoice::range_proof()`].
+    Range(VerificationError),
+}
+
+impl fmt::Display for ChoiceVerificationError {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Empty => formatter.write_str("encrypted choice does not have variants"),
+            Self::Sum(err) => write!(formatter, "cannot verify sum proof: {}", err),
+            Self::Range(err) => write!(formatter, "cannot verify range proofs: {}", err),
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for ChoiceVerificationError {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::Sum(err) | Self::Range(err) => Some(err),
+            _ => None,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use rand::thread_rng;
@@ -604,12 +664,12 @@ mod tests {
         let mut choice = keypair.public().encrypt_choice(5, 2, &mut rng);
         let (encrypted_one, _) = keypair.public().encrypt_bool(true, &mut rng);
         choice.variants[0] = encrypted_one;
-        assert!(keypair.public().verify_choice(&choice).is_none());
+        assert!(keypair.public().verify_choice(&choice).is_err());
 
         let mut choice = keypair.public().encrypt_choice(5, 4, &mut rng);
         let (encrypted_zero, _) = keypair.public().encrypt_bool(false, &mut rng);
         choice.variants[4] = encrypted_zero;
-        assert!(keypair.public().verify_choice(&choice).is_none());
+        assert!(keypair.public().verify_choice(&choice).is_err());
 
         let mut choice = keypair.public().encrypt_choice(5, 4, &mut rng);
         choice.variants[4].blinded_element =
@@ -618,7 +678,7 @@ mod tests {
             choice.variants[3].blinded_element - G::mul_generator(&G::Scalar::from(10));
         // These modifications leave `choice.sum_proof` correct, but the range proofs
         // for the last 2 variants should no longer verify.
-        assert!(keypair.public().verify_choice(&choice).is_none());
+        assert!(keypair.public().verify_choice(&choice).is_err());
     }
 
     #[test]

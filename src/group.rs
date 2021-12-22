@@ -12,17 +12,48 @@
 //! [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 //! [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm
 
+use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use subtle::{ConditionallySelectable, ConstantTimeEq};
 use zeroize::Zeroize;
 
-use std::{fmt, io, ops};
+use core::{fmt, ops, str};
 
 mod curve25519;
 mod generic;
 mod ristretto;
 pub use self::{curve25519::Curve25519Subgroup, generic::Generic, ristretto::Ristretto};
+
+/// Provides an arbitrary number of random bytes.
+///
+/// Unlike [`RngCore::fill_bytes()`], a single provider can only be used once.
+pub struct RandomBytesProvider<'a> {
+    transcript: &'a mut Transcript,
+    label: &'static [u8],
+}
+
+impl fmt::Debug for RandomBytesProvider<'_> {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let label = str::from_utf8(self.label).unwrap_or("(non-utf8 label)");
+        formatter
+            .debug_struct("RandomBytesProvider")
+            .field("label", &label)
+            .finish()
+    }
+}
+
+impl<'a> RandomBytesProvider<'a> {
+    pub(crate) fn new(transcript: &'a mut Transcript, label: &'static [u8]) -> Self {
+        Self { transcript, label }
+    }
+
+    /// Writes random bytes into the specified buffer. As follows from the signature, this method
+    /// can only be called once for a provider instance.
+    pub fn fill_bytes(self, dest: &mut [u8]) {
+        self.transcript.challenge_bytes(self.label, dest);
+    }
+}
 
 /// Helper trait for [`Group`] that describes operations on group scalars.
 pub trait ScalarOps {
@@ -57,11 +88,9 @@ pub trait ScalarOps {
     /// 2. Call [`Self::generate_scalar()`] with the created RNG.
     ///
     /// [ChaCha RNG]: https://docs.rs/rand_chacha/
-    fn scalar_from_random_bytes<R: io::Read>(mut source: R) -> Self::Scalar {
+    fn scalar_from_random_bytes(source: RandomBytesProvider<'_>) -> Self::Scalar {
         let mut rng_seed = <ChaChaRng as SeedableRng>::Seed::default();
-        source
-            .read_exact(&mut rng_seed)
-            .expect("cannot read random bytes from source");
+        source.fill_bytes(&mut rng_seed);
         let mut rng = ChaChaRng::from_seed(rng_seed);
         Self::generate_scalar(&mut rng)
     }

@@ -1,0 +1,31 @@
+---
+source: tests/snapshots.rs
+expression: ciphertext_with_proof
+
+---
+ciphertext:
+  blinded_element: AjoxTQ94rjGJKT-YUP292h_GShFErMaF8xf_Tx2ytn5D
+  random_element: Al6RVX2O6dgjEy-VudZnbtM1MbMir4km4234DnnJ55Rs
+proof:
+  common_challenge: m7NKyHBJzi649oqz-Fs_B8yOdaNqmW3sYS-NAqJ6DIQ
+  partial_ciphertexts:
+    - blinded_element: AyU4EjHUD3SjQ4ifTkSW55_mECaSz5KsjtQnew8GNAzD
+      random_element: AgQbzI7_NulX5AZav0Ty90yRPsu9APHrKvYGo03s3Dn_
+    - blinded_element: AkDs2qiY5FvGC3wnvnss2swXaICbCyMNIQH8qUQ3oXUS
+      random_element: AwKR2lHIMB-ltLSjIIzOSDOSXTDljzPUjOXSTHoWqmJs
+  ring_responses:
+    - AtxlAGMPfUxBlUGZd1QEkqsdVx9foXiJEJ2RkN0uY3U
+    - Rc6YO1oSKrOVLCUJsDvVJlA-isUazfUlNwwnvRPEFAI
+    - 4EmlnzoNdLVMHM1iBLZDC08bOTTiuYYegqcqQQgnI3w
+    - A5GmkLDdIK_ElgFwnTy7KW9tnQxDslStKdohL-Lw-jo
+    - 7e08r_Ko1RFmr9tJdJ34kSWR_IkVUa-dP7KWBo7200M
+    - LC11TFmwT3HluPC2DCPpgpFWLygdxZXdD4L9SXj1g8Y
+    - DNMtZbfwlqNKmL8PBO1cAIVjqkJ6Qi1kHmcjaw-MqBo
+    - WCR_faw2fO5VL7kBSEFWX57sZtqUwoeMNKU1SIGCx_8
+    - abjbejMVQqsxThw2mDuheunKgQFXOyTZPE8xXnj3J4Q
+    - Hq4ttiTnxW5k1afBQG3TVK1aTiVAsQKvK348xq_jtJY
+    - P-oL5VRvgyJImzcZh9gJeHToyqH15UMU9ArT1d2YXtg
+    - VtNJYdsqVE8mxUPqwW6U_-Wy1uLOveNb9pnNRL2FgyQ
+    - PDe1C_502HZrXEtLB-LzSLUBxgv2w3HfQ4MCeoCf5pI
+    - dvzLv2IkNfu_cU_uzU5T1tr48nv-NKYqEzO-GFnhyKY
+

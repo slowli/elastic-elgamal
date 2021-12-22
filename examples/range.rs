@@ -36,7 +36,10 @@ fn main() {
             serde_json::to_string_pretty(&proof).unwrap()
         );
 
-        assert!(receiver.public().verify_range(&range, ciphertext, &proof));
+        receiver
+            .public()
+            .verify_range(&range, ciphertext, &proof)
+            .unwrap();
         let decrypted = receiver
             .secret()
             .decrypt(ciphertext, &lookup_table)

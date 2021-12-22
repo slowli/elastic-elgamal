@@ -9,11 +9,12 @@ use rand_core::{CryptoRng, RngCore};
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 
-use std::iter;
+use core::iter;
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
+    alloc::{vec, Vec},
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession},
     sharing::{lagrange_coefficients, Error, Params, PublicKeySet},
@@ -298,21 +299,29 @@ mod tests {
         let carol_share = dealer.secret_share_for_participant(2);
         let carol = ActiveParticipant::new(key_set.clone(), 2, carol_share).unwrap();
 
-        assert!(key_set.verify_participant(0, &alice.proof_of_possession(&mut rng)));
-        assert!(key_set.verify_participant(1, &bob.proof_of_possession(&mut rng)));
-        assert!(key_set.verify_participant(2, &carol.proof_of_possession(&mut rng)));
-        assert!(!key_set.verify_participant(1, &alice.proof_of_possession(&mut rng)));
+        key_set
+            .verify_participant(0, &alice.proof_of_possession(&mut rng))
+            .unwrap();
+        key_set
+            .verify_participant(1, &bob.proof_of_possession(&mut rng))
+            .unwrap();
+        key_set
+            .verify_participant(2, &carol.proof_of_possession(&mut rng))
+            .unwrap();
+        assert!(key_set
+            .verify_participant(1, &alice.proof_of_possession(&mut rng))
+            .is_err());
 
         let ciphertext = key_set.shared_key.encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
-        assert!(key_set
+        key_set
             .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof)
-            .is_some());
+            .unwrap();
 
         let (bob_share, proof) = bob.decrypt_share(ciphertext, &mut rng);
-        assert!(key_set
+        key_set
             .verify_share(bob_share.to_candidate(), ciphertext, 1, &proof)
-            .is_some());
+            .unwrap();
 
         // We need to find `a0` from the following equations:
         // a0 +   a1 = alice_share.dh_element;

@@ -13,7 +13,7 @@ use elastic_elgamal::{
 
 type K256 = Generic<k256::Secp256k1>;
 
-fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
+fn bench_proof_of_possession<G: Group>(b: &mut Bencher<'_>, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
     let keypairs: Vec<_> = (0..degree)
         .map(|_| Keypair::<G>::generate(&mut rng))
@@ -22,7 +22,7 @@ fn bench_proof_of_possession<G: Group>(b: &mut Bencher, degree: usize) {
     b.iter(|| ProofOfPossession::new(&keypairs, &mut Transcript::new(b"bench_pop"), &mut rng));
 }
 
-fn bench_proof_of_possession_verification<G: Group>(b: &mut Bencher, degree: usize) {
+fn bench_proof_of_possession_verification<G: Group>(b: &mut Bencher<'_>, degree: usize) {
     let mut rng = ChaChaRng::from_seed([10; 32]);
     let keypairs: Vec<_> = (0..degree)
         .map(|_| Keypair::<G>::generate(&mut rng))

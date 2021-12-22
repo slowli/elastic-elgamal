@@ -3,16 +3,19 @@
 use base64ct::{Base64UrlUnpadded, Encoding};
 use rand_core::{CryptoRng, RngCore};
 
-use crate::group::Group;
+use core::{fmt, ops};
 
-use std::{fmt, ops};
+use crate::{
+    alloc::{vec, Vec},
+    group::Group,
+};
 
 /// Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
 /// the [`Group`] scalar.
 pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
 
 impl<G: Group> fmt::Debug for SecretKey<G> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_struct("SecretKey")
             .field("public", &PublicKey::from(self))
@@ -103,7 +106,7 @@ impl<G: Group> Clone for PublicKey<G> {
 }
 
 impl<G: Group> fmt::Debug for PublicKey<G> {
-    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         formatter
             .debug_tuple("PublicKey")
             .field(&Base64UrlUnpadded::encode_string(&self.bytes))
@@ -195,6 +198,7 @@ impl fmt::Display for PublicKeyConversionError {
     }
 }
 
+#[cfg(feature = "std")]
 impl std::error::Error for PublicKeyConversionError {}
 
 impl<G: Group> ops::Add<Self> for PublicKey<G> {

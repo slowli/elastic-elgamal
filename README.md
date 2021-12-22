@@ -3,6 +3,7 @@
 [![Build Status](https://github.com/slowli/elastic-elgamal/workflows/Rust/badge.svg?branch=main)](https://github.com/slowli/elastic-elgamal/actions)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue)](https://github.com/slowli/elastic-elgamal#license)
 ![rust 1.56.0+ required](https://img.shields.io/badge/rust-1.56.0+-blue.svg?label=Required%20Rust)
+![no_std supported](https://img.shields.io/badge/no__std-tested-green.svg)
 
 **Documentation:** [![Docs.rs](https://docs.rs/elastic-elgamal/badge.svg)](https://docs.rs/elastic-elgamal/)
 [![crate docs (master)](https://img.shields.io/badge/master-yellow.svg?label=docs)](https://slowli.github.io/elastic-elgamal/elastic_elgamal/)

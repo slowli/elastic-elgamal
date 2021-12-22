@@ -1,5 +1,6 @@
 //! Range proofs for ElGamal ciphertexts.
 
+use hashbrown::HashMap;
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
@@ -7,12 +8,13 @@ use serde::{Deserialize, Serialize};
 use subtle::{ConditionallySelectable, ConstantTimeGreater};
 use zeroize::Zeroizing;
 
-use std::{collections::HashMap, convert::TryFrom, fmt};
+use core::{convert::TryFrom, fmt};
 
 use crate::{
+    alloc::{vec, ToString, Vec},
     group::Group,
     proofs::{RingProof, RingProofBuilder, TranscriptForGroup},
-    Ciphertext, PublicKey,
+    Ciphertext, PublicKey, VerificationError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -299,8 +301,21 @@ impl RangeDecomposition {
         opt
     }
 
+    #[cfg(feature = "std")]
     fn lower_len_estimate(upper_bound: u64) -> u64 {
         ((upper_bound as f64).log2() * 3.0).ceil() as u64
+    }
+
+    // We may not have floating-point arithmetics on no-std targets; thus, we use
+    // a less precise estimate.
+    #[cfg(not(feature = "std"))]
+    fn lower_len_estimate(upper_bound: u64) -> u64 {
+        let log2_upper_bound = if upper_bound == 0 {
+            0
+        } else {
+            63 - u64::from(upper_bound.leading_zeros()) // rounded down
+        };
+        log2_upper_bound * 3
     }
 }
 
@@ -387,6 +402,7 @@ impl<G: Group> PreparedRange<G> {
 /// # };
 /// # use merlin::Transcript;
 /// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Generate the ciphertext receiver.
 /// let mut rng = thread_rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
@@ -406,12 +422,14 @@ impl<G: Group> PreparedRange<G> {
 /// let lookup = DiscreteLogTable::new(0..100);
 /// assert_eq!(receiver.secret().decrypt(ciphertext, &lookup), Some(55));
 /// // ...and that the proof verifies.
-/// assert!(proof.verify(
+/// proof.verify(
 ///     receiver.public(),
 ///     &range,
 ///     ciphertext,
 ///     &mut Transcript::new(b"test_proof"),
-/// ));
+/// )?;
+/// # Ok(())
+/// # }
 /// ```
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
@@ -489,18 +507,23 @@ impl<G: Group> RangeProof<G> {
     ///
     /// For a proof to verify, all parameters must be identical to ones provided when creating
     /// the proof. In particular, `range` must have the same decomposition.
-    #[must_use = "verification fail is returned as `false` and should be handled"]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if this proof does not verify.
     pub fn verify(
         &self,
         receiver: &PublicKey<G>,
         range: &PreparedRange<G>,
         ciphertext: Ciphertext<G>,
         transcript: &mut Transcript,
-    ) -> bool {
+    ) -> Result<(), VerificationError> {
         // Check decomposition / proof consistency.
-        if range.admissible_values.len() != self.partial_ciphertexts.len() + 1 {
-            return false;
-        }
+        VerificationError::check_lengths(
+            "admissible values",
+            self.partial_ciphertexts.len() + 1,
+            range.admissible_values.len(),
+        )?;
 
         transcript.start_proof(b"encryption_range_proof");
         transcript.append_message(b"range", range.inner.to_string().as_bytes());
@@ -675,55 +698,95 @@ mod tests {
             &mut rng,
         );
 
-        assert!(proof.verify(
-            receiver.public(),
-            &decomposition,
-            ciphertext,
-            &mut Transcript::new(b"test"),
-        ));
+        proof
+            .verify(
+                receiver.public(),
+                &decomposition,
+                ciphertext,
+                &mut Transcript::new(b"test"),
+            )
+            .unwrap();
 
         // Should not verify with another transcript context
-        assert!(!proof.verify(
-            receiver.public(),
-            &decomposition,
-            ciphertext,
-            &mut Transcript::new(b"other"),
-        ));
+        assert!(proof
+            .verify(
+                receiver.public(),
+                &decomposition,
+                ciphertext,
+                &mut Transcript::new(b"other"),
+            )
+            .is_err());
 
         // ...or with another receiver
         let other_receiver = Keypair::<Ristretto>::generate(&mut rng);
-        assert!(!proof.verify(
-            other_receiver.public(),
-            &decomposition,
-            ciphertext,
-            &mut Transcript::new(b"test"),
-        ));
+        assert!(proof
+            .verify(
+                other_receiver.public(),
+                &decomposition,
+                ciphertext,
+                &mut Transcript::new(b"test"),
+            )
+            .is_err());
 
         // ...or with another ciphertext
         let other_ciphertext = receiver.public().encrypt(10_u64, &mut rng);
-        assert!(!proof.verify(
-            receiver.public(),
-            &decomposition,
-            other_ciphertext,
-            &mut Transcript::new(b"test"),
-        ));
+        assert!(proof
+            .verify(
+                receiver.public(),
+                &decomposition,
+                other_ciphertext,
+                &mut Transcript::new(b"test"),
+            )
+            .is_err());
 
         let mut mangled_ciphertext = ciphertext;
         mangled_ciphertext.blinded_element += Ristretto::generator();
-        assert!(!proof.verify(
-            receiver.public(),
-            &decomposition,
-            mangled_ciphertext,
-            &mut Transcript::new(b"test"),
-        ));
+        assert!(proof
+            .verify(
+                receiver.public(),
+                &decomposition,
+                mangled_ciphertext,
+                &mut Transcript::new(b"test"),
+            )
+            .is_err());
 
         // ...or with another decomposition
         let other_decomposition = RangeDecomposition::just(15).into();
-        assert!(!proof.verify(
-            receiver.public(),
-            &other_decomposition,
-            ciphertext,
-            &mut Transcript::new(b"test"),
-        ));
+        assert!(proof
+            .verify(
+                receiver.public(),
+                &other_decomposition,
+                ciphertext,
+                &mut Transcript::new(b"test"),
+            )
+            .is_err());
+    }
+
+    #[test]
+    #[cfg(feature = "std")]
+    fn int_lower_len_estimate_is_always_not_more_than_exact() {
+        // **NB.** Must correspond to the no-std implementation of
+        // `RangeDecomposition::lower_len_estimate`.
+        fn int_lower_len_estimate(upper_bound: u64) -> u64 {
+            let log2_upper_bound = if upper_bound == 0 {
+                0
+            } else {
+                63 - u64::from(upper_bound.leading_zeros()) // rounded down
+            };
+            log2_upper_bound * 3
+        }
+
+        let samples = (0..1_000).chain((1..1_000).map(|i| i * 1_000));
+        for sample in samples {
+            let floating_point_estimate = RangeDecomposition::lower_len_estimate(sample);
+            let int_estimate = int_lower_len_estimate(sample);
+            assert!(
+                floating_point_estimate >= int_estimate,
+                "Unexpected estimates for {}: floating-point = {}, int = {}",
+                sample,
+                floating_point_estimate,
+                int_estimate
+            );
+        }
     }
 }

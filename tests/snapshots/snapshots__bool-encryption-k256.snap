@@ -1,0 +1,14 @@
+---
+source: tests/snapshots.rs
+expression: ciphertext_with_proof
+
+---
+ciphertext:
+  blinded_element: A3i3luvzoNkHo9I08Vjcm3Rc_Yw0gMyU7lKY1bzigvIJ
+  random_element: AgQbzI7_NulX5AZav0Ty90yRPsu9APHrKvYGo03s3Dn_
+proof:
+  common_challenge: 49_S7UN-1w1aOl7oJMRmidr0nz_WG1PfdBHSk95YPjY
+  ring_responses:
+    - A5GmkLDdIK_ElgFwnTy7KW9tnQxDslStKdohL-Lw-jo
+    - fc-qbh0-gbQK64cb4lDEdJvxI8oyF5dEAXUr0j49eWg
+
