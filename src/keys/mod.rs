@@ -10,6 +10,8 @@ use crate::{
     group::Group,
 };
 
+mod impls;
+
 /// Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
 /// the [`Group`] scalar.
 pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
