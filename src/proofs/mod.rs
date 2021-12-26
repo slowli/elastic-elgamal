@@ -16,10 +16,12 @@ use crate::{
     Keypair, PublicKey, SecretKey,
 };
 
+mod mul;
 mod range;
 mod ring;
 
 pub use self::{
+    mul::SumOfSquaresProof,
     range::{PreparedRange, RangeDecomposition, RangeProof},
     ring::{RingProof, RingProofBuilder},
 };

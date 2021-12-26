@@ -12,9 +12,10 @@ use core::{convert::TryFrom, fmt};
 
 use crate::{
     alloc::{vec, ToString, Vec},
+    encryption::{CiphertextWithValue, ExtendedCiphertext},
     group::Group,
     proofs::{RingProof, RingProofBuilder, TranscriptForGroup},
-    Ciphertext, PublicKey, VerificationError,
+    Ciphertext, PublicKey, SecretKey, VerificationError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -398,7 +399,7 @@ impl<G: Group> PreparedRange<G> {
 ///
 /// ```
 /// # use elastic_elgamal::{
-/// #     group::Ristretto, DiscreteLogTable, Keypair, RangeDecomposition, RangeProof
+/// #     group::Ristretto, DiscreteLogTable, Keypair, RangeDecomposition, RangeProof, Ciphertext,
 /// # };
 /// # use merlin::Transcript;
 /// # use rand::thread_rng;
@@ -417,6 +418,7 @@ impl<G: Group> PreparedRange<G> {
 ///     &mut Transcript::new(b"test_proof"),
 ///     &mut rng,
 /// );
+/// let ciphertext = Ciphertext::from(ciphertext);
 ///
 /// // Check that the ciphertext is valid
 /// let lookup = DiscreteLogTable::new(0..100);
@@ -456,7 +458,7 @@ impl<G: Group> RangeProof<G> {
         value: u64,
         transcript: &mut Transcript,
         rng: &mut R,
-    ) -> (Ciphertext<G>, Self) {
+    ) -> (CiphertextWithValue<G>, Self) {
         let value_indexes = range.decompose(value);
         debug_assert_eq!(value_indexes.len(), range.admissible_values.len());
         transcript.start_proof(b"encryption_range_proof");
@@ -473,13 +475,15 @@ impl<G: Group> RangeProof<G> {
             transcript,
             rng,
         );
+
+        let mut cumulative_random_scalar = SecretKey::new(G::Scalar::from(0));
         let partial_ciphertexts = value_indexes
             .iter()
             .zip(&range.admissible_values)
             .map(|(value_index, admissible_values)| {
-                proof_builder
-                    .add_value(admissible_values, *value_index)
-                    .inner
+                let ciphertext = proof_builder.add_value(admissible_values, *value_index);
+                cumulative_random_scalar += ciphertext.random_scalar;
+                ciphertext.inner
             })
             .collect();
 
@@ -487,8 +491,12 @@ impl<G: Group> RangeProof<G> {
             partial_ciphertexts,
             inner: RingProof::new(proof_builder.build(), ring_responses),
         };
-        let ciphertext = proof.extract_cumulative_ciphertext();
-        (ciphertext, proof)
+        let cumulative_ciphertext = ExtendedCiphertext {
+            inner: proof.extract_cumulative_ciphertext(),
+            random_scalar: cumulative_random_scalar,
+        };
+        let value = SecretKey::new(G::Scalar::from(value));
+        (cumulative_ciphertext.with_value(value), proof)
     }
 
     fn extract_cumulative_ciphertext(&mut self) -> Ciphertext<G> {
@@ -697,6 +705,7 @@ mod tests {
             &mut Transcript::new(b"test"),
             &mut rng,
         );
+        let ciphertext = ciphertext.into();
 
         proof
             .verify(

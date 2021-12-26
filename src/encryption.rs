@@ -334,7 +334,8 @@ impl<G: Group> PublicKey<G> {
         rng: &mut R,
     ) -> (Ciphertext<G>, RangeProof<G>) {
         let mut transcript = Transcript::new(b"ciphertext_range");
-        RangeProof::new(self, range, value, &mut transcript, rng)
+        let (ciphertext, proof) = RangeProof::new(self, range, value, &mut transcript, rng);
+        (ciphertext.into(), proof)
     }
 
     /// Verifies `proof` that `ciphertext` encrypts a value lying in `range`.
@@ -512,13 +513,13 @@ impl<G: Group> DiscreteLogTable<G> {
 #[derive(Debug, Clone)]
 #[doc(hidden)] // only public for benchmarking
 pub struct ExtendedCiphertext<G: Group> {
-    pub inner: Ciphertext<G>,
-    pub random_scalar: SecretKey<G>,
+    pub(crate) inner: Ciphertext<G>,
+    pub(crate) random_scalar: SecretKey<G>,
 }
 
 impl<G: Group> ExtendedCiphertext<G> {
     /// Creates a ciphertext of `value` for the specified `receiver`.
-    pub fn new<R: CryptoRng + RngCore>(
+    pub(crate) fn new<R: CryptoRng + RngCore>(
         value: G::Element,
         receiver: &PublicKey<G>,
         rng: &mut R,
@@ -535,6 +536,55 @@ impl<G: Group> ExtendedCiphertext<G> {
             },
             random_scalar,
         }
+    }
+
+    pub(crate) fn with_value(self, value: SecretKey<G>) -> CiphertextWithValue<G> {
+        CiphertextWithValue { inner: self, value }
+    }
+}
+
+/// ElGamal [`Ciphertext`] together with fully retained information about the encrypted value and
+/// randomness used to create the ciphertext.
+///
+/// This type can be used to produce certain kinds of proofs, such as
+/// [`SumOfSquaresProof`](crate::SumOfSquaresProof).
+#[derive(Debug)]
+pub struct CiphertextWithValue<G: Group> {
+    inner: ExtendedCiphertext<G>,
+    value: SecretKey<G>,
+}
+
+impl<G: Group> From<CiphertextWithValue<G>> for Ciphertext<G> {
+    fn from(ciphertext: CiphertextWithValue<G>) -> Self {
+        ciphertext.inner.inner
+    }
+}
+
+impl<G: Group> CiphertextWithValue<G> {
+    /// Encrypts a value for the specified receiver.
+    ///
+    /// This is a lower-level operation compared to [`PublicKey::encrypt()`] and should be used
+    /// if the resulting ciphertext is necessary to produce proofs.
+    pub fn new<T, R: CryptoRng + RngCore>(value: T, receiver: &PublicKey<G>, rng: &mut R) -> Self
+    where
+        G::Scalar: From<T>,
+    {
+        let value = SecretKey::new(G::Scalar::from(value));
+        let element = G::mul_generator(&value.0);
+        ExtendedCiphertext::new(element, receiver, rng).with_value(value)
+    }
+
+    /// Returns a reference to the contained [`Ciphertext`].
+    pub fn inner(&self) -> &Ciphertext<G> {
+        &self.inner.inner
+    }
+
+    pub(crate) fn random_scalar(&self) -> &SecretKey<G> {
+        &self.inner.random_scalar
+    }
+
+    pub(crate) fn value(&self) -> &SecretKey<G> {
+        &self.value
     }
 }
 
