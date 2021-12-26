@@ -7,7 +7,7 @@ use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use elastic_elgamal::{
-    app::{QuadraticVotingBallot, QuadraticVotingParams},
+    app::{EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
     CiphertextWithValue, Keypair, RingProofBuilder, SumOfSquaresProof,
 };
@@ -69,9 +69,7 @@ fn bench_choice_creation<G: Group>(b: &mut Bencher<'_>, number_of_variants: usiz
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter(|| {
         let choice = rng.gen_range(0..number_of_variants);
-        keypair
-            .public()
-            .encrypt_choice(number_of_variants, choice, &mut rng)
+        EncryptedChoice::new(number_of_variants, choice, keypair.public(), &mut rng)
     });
 }
 
@@ -81,12 +79,10 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher<'_>, number_of_variants: 
     b.iter_batched(
         || {
             let choice = rng.gen_range(0..number_of_variants);
-            keypair
-                .public()
-                .encrypt_choice(number_of_variants, choice, &mut rng)
+            EncryptedChoice::new(number_of_variants, choice, keypair.public(), &mut rng)
         },
-        |encrypted| {
-            keypair.public().verify_choice(&encrypted).unwrap();
+        |choice| {
+            choice.verify(keypair.public()).unwrap();
         },
         BatchSize::SmallInput,
     );

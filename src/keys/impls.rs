@@ -3,12 +3,12 @@
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 
-use core::{iter, ops};
+use core::iter;
 
 use crate::{
-    encryption::ExtendedCiphertext, group::Group, ChoiceVerificationError, Ciphertext,
-    DiscreteLogTable, EncryptedChoice, LogEqualityProof, PreparedRange, PublicKey, RangeProof,
-    RingProof, RingProofBuilder, SecretKey, VerificationError,
+    encryption::ExtendedCiphertext, group::Group, Ciphertext, DiscreteLogTable, LogEqualityProof,
+    PreparedRange, PublicKey, RangeProof, RingProof, RingProofBuilder, SecretKey,
+    VerificationError,
 };
 
 impl<G: Group> PublicKey<G> {
@@ -107,108 +107,6 @@ impl<G: Group> PublicKey<G> {
         )
     }
 
-    /// Creates an [`EncryptedChoice`].
-    ///
-    /// # Panics
-    ///
-    /// Panics if `number_of_variants` is zero, or if `choice` is not in `0..number_of_variants`.
-    ///
-    /// # Examples
-    ///
-    /// See [`EncryptedChoice`] docs for an example of usage.
-    pub fn encrypt_choice<R: CryptoRng + RngCore>(
-        &self,
-        number_of_variants: usize,
-        choice: usize,
-        rng: &mut R,
-    ) -> EncryptedChoice<G> {
-        assert!(
-            number_of_variants > 0,
-            "`number_of_variants` must be positive"
-        );
-        assert!(
-            choice < number_of_variants,
-            "invalid choice {}; expected a value in 0..{}",
-            choice,
-            number_of_variants
-        );
-
-        let admissible_values = [G::identity(), G::generator()];
-        let mut ring_responses = vec![G::Scalar::default(); 2 * number_of_variants];
-        let mut transcript = Transcript::new(b"encrypted_choice_ranges");
-        let mut proof_builder = RingProofBuilder::new(
-            self,
-            number_of_variants,
-            &mut ring_responses,
-            &mut transcript,
-            rng,
-        );
-
-        let variants: Vec<_> = (0..number_of_variants)
-            .map(|i| proof_builder.add_value(&admissible_values, (i == choice) as usize))
-            .collect();
-        let range_proof = RingProof::new(proof_builder.build(), ring_responses);
-
-        let mut sum_log = variants[0].random_scalar.clone();
-        let mut sum_ciphertext = variants[0].inner;
-        for variant in variants.iter().skip(1) {
-            sum_log += variant.random_scalar.clone();
-            sum_ciphertext += variant.inner;
-        }
-
-        let sum_proof = LogEqualityProof::new(
-            self,
-            &sum_log,
-            (
-                sum_ciphertext.random_element,
-                sum_ciphertext.blinded_element - G::generator(),
-            ),
-            &mut Transcript::new(b"choice_encryption_sum"),
-            rng,
-        );
-
-        EncryptedChoice {
-            variants: variants.into_iter().map(|variant| variant.inner).collect(),
-            range_proof,
-            sum_proof,
-        }
-    }
-
-    /// Verifies the zero-knowledge proofs in an [`EncryptedChoice`] and returns variant ciphertexts
-    /// if they check out.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if the `choice` is malformed or its proofs fail verification.
-    pub fn verify_choice<'a>(
-        &self,
-        choice: &'a EncryptedChoice<G>,
-    ) -> Result<&'a [Ciphertext<G>], ChoiceVerificationError> {
-        let sum_ciphertexts = choice.variants.iter().copied().reduce(ops::Add::add);
-        let sum_ciphertexts = sum_ciphertexts.ok_or(ChoiceVerificationError::Empty)?;
-
-        let powers = (
-            sum_ciphertexts.random_element,
-            sum_ciphertexts.blinded_element - G::generator(),
-        );
-        choice
-            .sum_proof
-            .verify(self, powers, &mut Transcript::new(b"choice_encryption_sum"))
-            .map_err(ChoiceVerificationError::Sum)?;
-
-        let admissible_values = [G::identity(), G::generator()];
-        choice
-            .range_proof
-            .verify(
-                self,
-                iter::repeat(&admissible_values as &[_]).take(choice.variants.len()),
-                choice.variants.iter().copied(),
-                &mut Transcript::new(b"encrypted_choice_ranges"),
-            )
-            .map(|()| choice.variants.as_slice())
-            .map_err(ChoiceVerificationError::Range)
-    }
-
     /// Encrypts `value` and provides a zero-knowledge proof that it lies in the specified `range`.
     ///
     /// # Panics
@@ -270,50 +168,5 @@ impl<G: Group> SecretKey<G> {
         lookup_table: &DiscreteLogTable<G>,
     ) -> Option<u64> {
         lookup_table.get(&self.decrypt_to_element(encrypted))
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use rand::thread_rng;
-
-    use super::*;
-    use crate::{
-        group::{Generic, Ristretto},
-        Keypair,
-    };
-
-    fn test_bogus_encrypted_choice_does_not_work<G: Group>() {
-        let mut rng = thread_rng();
-        let keypair = Keypair::<G>::generate(&mut rng);
-
-        let mut choice = keypair.public().encrypt_choice(5, 2, &mut rng);
-        let (encrypted_one, _) = keypair.public().encrypt_bool(true, &mut rng);
-        choice.variants[0] = encrypted_one;
-        assert!(keypair.public().verify_choice(&choice).is_err());
-
-        let mut choice = keypair.public().encrypt_choice(5, 4, &mut rng);
-        let (encrypted_zero, _) = keypair.public().encrypt_bool(false, &mut rng);
-        choice.variants[4] = encrypted_zero;
-        assert!(keypair.public().verify_choice(&choice).is_err());
-
-        let mut choice = keypair.public().encrypt_choice(5, 4, &mut rng);
-        choice.variants[4].blinded_element =
-            choice.variants[4].blinded_element + G::mul_generator(&G::Scalar::from(10));
-        choice.variants[3].blinded_element =
-            choice.variants[3].blinded_element - G::mul_generator(&G::Scalar::from(10));
-        // These modifications leave `choice.sum_proof` correct, but the range proofs
-        // for the last 2 variants should no longer verify.
-        assert!(keypair.public().verify_choice(&choice).is_err());
-    }
-
-    #[test]
-    fn bogus_encrypted_choice_does_not_work_for_edwards() {
-        test_bogus_encrypted_choice_does_not_work::<Ristretto>();
-    }
-
-    #[test]
-    fn bogus_encrypted_choice_does_not_work_for_k256() {
-        test_bogus_encrypted_choice_does_not_work::<Generic<k256::Secp256k1>>();
     }
 }

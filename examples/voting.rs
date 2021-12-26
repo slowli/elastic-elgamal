@@ -12,6 +12,7 @@ use rand_core::{CryptoRng, RngCore};
 use std::env;
 
 use elastic_elgamal::{
+    app::EncryptedChoice,
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
     sharing::{ActiveParticipant, CandidateShare, Dealer, DecryptionShare, Params, PublicKeySet},
     Ciphertext, DiscreteLogTable,
@@ -57,13 +58,11 @@ fn vote<G: Group>() {
         let choice = rng.gen_range(0..OPTIONS_COUNT);
         println!("\nVoter #{} making choice #{}", i + 1, choice + 1);
         expected_totals[choice] += 1;
-        let choice = key_set
-            .shared_key()
-            .encrypt_choice(OPTIONS_COUNT, choice, &mut rng);
+        let choice = EncryptedChoice::new(OPTIONS_COUNT, choice, key_set.shared_key(), &mut rng);
 
         println!("Choice: {}", serde_json::to_string_pretty(&choice).unwrap());
 
-        let variants = key_set.shared_key().verify_choice(&choice).unwrap();
+        let variants = choice.verify(key_set.shared_key()).unwrap();
         for (i, &variant) in variants.iter().enumerate() {
             encrypted_totals[i] += variant;
         }

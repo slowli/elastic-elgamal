@@ -12,7 +12,6 @@ use crate::serde::ElementHelper;
 use crate::{
     alloc::{vec, Vec},
     group::Group,
-    proofs::{LogEqualityProof, RingProof, VerificationError},
     PublicKey, SecretKey,
 };
 
@@ -320,114 +319,5 @@ impl<G: Group> CiphertextWithValue<G> {
 
     pub(crate) fn value(&self) -> &SecretKey<G> {
         &self.value
-    }
-}
-
-/// Encrypted choice of a value in a range `0..n` for certain integer `n > 1` together with
-/// validity zero-knowledge proofs.
-///
-/// # Construction
-///
-/// The choice is represented as a vector of `n` *variant ciphertexts* of Boolean values (0 or 1),
-/// where the chosen variant encrypts 1 and other variants encrypt 0.
-/// This ensures that multiple [`EncryptedChoice`]s can be added (e.g., within a voting protocol).
-/// These ciphertexts can be obtained via [`PublicKey::verify_choice()`].
-///
-/// Zero-knowledge proofs are:
-///
-/// - A [`RingProof`] attesting that all `n` ciphertexts encrypt 0 or 1.
-///   This proof can be obtained via [`Self::range_proof()`].
-/// - A [`LogEqualityProof`] attesting that the encrypted values sum up to 1. Combined with
-///   the range proof, this means that exactly one of encrypted values is 1, and all others are 0.
-///   This proof can be obtained via [`Self::sum_proof()`].
-///
-/// # Examples
-///
-/// ```
-/// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, EncryptedChoice, Keypair};
-/// # use rand::thread_rng;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
-/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
-/// let choice = 2;
-/// let enc = receiver.public().encrypt_choice(5, choice, &mut rng);
-/// let variants = receiver.public().verify_choice(&enc)?;
-///
-/// // `variants` is a slice of 5 Boolean value ciphertexts
-/// assert_eq!(variants.len(), 5);
-/// let lookup_table = DiscreteLogTable::new(0..=1);
-/// for (idx, &v) in variants.iter().enumerate() {
-///     assert_eq!(
-///         receiver.secret().decrypt(v, &lookup_table),
-///         Some((idx == choice) as u64)
-///     );
-/// }
-/// # Ok(())
-/// # }
-/// ```
-#[derive(Debug, Clone)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(bound = ""))]
-pub struct EncryptedChoice<G: Group> {
-    pub(crate) variants: Vec<Ciphertext<G>>,
-    pub(crate) range_proof: RingProof<G>,
-    pub(crate) sum_proof: LogEqualityProof<G>,
-}
-
-#[allow(clippy::len_without_is_empty)] // `is_empty()` would always be false
-impl<G: Group> EncryptedChoice<G> {
-    /// Returns the number of variants in this choice.
-    pub fn len(&self) -> usize {
-        self.variants.len()
-    }
-
-    /// Returns variant ciphertexts **without** checking their validity.
-    pub fn variants_unchecked(&self) -> &[Ciphertext<G>] {
-        &self.variants
-    }
-
-    /// Returns the range proof for the variant ciphertexts.
-    pub fn range_proof(&self) -> &RingProof<G> {
-        &self.range_proof
-    }
-
-    /// Returns the sum proof for the variant ciphertexts.
-    pub fn sum_proof(&self) -> &LogEqualityProof<G> {
-        &self.sum_proof
-    }
-}
-
-/// Error verifying an [`EncryptedChoice`].
-#[derive(Debug)]
-#[non_exhaustive]
-pub enum ChoiceVerificationError {
-    /// [`EncryptedChoice`] does not have variants.
-    ///
-    /// This error means that the `EncryptedChoice` is malformed (e.g., after deserializing it
-    /// from an untrusted source).
-    Empty,
-    /// Error verifying [`EncryptedChoice::sum_proof()`].
-    Sum(VerificationError),
-    /// Error verifying [`EncryptedChoice::range_proof()`].
-    Range(VerificationError),
-}
-
-impl fmt::Display for ChoiceVerificationError {
-    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            Self::Empty => formatter.write_str("encrypted choice does not have variants"),
-            Self::Sum(err) => write!(formatter, "cannot verify sum proof: {}", err),
-            Self::Range(err) => write!(formatter, "cannot verify range proofs: {}", err),
-        }
-    }
-}
-
-#[cfg(feature = "std")]
-impl std::error::Error for ChoiceVerificationError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
-        match self {
-            Self::Sum(err) | Self::Range(err) => Some(err),
-            _ => None,
-        }
     }
 }

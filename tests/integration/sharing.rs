@@ -5,6 +5,7 @@ use rand_core::{CryptoRng, RngCore};
 
 use crate::assert_ct_eq;
 use elastic_elgamal::{
+    app::EncryptedChoice,
     group::Group,
     sharing::{ActiveParticipant, Dealer, DecryptionShare, Params, PublicKeySet},
     Ciphertext, DiscreteLogTable,
@@ -90,8 +91,8 @@ fn test_simple_voting<G: Group>() {
     for _ in 0..VOTES {
         let choice = rng.gen_range(0..CHOICE_COUNT);
         expected_totals[choice] += 1;
-        let choice = shared_key.encrypt_choice(CHOICE_COUNT, choice, &mut rng);
-        let variants = shared_key.verify_choice(&choice).unwrap();
+        let choice = EncryptedChoice::new(CHOICE_COUNT, choice, shared_key, &mut rng);
+        let variants = choice.verify(shared_key).unwrap();
 
         for (i, &variant) in variants.iter().enumerate() {
             encrypted_totals[i] += variant;
