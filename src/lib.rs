@@ -92,6 +92,7 @@
     clippy::doc_markdown
 )]
 
+pub mod app;
 mod encryption;
 pub mod group;
 mod keys;
