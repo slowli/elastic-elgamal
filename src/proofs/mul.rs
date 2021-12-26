@@ -4,6 +4,8 @@ use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
 
+use core::iter;
+
 use crate::{
     group::Group, proofs::TranscriptForGroup, Ciphertext, CiphertextWithValue, PublicKey,
     SecretKey, VerificationError,
@@ -100,8 +102,6 @@ impl<G: Group> SumOfSquaresProof<G> {
         Self::initialize_transcript(transcript, receiver);
 
         let sum_scalar = SecretKey::<G>::generate(rng);
-        let mut random_sum_commitment = G::mul_generator(&sum_scalar.0);
-        let mut value_sum_commitment = receiver.element * &sum_scalar.0;
         let mut sum_random_scalar = sum_of_squares_ciphertext.random_scalar().clone();
 
         let partial_scalars: Vec<_> = ciphertexts
@@ -117,15 +117,29 @@ impl<G: Group> SumOfSquaresProof<G> {
                     G::mul_generator(&value_scalar.0) + receiver.element * &random_scalar.0;
                 transcript.append_element::<G>(b"[e_x]G + [e_r]K", &value_commitment);
 
-                random_sum_commitment =
-                    random_sum_commitment + ciphertext.inner().random_element * &value_scalar.0;
-                value_sum_commitment =
-                    value_sum_commitment + ciphertext.inner().blinded_element * &value_scalar.0;
                 sum_random_scalar += ciphertext.random_scalar().clone() * &-ciphertext.value().0;
-
                 (ciphertext, random_scalar, value_scalar)
             })
             .collect();
+
+        let scalars = partial_scalars
+            .iter()
+            .map(|(_, _, value_scalar)| &value_scalar.0)
+            .chain(iter::once(&sum_scalar.0));
+        let random_sum_commitment = {
+            let elements = partial_scalars
+                .iter()
+                .map(|(ciphertext, ..)| ciphertext.inner().random_element)
+                .chain(iter::once(G::generator()));
+            G::multi_mul(scalars.clone(), elements)
+        };
+        let value_sum_commitment = {
+            let elements = partial_scalars
+                .iter()
+                .map(|(ciphertext, ..)| ciphertext.inner().blinded_element)
+                .chain(iter::once(receiver.element));
+            G::multi_mul(scalars, elements)
+        };
 
         transcript.append_element::<G>(b"R_z", &sum_of_squares_ciphertext.inner().random_element);
         transcript.append_element::<G>(b"Z", &sum_of_squares_ciphertext.inner().blinded_element);

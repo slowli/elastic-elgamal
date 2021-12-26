@@ -3,12 +3,13 @@ use criterion::{
     BenchmarkId, Criterion, Throughput,
 };
 use merlin::Transcript;
-use rand::{Rng, SeedableRng};
+use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use elastic_elgamal::{
+    app::{QuadraticVotingBallot, QuadraticVotingParams},
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
-    Keypair, RingProofBuilder,
+    CiphertextWithValue, Keypair, RingProofBuilder, SumOfSquaresProof,
 };
 
 type K256 = Generic<k256::Secp256k1>;
@@ -71,7 +72,7 @@ fn bench_choice_creation<G: Group>(b: &mut Bencher<'_>, number_of_variants: usiz
         keypair
             .public()
             .encrypt_choice(number_of_variants, choice, &mut rng)
-    })
+    });
 }
 
 fn bench_choice_verification<G: Group>(b: &mut Bencher<'_>, number_of_variants: usize) {
@@ -88,7 +89,35 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher<'_>, number_of_variants: 
             keypair.public().verify_choice(&encrypted).unwrap();
         },
         BatchSize::SmallInput,
-    )
+    );
+}
+
+fn bench_qv_creation<G: Group>(b: &mut Bencher<'_>) {
+    let mut rng = ChaChaRng::from_seed([7; 32]);
+    let params = QuadraticVotingParams::new(4, 30);
+    let mut votes = [4, 0, 3, 1];
+    let keypair: Keypair<G> = Keypair::generate(&mut rng);
+    b.iter(|| {
+        votes.shuffle(&mut rng);
+        QuadraticVotingBallot::new(&params, &votes, keypair.public(), &mut rng)
+    });
+}
+
+fn bench_qv_verification<G: Group>(b: &mut Bencher<'_>) {
+    let mut rng = ChaChaRng::from_seed([7; 32]);
+    let params = QuadraticVotingParams::new(4, 30);
+    let mut votes = [4, 0, 3, 1];
+    let keypair: Keypair<G> = Keypair::generate(&mut rng);
+    b.iter_batched(
+        || {
+            votes.shuffle(&mut rng);
+            QuadraticVotingBallot::new(&params, &votes, keypair.public(), &mut rng)
+        },
+        |ballot| {
+            drop(ballot.verify(&params, keypair.public()).unwrap());
+        },
+        BatchSize::SmallInput,
+    );
 }
 
 fn bench_ring<G: Group>(b: &mut Bencher<'_>, chosen_values: Option<[usize; 5]>) {
@@ -119,6 +148,53 @@ fn bench_ring<G: Group>(b: &mut Bencher<'_>, chosen_values: Option<[usize; 5]>) 
     });
 }
 
+fn bench_sum_sq_creation<G: Group>(b: &mut Bencher<'_>, len: usize) {
+    let mut rng = ChaChaRng::from_seed([121; 32]);
+    let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+
+    let values: Vec<_> = (0..len).map(|_| rng.gen_range(0_u64..10)).collect();
+    let sum_sq = values.iter().map(|&x| x * x).sum::<u64>();
+    let values: Vec<_> = values
+        .into_iter()
+        .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng))
+        .collect();
+    let sum_sq = CiphertextWithValue::new(sum_sq, &receiver, &mut rng);
+
+    b.iter(|| {
+        let mut transcript = Transcript::new(b"bench_sum_of_squares");
+        SumOfSquaresProof::new(values.iter(), &sum_sq, &receiver, &mut transcript, &mut rng)
+    })
+}
+
+fn bench_sum_sq_verification<G: Group>(b: &mut Bencher<'_>, len: usize) {
+    let mut rng = ChaChaRng::from_seed([121; 32]);
+    let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+
+    let values: Vec<_> = (0..len).map(|_| rng.gen_range(0_u64..10)).collect();
+    let sum_sq = values.iter().map(|&x| x * x).sum::<u64>();
+    let values: Vec<_> = values
+        .into_iter()
+        .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng))
+        .collect();
+    let sum_sq = CiphertextWithValue::new(sum_sq, &receiver, &mut rng);
+
+    b.iter_batched(
+        || {
+            let mut transcript = Transcript::new(b"bench_sum_of_squares");
+            SumOfSquaresProof::new(values.iter(), &sum_sq, &receiver, &mut transcript, &mut rng)
+        },
+        |proof| {
+            proof.verify(
+                values.iter().map(CiphertextWithValue::inner),
+                sum_sq.inner(),
+                &receiver,
+                &mut Transcript::new(b"bench_sum_of_squares"),
+            )
+        },
+        BatchSize::SmallInput,
+    )
+}
+
 fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
     group
         // Basic operations: encryption / decryption.
@@ -147,6 +223,24 @@ fn bench_group<G: Group>(group: &mut BenchmarkGroup<'_, WallTime>) {
             BenchmarkId::new("choice_verify", choice_size),
             &choice_size,
             |b, &size| bench_choice_verification::<G>(b, size),
+        );
+    }
+
+    group
+        .bench_function("qv_prove", bench_qv_creation::<G>)
+        .bench_function("qv_verify", bench_qv_verification::<G>);
+    for &choice_size in CHOICE_SIZES {
+        group.bench_with_input(
+            BenchmarkId::new("sum_sq_prove", choice_size),
+            &choice_size,
+            |b, &size| bench_sum_sq_creation::<G>(b, size),
+        );
+    }
+    for &choice_size in CHOICE_SIZES {
+        group.bench_with_input(
+            BenchmarkId::new("sum_sq_verify", choice_size),
+            &choice_size,
+            |b, &size| bench_sum_sq_verification::<G>(b, size),
         );
     }
 
