@@ -143,7 +143,7 @@ fn test_bool_proof_serialization<G: Group>() {
     }
 }
 
-fn test_encrypted_choice_works<G: Group>() {
+fn test_encrypted_choice<G: Group>() {
     let mut rng = thread_rng();
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::single(pk, 5);
@@ -161,7 +161,23 @@ fn test_encrypted_choice_works<G: Group>() {
     }
 }
 
-// TODO: test multi-choice
+fn test_encrypted_multi_choice<G: Group>() {
+    let mut rng = thread_rng();
+    let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let choice_params = ChoiceParams::multi(pk, 5);
+
+    let choice = EncryptedChoice::new(&[false, true, true, false, true], &choice_params, &mut rng);
+    let variants = choice.verify(&choice_params).unwrap();
+    assert_eq!(variants.len(), 5);
+    for (i, &variant) in variants.iter().enumerate() {
+        let expected_plaintext = if i == 0 || i == 3 {
+            G::identity()
+        } else {
+            G::generator()
+        };
+        assert_ct_eq(&sk.decrypt_to_element(variant), &expected_plaintext);
+    }
+}
 
 mod curve25519 {
     use super::*;
@@ -193,8 +209,13 @@ mod curve25519 {
     }
 
     #[test]
-    fn encrypted_choice_works() {
-        test_encrypted_choice_works::<Curve25519Subgroup>();
+    fn encrypted_choice() {
+        test_encrypted_choice::<Curve25519Subgroup>();
+    }
+
+    #[test]
+    fn encrypted_multi_choice() {
+        test_encrypted_multi_choice::<Curve25519Subgroup>();
     }
 }
 
@@ -228,8 +249,13 @@ mod ristretto {
     }
 
     #[test]
-    fn encrypted_choice_works() {
-        test_encrypted_choice_works::<Ristretto>();
+    fn encrypted_choice() {
+        test_encrypted_choice::<Ristretto>();
+    }
+
+    #[test]
+    fn encrypted_multi_choice() {
+        test_encrypted_multi_choice::<Ristretto>();
     }
 }
 
@@ -265,7 +291,12 @@ mod k256 {
     }
 
     #[test]
-    fn encrypted_choice_works() {
-        test_encrypted_choice_works::<K256>();
+    fn encrypted_choice() {
+        test_encrypted_choice::<K256>();
+    }
+
+    #[test]
+    fn encrypted_multi_choice() {
+        test_encrypted_multi_choice::<K256>();
     }
 }

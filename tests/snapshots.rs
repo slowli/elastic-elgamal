@@ -81,6 +81,17 @@ fn test_encrypted_choice_snapshot<G: Group + Named>() {
     assert_yaml_snapshot!(full_name, choice);
 }
 
+fn test_encrypted_multi_choice_snapshot<G: Group + Named>() {
+    let mut rng = ChaChaRng::seed_from_u64(12345);
+    let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let choice_params = ChoiceParams::multi(public_key, 5);
+
+    let choices = [false, true, true, false, true];
+    let choices = EncryptedChoice::new(&choices, &choice_params, &mut rng);
+    let full_name = format!("encrypted-multi-choice-{}", G::NAME);
+    assert_yaml_snapshot!(full_name, choices);
+}
+
 mod ristretto {
     use super::*;
 
@@ -107,6 +118,11 @@ mod ristretto {
     #[test]
     fn encrypted_choice_snapshot() {
         test_encrypted_choice_snapshot::<Ristretto>();
+    }
+
+    #[test]
+    fn encrypted_multi_choice_snapshot() {
+        test_encrypted_multi_choice_snapshot::<Ristretto>();
     }
 }
 
@@ -138,5 +154,10 @@ mod k256 {
     #[test]
     fn encrypted_choice_snapshot() {
         test_encrypted_choice_snapshot::<K256>();
+    }
+
+    #[test]
+    fn encrypted_multi_choice_snapshot() {
+        test_encrypted_multi_choice_snapshot::<K256>();
     }
 }
