@@ -466,7 +466,16 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
     ) -> ExtendedCiphertext<G> {
         let ext_ciphertext =
             ExtendedCiphertext::new(admissible_values[value_index], self.receiver, self.rng);
+        self.add_precomputed_value(ext_ciphertext.clone(), admissible_values, value_index);
+        ext_ciphertext
+    }
 
+    pub(crate) fn add_precomputed_value(
+        &mut self,
+        ciphertext: ExtendedCiphertext<G>,
+        admissible_values: &'a [G::Element],
+        value_index: usize,
+    ) {
         let ring_responses = mem::take(&mut self.ring_responses);
         let (responses_for_ring, rest) = ring_responses.split_at_mut(admissible_values.len());
         self.ring_responses = rest;
@@ -474,7 +483,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
         let ring = Ring::new(
             self.rings.len(),
             self.receiver.element,
-            ext_ciphertext.clone(),
+            ciphertext,
             admissible_values,
             value_index,
             &*self.transcript,
@@ -482,7 +491,6 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
             self.rng,
         );
         self.rings.push(ring);
-        ext_ciphertext
     }
 
     /// Finishes building all rings and returns a common challenge.

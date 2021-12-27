@@ -4,6 +4,7 @@ use hashbrown::HashMap;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
+use zeroize::{Zeroize, Zeroizing};
 
 use core::{fmt, marker::PhantomData, ops};
 
@@ -11,7 +12,7 @@ use core::{fmt, marker::PhantomData, ops};
 use crate::serde::ElementHelper;
 use crate::{
     alloc::{vec, Vec},
-    group::Group,
+    group::{Group, ScalarOps},
     PublicKey, SecretKey,
 };
 
@@ -272,8 +273,22 @@ impl<G: Group> ExtendedCiphertext<G> {
         }
     }
 
-    pub(crate) fn with_value(self, value: SecretKey<G>) -> CiphertextWithValue<G> {
-        CiphertextWithValue { inner: self, value }
+    pub(crate) fn zero() -> Self {
+        Self {
+            inner: Ciphertext::zero(),
+            random_scalar: SecretKey::new(G::Scalar::from(0_u64)),
+        }
+    }
+
+    pub(crate) fn with_value<V>(self, value: V) -> CiphertextWithValue<G, V>
+    where
+        V: Zeroize,
+        G::Scalar: From<V>,
+    {
+        CiphertextWithValue {
+            inner: self,
+            value: Zeroizing::new(value),
+        }
     }
 }
 
@@ -288,47 +303,84 @@ impl<G: Group> ops::Add for ExtendedCiphertext<G> {
     }
 }
 
+impl<G: Group> ops::AddAssign for ExtendedCiphertext<G> {
+    fn add_assign(&mut self, rhs: Self) {
+        self.inner += rhs.inner;
+        self.random_scalar += rhs.random_scalar;
+    }
+}
+
+impl<G: Group> ops::Sub for ExtendedCiphertext<G> {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        Self {
+            inner: self.inner - rhs.inner,
+            random_scalar: self.random_scalar - rhs.random_scalar,
+        }
+    }
+}
+
 /// ElGamal [`Ciphertext`] together with fully retained information about the encrypted value and
 /// randomness used to create the ciphertext.
 ///
 /// This type can be used to produce certain kinds of proofs, such as
 /// [`SumOfSquaresProof`](crate::SumOfSquaresProof).
 #[derive(Debug)]
-pub struct CiphertextWithValue<G: Group> {
+pub struct CiphertextWithValue<G: Group, V: Zeroize = <G as ScalarOps>::Scalar> {
     inner: ExtendedCiphertext<G>,
-    value: SecretKey<G>,
+    value: Zeroizing<V>,
 }
 
-impl<G: Group> From<CiphertextWithValue<G>> for Ciphertext<G> {
-    fn from(ciphertext: CiphertextWithValue<G>) -> Self {
+impl<G: Group, V: Zeroize> From<CiphertextWithValue<G, V>> for Ciphertext<G> {
+    fn from(ciphertext: CiphertextWithValue<G, V>) -> Self {
         ciphertext.inner.inner
     }
 }
 
-impl<G: Group> CiphertextWithValue<G> {
+impl<G: Group, V> CiphertextWithValue<G, V>
+where
+    V: Copy + Zeroize,
+    G::Scalar: From<V>,
+{
     /// Encrypts a value for the specified receiver.
     ///
     /// This is a lower-level operation compared to [`PublicKey::encrypt()`] and should be used
     /// if the resulting ciphertext is necessary to produce proofs.
-    pub fn new<T, R: CryptoRng + RngCore>(value: T, receiver: &PublicKey<G>, rng: &mut R) -> Self
-    where
-        G::Scalar: From<T>,
-    {
-        let value = SecretKey::new(G::Scalar::from(value));
-        let element = G::mul_generator(&value.0);
+    pub fn new<R: CryptoRng + RngCore>(value: V, receiver: &PublicKey<G>, rng: &mut R) -> Self {
+        let scalar = Zeroizing::new(G::Scalar::from(value));
+        let element = G::mul_generator(&scalar);
         ExtendedCiphertext::new(element, receiver, rng).with_value(value)
     }
 
+    /// Converts the enclosed value into a scalar.
+    pub fn generalize(self) -> CiphertextWithValue<G> {
+        CiphertextWithValue {
+            inner: self.inner,
+            value: Zeroizing::new(G::Scalar::from(*self.value)),
+        }
+    }
+}
+
+impl<G: Group, V> CiphertextWithValue<G, V>
+where
+    V: Zeroize,
+    G::Scalar: From<V>,
+{
     /// Returns a reference to the contained [`Ciphertext`].
     pub fn inner(&self) -> &Ciphertext<G> {
         &self.inner.inner
+    }
+
+    pub(crate) fn extended_ciphertext(&self) -> &ExtendedCiphertext<G> {
+        &self.inner
     }
 
     pub(crate) fn random_scalar(&self) -> &SecretKey<G> {
         &self.inner.random_scalar
     }
 
-    pub(crate) fn value(&self) -> &SecretKey<G> {
+    pub(crate) fn value(&self) -> &V {
         &self.value
     }
 }

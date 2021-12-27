@@ -154,9 +154,9 @@ fn bench_sum_sq_creation<G: Group>(b: &mut Bencher<'_>, len: usize) {
     let sum_sq = values.iter().map(|&x| x * x).sum::<u64>();
     let values: Vec<_> = values
         .into_iter()
-        .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng))
+        .map(|x| CiphertextWithValue::new(G::Scalar::from(x), &receiver, &mut rng))
         .collect();
-    let sum_sq = CiphertextWithValue::new(sum_sq, &receiver, &mut rng);
+    let sum_sq = CiphertextWithValue::new(G::Scalar::from(sum_sq), &receiver, &mut rng);
 
     b.iter(|| {
         let mut transcript = Transcript::new(b"bench_sum_of_squares");
@@ -172,9 +172,9 @@ fn bench_sum_sq_verification<G: Group>(b: &mut Bencher<'_>, len: usize) {
     let sum_sq = values.iter().map(|&x| x * x).sum::<u64>();
     let values: Vec<_> = values
         .into_iter()
-        .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng))
+        .map(|x| CiphertextWithValue::new(G::Scalar::from(x), &receiver, &mut rng))
         .collect();
-    let sum_sq = CiphertextWithValue::new(sum_sq, &receiver, &mut rng);
+    let sum_sq = CiphertextWithValue::new(G::Scalar::from(sum_sq), &receiver, &mut rng);
 
     b.iter_batched(
         || {

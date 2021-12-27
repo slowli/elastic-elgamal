@@ -77,13 +77,14 @@ impl<G: Group> QuadraticVotingBallot<G> {
         let variants: Vec<_> = votes
             .iter()
             .map(|&variant| {
-                RangeProof::new(
+                let (ciphertext, proof) = RangeProof::new(
                     receiver,
                     &params.variant_range,
                     variant,
                     &mut Transcript::new(b"quadratic_voting_variant"),
                     rng,
-                )
+                );
+                (ciphertext.generalize(), proof)
             })
             .collect();
         let (credit, credit_range_proof) = RangeProof::new(
@@ -93,6 +94,8 @@ impl<G: Group> QuadraticVotingBallot<G> {
             &mut Transcript::new(b"quadratic_voting_credit_range"),
             rng,
         );
+        let credit = credit.generalize();
+
         let credit_equivalence_proof = SumOfSquaresProof::new(
             variants.iter().map(|(ciphertext, _)| ciphertext),
             &credit,

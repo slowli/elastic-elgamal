@@ -9,8 +9,8 @@ use zeroize::Zeroizing;
 use core::{fmt, iter, ops};
 
 use crate::{
-    encryption::ExtendedCiphertext, group::Group, Ciphertext, LogEqualityProof, PreparedRange,
-    PublicKey, RangeProof, RingProof, RingProofBuilder, VerificationError,
+    group::Group, Ciphertext, CiphertextWithValue, LogEqualityProof, PreparedRange, PublicKey,
+    RangeProof, RingProof, RingProofBuilder, VerificationError,
 };
 
 /// Encapsulation of functionality for proving and verifying correctness of the sum of variant
@@ -26,7 +26,7 @@ pub trait ProveSum<G: Group> {
     #[doc(hidden)]
     fn prove<R: CryptoRng + RngCore>(
         &self,
-        ciphertext: &ExtendedCiphertext<G>,
+        ciphertext: &CiphertextWithValue<G, u64>,
         receiver: &PublicKey<G>,
         rng: &mut R,
     ) -> Self::Proof;
@@ -49,16 +49,16 @@ impl<G: Group> ProveSum<G> for SingleChoice {
 
     fn prove<R: CryptoRng + RngCore>(
         &self,
-        ciphertext: &ExtendedCiphertext<G>,
+        ciphertext: &CiphertextWithValue<G, u64>,
         receiver: &PublicKey<G>,
         rng: &mut R,
     ) -> Self::Proof {
         LogEqualityProof::new(
             receiver,
-            &ciphertext.random_scalar,
+            ciphertext.random_scalar(),
             (
-                ciphertext.inner.random_element,
-                ciphertext.inner.blinded_element - G::generator(),
+                ciphertext.inner().random_element,
+                ciphertext.inner().blinded_element - G::generator(),
             ),
             &mut Transcript::new(b"choice_encryption_sum"),
             rng,
@@ -94,7 +94,7 @@ impl<G: Group> ProveSum<G> for MultiChoice {
 
     fn prove<R: CryptoRng + RngCore>(
         &self,
-        _ciphertext: &ExtendedCiphertext<G>,
+        _ciphertext: &CiphertextWithValue<G, u64>,
         _receiver: &PublicKey<G>,
         _rng: &mut R,
     ) -> Self::Proof {
@@ -122,19 +122,17 @@ impl<G: Group> ProveSum<G> for RestrictedMultiChoice<G> {
 
     fn prove<R: CryptoRng + RngCore>(
         &self,
-        _ciphertext: &ExtendedCiphertext<G>,
+        ciphertext: &CiphertextWithValue<G, u64>,
         receiver: &PublicKey<G>,
         rng: &mut R,
     ) -> Self::Proof {
-        // FIXME: allow to pass in ciphertext when creating `RangeProof`
-        RangeProof::new(
+        RangeProof::from_ciphertext(
             receiver,
             &self.choices_range,
-            0,
+            ciphertext,
             &mut Transcript::new(b"choice_encryption_sum"),
             rng,
         )
-        .1
     }
 
     fn verify(
@@ -228,21 +226,25 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # Examples
 ///
 /// ```
-/// # use elastic_elgamal::{app::EncryptedChoice, group::Ristretto, DiscreteLogTable, Keypair};
+/// # use elastic_elgamal::{
+/// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
+/// # };
 /// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// let mut rng = thread_rng();
-/// let receiver = Keypair::<Ristretto>::generate(&mut rng);
+/// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+/// let choice_params = ChoiceParams::single(pk, 5);
+///
 /// let choice = 2;
-/// let enc = EncryptedChoice::new(5, choice, receiver.public(), &mut rng);
-/// let variants = enc.verify(receiver.public())?;
+/// let enc = EncryptedChoice::single(choice, &choice_params, &mut rng);
+/// let variants = enc.verify(&choice_params)?;
 ///
 /// // `variants` is a slice of 5 Boolean value ciphertexts
 /// assert_eq!(variants.len(), 5);
 /// let lookup_table = DiscreteLogTable::new(0..=1);
 /// for (idx, &v) in variants.iter().enumerate() {
 ///     assert_eq!(
-///         receiver.secret().decrypt(v, &lookup_table),
+///         sk.decrypt(v, &lookup_table),
 ///         Some((idx == choice) as u64)
 ///     );
 /// }
@@ -284,25 +286,14 @@ impl<G: Group> EncryptedChoice<G, SingleChoice> {
     }
 }
 
-impl<G: Group> EncryptedChoice<G, RestrictedMultiChoice<G>> {
+#[allow(clippy::len_without_is_empty)] // `is_empty()` would always be false
+impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
     /// Creates an encrypted multi-choice.
     ///
     /// # Panics
     ///
     /// Panics if the length of `choices` differs from the number of variants in `params`.
-    pub fn multi<R: CryptoRng + RngCore>(
-        choices: &[bool],
-        params: &ChoiceParams<G, RestrictedMultiChoice<G>>,
-        rng: &mut R,
-    ) -> Self {
-        // number of `choices` is verified in `Self::new()`.
-        Self::new(choices, params, rng)
-    }
-}
-
-#[allow(clippy::len_without_is_empty)] // `is_empty()` would always be false
-impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
-    fn new<R: CryptoRng + RngCore>(
+    pub fn new<R: CryptoRng + RngCore>(
         choices: &[bool],
         params: &ChoiceParams<G, S>,
         rng: &mut R,
@@ -331,7 +322,9 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
             .collect();
         let range_proof = RingProof::new(proof_builder.build(), ring_responses);
 
+        let sum = choices.iter().map(|&flag| flag as u64).sum::<u64>();
         let sum_ciphertext = variants.iter().cloned().reduce(ops::Add::add).unwrap();
+        let sum_ciphertext = sum_ciphertext.with_value(sum);
         let sum_proof = params
             .sum_prover
             .prove(&sum_ciphertext, &params.receiver, rng);

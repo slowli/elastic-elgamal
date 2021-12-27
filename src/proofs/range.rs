@@ -15,7 +15,7 @@ use crate::{
     encryption::{CiphertextWithValue, ExtendedCiphertext},
     group::Group,
     proofs::{RingProof, RingProofBuilder, TranscriptForGroup},
-    Ciphertext, PublicKey, SecretKey, VerificationError,
+    Ciphertext, PublicKey, VerificationError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -463,8 +463,28 @@ impl<G: Group> RangeProof<G> {
         value: u64,
         transcript: &mut Transcript,
         rng: &mut R,
-    ) -> (CiphertextWithValue<G>, Self) {
-        let value_indexes = range.decompose(value);
+    ) -> (CiphertextWithValue<G, u64>, Self) {
+        let ciphertext = CiphertextWithValue::new(value, receiver, rng);
+        let proof = Self::from_ciphertext(receiver, range, &ciphertext, transcript, rng);
+        (ciphertext, proof)
+    }
+
+    /// Creates a proof that a value in `ciphertext` is in the `range`.
+    ///
+    /// The caller is responsible for providing a `ciphertext` encrypted for the `receiver`;
+    /// if the ciphertext is encrypted for another public key, the resulting proof will not verify.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `value` is outside the range specified by `range`.
+    pub fn from_ciphertext<R: RngCore + CryptoRng>(
+        receiver: &PublicKey<G>,
+        range: &PreparedRange<G>,
+        ciphertext: &CiphertextWithValue<G, u64>,
+        transcript: &mut Transcript,
+        rng: &mut R,
+    ) -> Self {
+        let value_indexes = range.decompose(*ciphertext.value());
         debug_assert_eq!(value_indexes.len(), range.admissible_values.len());
         transcript.start_proof(b"encryption_range_proof");
         transcript.append_message(b"range", range.inner.to_string().as_bytes());
@@ -481,36 +501,34 @@ impl<G: Group> RangeProof<G> {
             rng,
         );
 
-        let mut cumulative_random_scalar = SecretKey::new(G::Scalar::from(0));
-        let partial_ciphertexts = value_indexes
-            .iter()
-            .zip(&range.admissible_values)
+        let mut cumulative_ciphertext = ExtendedCiphertext::zero();
+        let mut it = value_indexes.iter().zip(&range.admissible_values);
+
+        let partial_ciphertexts = it
+            .by_ref()
+            .take(value_indexes.len() - 1)
             .map(|(value_index, admissible_values)| {
                 let ciphertext = proof_builder.add_value(admissible_values, *value_index);
-                cumulative_random_scalar += ciphertext.random_scalar;
-                ciphertext.inner
+                let inner = ciphertext.inner;
+                cumulative_ciphertext += ciphertext;
+                inner
             })
             .collect();
 
-        let mut proof = Self {
+        let last_partial_ciphertext =
+            ciphertext.extended_ciphertext().clone() - cumulative_ciphertext;
+        let (&value_index, admissible_values) = it.next().unwrap();
+        // ^ `unwrap()` is safe by construction
+        proof_builder.add_precomputed_value(
+            last_partial_ciphertext,
+            admissible_values,
+            value_index,
+        );
+
+        Self {
             partial_ciphertexts,
             inner: RingProof::new(proof_builder.build(), ring_responses),
-        };
-        let cumulative_ciphertext = ExtendedCiphertext {
-            inner: proof.extract_cumulative_ciphertext(),
-            random_scalar: cumulative_random_scalar,
-        };
-        let value = SecretKey::new(G::Scalar::from(value));
-        (cumulative_ciphertext.with_value(value), proof)
-    }
-
-    fn extract_cumulative_ciphertext(&mut self) -> Ciphertext<G> {
-        let ciphertext_sum = self
-            .partial_ciphertexts
-            .iter()
-            .fold(Ciphertext::zero(), |acc, ciphertext| acc + *ciphertext);
-        self.partial_ciphertexts.pop();
-        ciphertext_sum
+        }
     }
 
     /// Verifies this proof against `ciphertext` for `receiver` and the specified `range`.

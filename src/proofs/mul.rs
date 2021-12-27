@@ -3,6 +3,7 @@
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 use subtle::ConstantTimeEq;
+use zeroize::Zeroizing;
 
 use core::iter;
 
@@ -117,7 +118,8 @@ impl<G: Group> SumOfSquaresProof<G> {
                     G::mul_generator(&value_scalar.0) + receiver.element * &random_scalar.0;
                 transcript.append_element::<G>(b"[e_x]G + [e_r]K", &value_commitment);
 
-                sum_random_scalar += ciphertext.random_scalar().clone() * &-ciphertext.value().0;
+                let neg_value = Zeroizing::new(-*ciphertext.value());
+                sum_random_scalar += ciphertext.random_scalar() * &neg_value;
                 (ciphertext, random_scalar, value_scalar)
             })
             .collect();
@@ -152,7 +154,7 @@ impl<G: Group> SumOfSquaresProof<G> {
             .map(|(ciphertext, random_scalar, value_scalar)| {
                 (
                     random_scalar.0 + challenge * ciphertext.random_scalar().0,
-                    value_scalar.0 + challenge * ciphertext.value().0,
+                    value_scalar.0 + challenge * *ciphertext.value(),
                 )
             })
             .collect();
@@ -253,8 +255,8 @@ mod tests {
     fn sum_of_squares_proof_basics() {
         let mut rng = thread_rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
-        let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng);
-        let sq_ciphertext = CiphertextWithValue::new(9_u64, &receiver, &mut rng);
+        let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng).generalize();
+        let sq_ciphertext = CiphertextWithValue::new(9_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(
             array::IntoIter::new([&ciphertext]),
@@ -311,8 +313,8 @@ mod tests {
     fn sum_of_squares_proof_with_bogus_inputs() {
         let mut rng = thread_rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
-        let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng);
-        let sq_ciphertext = CiphertextWithValue::new(10_u64, &receiver, &mut rng);
+        let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng).generalize();
+        let sq_ciphertext = CiphertextWithValue::new(10_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(
             array::IntoIter::new([&ciphertext]),
@@ -340,9 +342,9 @@ mod tests {
         let mut rng = thread_rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let ciphertexts: Vec<_> = array::IntoIter::new([3_u64, 1, 4, 1])
-            .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng))
+            .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng).generalize())
             .collect();
-        let sq_ciphertext = CiphertextWithValue::new(27_u64, &receiver, &mut rng);
+        let sq_ciphertext = CiphertextWithValue::new(27_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(
             ciphertexts.iter(),
