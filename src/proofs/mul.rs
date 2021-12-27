@@ -2,11 +2,15 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
 use core::iter;
 
+#[cfg(feature = "serde")]
+use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
     group::Group, proofs::TranscriptForGroup, Ciphertext, CiphertextWithValue, PublicKey,
     SecretKey, VerificationError,
@@ -79,9 +83,14 @@ use crate::{
 /// [fst]: https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic
 /// [`LogEqualityProof`]: crate::LogEqualityProof
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct SumOfSquaresProof<G: Group> {
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     challenge: G::Scalar,
-    ciphertext_responses: Vec<(G::Scalar, G::Scalar)>,
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ScalarHelper<G>, 2>"))]
+    ciphertext_responses: Vec<G::Scalar>,
+    #[cfg_attr(feature = "serde", serde(with = "ScalarHelper::<G>"))]
     sum_response: G::Scalar,
 }
 
@@ -93,6 +102,9 @@ impl<G: Group> SumOfSquaresProof<G> {
 
     /// Creates a new proof that squares of values encrypted in `ciphertexts` for `receiver` sum up
     /// to a value encrypted in `sum_of_squares_ciphertext`.
+    ///
+    /// All provided ciphertexts must be encrypted for `receiver`; otherwise, the created proof
+    /// will not verify.
     #[allow(clippy::needless_collect)] // false positive
     pub fn new<'a, R: RngCore + CryptoRng>(
         ciphertexts: impl Iterator<Item = &'a CiphertextWithValue<G>>,
@@ -152,11 +164,11 @@ impl<G: Group> SumOfSquaresProof<G> {
 
         let ciphertext_responses = partial_scalars
             .into_iter()
-            .map(|(ciphertext, random_scalar, value_scalar)| {
-                (
+            .flat_map(|(ciphertext, random_scalar, value_scalar)| {
+                [
                     random_scalar.0 + challenge * ciphertext.random_scalar().0,
                     value_scalar.0 + challenge * *ciphertext.value(),
-                )
+                ]
             })
             .collect();
         let sum_response = sum_scalar.0 + challenge * sum_random_scalar.0;
@@ -184,20 +196,22 @@ impl<G: Group> SumOfSquaresProof<G> {
     ) -> Result<(), VerificationError> {
         let ciphertexts_count = ciphertexts.clone().count();
         VerificationError::check_lengths(
-            "ciphertexts",
+            "ciphertext responses",
             self.ciphertext_responses.len(),
-            ciphertexts_count,
+            ciphertexts_count * 2,
         )?;
 
         Self::initialize_transcript(transcript, receiver);
         let neg_challenge = -self.challenge;
 
-        for ((r_response, v_response), ciphertext) in
-            self.ciphertext_responses.iter().zip(ciphertexts.clone())
+        for (response_chunk, ciphertext) in
+            self.ciphertext_responses.chunks(2).zip(ciphertexts.clone())
         {
             transcript.append_element::<G>(b"R_x", &ciphertext.random_element);
             transcript.append_element::<G>(b"X", &ciphertext.blinded_element);
 
+            let r_response = &response_chunk[0];
+            let v_response = &response_chunk[1];
             let random_commitment = G::vartime_double_mul_generator(
                 &-self.challenge,
                 ciphertext.random_element,
@@ -214,7 +228,8 @@ impl<G: Group> SumOfSquaresProof<G> {
         let scalars = self
             .ciphertext_responses
             .iter()
-            .map(|(_, v_response)| v_response)
+            .enumerate()
+            .filter_map(|(i, response)| if i % 2 == 1 { Some(response) } else { None })
             .chain([&self.sum_response, &neg_challenge]);
         let random_sum_commitment = {
             let elements = ciphertexts

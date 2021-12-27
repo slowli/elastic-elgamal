@@ -2,6 +2,8 @@
 
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
+#[cfg(feature = "serde")]
+use serde::{Deserialize, Serialize};
 
 use core::fmt;
 
@@ -201,6 +203,8 @@ fn isqrt(mut x: u64) -> u64 {
 /// # }
 /// ```
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 pub struct QuadraticVotingBallot<G: Group> {
     votes: Vec<CiphertextWithRangeProof<G>>,
     credit: CiphertextWithRangeProof<G>,
@@ -208,14 +212,19 @@ pub struct QuadraticVotingBallot<G: Group> {
 }
 
 #[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
 struct CiphertextWithRangeProof<G: Group> {
     ciphertext: Ciphertext<G>,
-    proof: RangeProof<G>,
+    range_proof: RangeProof<G>,
 }
 
 impl<G: Group> CiphertextWithRangeProof<G> {
-    fn new(ciphertext: Ciphertext<G>, proof: RangeProof<G>) -> Self {
-        Self { ciphertext, proof }
+    fn new(ciphertext: Ciphertext<G>, range_proof: RangeProof<G>) -> Self {
+        Self {
+            ciphertext,
+            range_proof,
+        }
     }
 }
 
@@ -290,7 +299,7 @@ impl<G: Group> QuadraticVotingBallot<G> {
 
         for (i, vote_count) in self.votes.iter().enumerate() {
             vote_count
-                .proof
+                .range_proof
                 .verify(
                     &params.receiver,
                     &params.vote_count_range,
@@ -301,7 +310,7 @@ impl<G: Group> QuadraticVotingBallot<G> {
         }
 
         self.credit
-            .proof
+            .range_proof
             .verify(
                 &params.receiver,
                 &params.credit_range,
