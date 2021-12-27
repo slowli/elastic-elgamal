@@ -2,6 +2,7 @@
 
 use base64ct::{Base64UrlUnpadded, Encoding};
 use rand_core::{CryptoRng, RngCore};
+use zeroize::Zeroize;
 
 use core::{fmt, ops};
 
@@ -28,6 +29,12 @@ impl<G: Group> fmt::Debug for SecretKey<G> {
 impl<G: Group> Clone for SecretKey<G> {
     fn clone(&self) -> Self {
         SecretKey(self.0)
+    }
+}
+
+impl<G: Group> Drop for SecretKey<G> {
+    fn drop(&mut self) {
+        self.0.zeroize();
     }
 }
 
@@ -60,7 +67,7 @@ impl<G: Group> ops::Add for SecretKey<G> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        SecretKey(self.0 + rhs.0)
+        Self(self.0 + rhs.0)
     }
 }
 
@@ -70,11 +77,25 @@ impl<G: Group> ops::AddAssign for SecretKey<G> {
     }
 }
 
+impl<G: Group> ops::Sub for SecretKey<G> {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl<G: Group> ops::SubAssign for SecretKey<G> {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 = self.0 - rhs.0;
+    }
+}
+
 impl<G: Group> ops::Mul<&G::Scalar> for SecretKey<G> {
     type Output = Self;
 
     fn mul(self, &k: &G::Scalar) -> Self {
-        SecretKey(self.0 * k)
+        Self(self.0 * k)
     }
 }
 

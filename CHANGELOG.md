@@ -19,6 +19,10 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 - Avoid extra allocations when constructing ring proofs, which could leak
   information via side channels.
 
+### Security
+
+- Fix zeroing `SecretKey` contents on drop.
+
 ## 0.1.0 - 2021-06-28
 
 The initial release of `elastic-elgamal`.
