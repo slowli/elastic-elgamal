@@ -1,0 +1,94 @@
+---
+source: tests/snapshots.rs
+expression: ballot
+
+---
+votes:
+  - ciphertext:
+      random_element: gugt6pqWT9lwtV7WdEdZsVSYTUe0VyNh2w_CzDMKHXQ
+      blinded_element: 6Nc6VnCrbgr2nZU5HdfZlJItnLEN6oEn-wBPw6EAkWo
+    range_proof:
+      partial_ciphertexts: []
+      common_challenge: ACE6fSkgfvIPet4o5gwDG7kByubXr4XcdTbXv4_WCgs
+      ring_responses:
+        - CoNRRFG5wnN2eagD-EIlsKjTU-bcPvJxao51kp6b2Qk
+        - EWICmTsD9AiJ0cAhSLmzM70sMZRWZtWs8UUPJQ2EKwI
+        - fu7Ftmh4yEzcntFAqgpKhKSA6DtZfh1no4S4iLr_Awc
+        - U_s0QuYqwQBo7aKsLxVIM7FuukkRaO_fP2m27WJu3gQ
+  - ciphertext:
+      random_element: Mmg8vsLhioDg4QxKtuGWXU-FWVTM0OIw9a2DPCi4kw0
+      blinded_element: gNyhWrCLLQ0w5UszNkk4CCS9hFMIMZb00BSSKuSsxXo
+    range_proof:
+      partial_ciphertexts: []
+      common_challenge: r2_7vmHqd40gCf702mcL6S-KVe5gTDYCZf1yARATRAs
+      ring_responses:
+        - odFVzxVgA1Xt0My1S1YxV1sX0Glwc34kM7NheiH_IwU
+        - sGf7fGoa-4sdoAqXhM_SmaRpGBHmkazRXmYpHlf0kwY
+        - 7wu7Jci5S1Ppz2uIytwiVJ4jj_3WSI8SRRBA0hLsGQQ
+        - HY3H4TRY_Xt5nn1KGaYmoHWfFgmQuMl7TgMwMQj7Agw
+  - ciphertext:
+      random_element: 3hlVaLYWpp2TqMsOw9QxJpp-KOxYUPX1-X9ZlBdnWms
+      blinded_element: rD4ZKNjrlvJy-4SA1xIuRPyjzWkLcdaLZgGKiCmI1y8
+    range_proof:
+      partial_ciphertexts: []
+      common_challenge: _8RAGsTxpnnb65Rt9VeNsdMjyj2MQ3S3OEmBHQqsrQk
+      ring_responses:
+        - EIfmWQ_74uv-AbLAn2ifW1sTu2BiaiqYYb4N6az2XAA
+        - o1TqzN7eVI9D5WgNh5JQR1G7pC3zPVE8uaXy7Up4kQY
+        - Je2UfVEXzwRNj435C7RLleqRj55GHWtUQENhu5UeswE
+        - OVQmzJrszYnIb0oUFteCjWKpMx_Y2Ew9KFyEAeFejQg
+  - ciphertext:
+      random_element: UhcI6cuLwWTH1t2yTGu6oghKrZzFZ0dvESLqvMoLDFk
+      blinded_element: CJXzBR-s0VkNGvnU_W7CVw1ViF-8MsR6NSmHNgQVdWc
+    range_proof:
+      partial_ciphertexts: []
+      common_challenge: _ea2UONo_SR_uHvVwvRvQECZMpNxc5XkRgHpqNnlRQA
+      ring_responses:
+        - RJ-mbdx382fzGqwxdQOjsqLd0azUGvLNGhsoJbuyRwo
+        - m7qIpdOweydzmuduUU_V72HjnwGXA6YtCcVBKxrY_Q0
+        - Fh2ujh7eGF1504s0cbJj00v5EpMRHLIT8n6gLpBUygc
+        - 1DEk6ShNj5UGnPH2NDUvSC1WtnWmQPCMw45QT1SASwo
+  - ciphertext:
+      random_element: ylA0AnPopw_Kc34-iX1EJ4gkFmwORjeJtNmy-Pi8U20
+      blinded_element: Ct4sUq51Ww0RqCZYi7cfcQXyAw1xPJOSo8zF-UzgjF4
+    range_proof:
+      partial_ciphertexts: []
+      common_challenge: JxNWruhuInj_cu3dL9ILl7jGFUIMvWHcAxWwdSNWBwM
+      ring_responses:
+        - lEwkVk2Dc4EtH1W-tYbAziswJ4gYJd-G7QjZOos1PQQ
+        - FHPGa56kcDrr27XzBLZZx4bX4_vHonYTZoszSsDEhws
+        - rXuARlkWnKa3HeysztQ4JacLO-6rcrzTCcEt1Bcibgo
+        - RviGmic5Rc0ADYeDblIt93Fe2AOiORNDfztw8oLxggI
+credit:
+  ciphertext:
+    random_element: uulqEdpxrXsWHpd4ZcFLh1jBlEwpLurDRpJ4ISfRcDs
+    blinded_element: "-DrKh1FHlnm0nMd3P8zFiOU9IkTJvUl6mbw34STIAX4"
+  range_proof:
+    partial_ciphertexts:
+      - random_element: jN9NYkEnxJETke89o6LVR-BKWaFK_YDnvGqqfZOxVxs
+        blinded_element: LK3daRfmWDUcsp3G4Wajt6nhAurDFQj-vWTzZvfX1AA
+    common_challenge: DixJFvuodBNGmC6xGcwM1gU8YvxaPw9dvWYYXEd_Jwg
+    ring_responses:
+      - utgv3uvFh9obKMrF59z8ZH04UAqSakXUkeCzZUM0eg8
+      - q8yl1fFL3CoE26acM1Ug1kBPnv930c-6gTPWlbcjoQA
+      - 5LbYRtWSMuwmIQzFNqTC2sU1FhUebvYC0OC-EoKImQ0
+      - 1Upv3UTh6Tv_Tnlub1i61cg294x2HVshjoZSG-_AeA4
+      - DtrncgDZoYIY6-m57Bkyt7CIg1DcQ6NcXaxPRLDpiQg
+      - "-tbszLE3sOpCEUGPJ1QXbjHsohCncTx8qogx8q4qyQg"
+      - p4KKF-pYI8YVxljLKN-jlcTpRVYjG6gjMDU-NwSL5A0
+      - 0ZX4TvFDvUtWDfH1FEAOfiuGt0XoVIX_BYJrIUmY3gg
+credit_equivalence_proof:
+  challenge: RHwPNONuW2EEK0yLfoHl0ulDBaeJuXV80caoT0Xj7Q4
+  ciphertext_responses:
+    - CjzBDJ2d6pmPZuo3T4KQPlB_WVla39jHWGlr3NitEww
+    - Hs0eyYIYdkV_8j0uu1MmD9bSycq-FTRtP8R_OzycKwg
+    - 2qOhsX7wMAk3r-e422ex6BzK7-e_ag1BDBzLui3j5AE
+    - 20rxD-nP14IM7Hd5rmjnaZOivE5m3xTYRcBKrtSEYQE
+    - UkMcGBtYjLX5Ynl0EB2eWlSgnmsqGaK1XhS99fZKIwI
+    - 2IixVFQiUQ8fFo9miuVa1ruMuntm887bG_FsU0CTUgs
+    - xv94Fu69zZy7CF5xHMRORGjs87PcKbw41Etv9ypegws
+    - anWZ2YblZOB_O4msIkrip8P8MOeBmknG0x0_qdYvMQA
+    - 0NMU5DJV03xWXYVmk-kUFqzuuRZsau9PJzbe3V_2eww
+    - p0bXa5Aniqe60gIEHnEHxrAlbf1dSQAjtp_-_NAoNwM
+  sum_response: t5mTJeJzFW7cI7ax7AeXwZQ9srVvqriF_TUSJ2lr4AI
+

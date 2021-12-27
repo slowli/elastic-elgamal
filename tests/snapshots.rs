@@ -5,10 +5,11 @@ use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
 
 use elastic_elgamal::{
-    app::{ChoiceParams, EncryptedChoice},
+    app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
-    Keypair, RangeDecomposition,
+    CiphertextWithValue, Keypair, RangeDecomposition, SumOfSquaresProof,
 };
+use merlin::Transcript;
 
 trait Named {
     const NAME: &'static str;
@@ -92,6 +93,41 @@ fn test_encrypted_multi_choice_snapshot<G: Group + Named>() {
     assert_yaml_snapshot!(full_name, choices);
 }
 
+fn test_sum_of_squares_proof_snapshot<G: Group + Named>() {
+    let mut rng = ChaChaRng::seed_from_u64(12345);
+    let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+
+    let values = [1, 3, 3, 7, 5];
+    let sum_of_squares = values.iter().map(|&x| x * x).sum::<u64>();
+    let sum_of_squares =
+        CiphertextWithValue::new(sum_of_squares, &public_key, &mut rng).generalize();
+    let values: Vec<_> = values
+        .iter()
+        .map(|&x| CiphertextWithValue::new(x, &public_key, &mut rng).generalize())
+        .collect();
+
+    let proof = SumOfSquaresProof::new(
+        values.iter(),
+        &sum_of_squares,
+        &public_key,
+        &mut Transcript::new(b"test"),
+        &mut rng,
+    );
+    let full_name = format!("sum-sq-proof-{}", G::NAME);
+    assert_yaml_snapshot!(full_name, proof);
+}
+
+fn test_qv_ballot_snapshot<G: Group + Named>() {
+    let mut rng = ChaChaRng::seed_from_u64(12345);
+    let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let vote_params = QuadraticVotingParams::new(public_key, 5, 15);
+
+    let votes = [3, 0, 1, 0, 2];
+    let ballot = QuadraticVotingBallot::new(&vote_params, &votes, &mut rng);
+    let full_name = format!("qv-ballot-{}", G::NAME);
+    assert_yaml_snapshot!(full_name, ballot);
+}
+
 mod ristretto {
     use super::*;
 
@@ -123,6 +159,16 @@ mod ristretto {
     #[test]
     fn encrypted_multi_choice_snapshot() {
         test_encrypted_multi_choice_snapshot::<Ristretto>();
+    }
+
+    #[test]
+    fn sum_of_squares_proof_snapshot() {
+        test_sum_of_squares_proof_snapshot::<Ristretto>();
+    }
+
+    #[test]
+    fn qv_ballot_snapshot() {
+        test_qv_ballot_snapshot::<Ristretto>();
     }
 }
 
@@ -159,5 +205,15 @@ mod k256 {
     #[test]
     fn encrypted_multi_choice_snapshot() {
         test_encrypted_multi_choice_snapshot::<K256>();
+    }
+
+    #[test]
+    fn sum_of_squares_proof_snapshot() {
+        test_sum_of_squares_proof_snapshot::<K256>();
+    }
+
+    #[test]
+    fn qv_ballot_snapshot() {
+        test_qv_ballot_snapshot::<K256>();
     }
 }
