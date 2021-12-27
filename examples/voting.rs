@@ -12,7 +12,7 @@ use rand_core::{CryptoRng, RngCore};
 use std::env;
 
 use elastic_elgamal::{
-    app::EncryptedChoice,
+    app::{ChoiceParams, EncryptedChoice},
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
     sharing::{ActiveParticipant, CandidateShare, Dealer, DecryptionShare, Params, PublicKeySet},
     Ciphertext, DiscreteLogTable,
@@ -50,6 +50,7 @@ fn vote<G: Group>() {
 
     // Before polling is started, talliers agree on the shared encryption key.
     let (key_set, talliers) = initialize_talliers::<G, _>(TALLIER_PARAMS, &mut rng);
+    let choice_params = ChoiceParams::single(key_set.shared_key().clone(), OPTIONS_COUNT);
 
     // During polling, voters submit votes together with the proof of correctness.
     let mut expected_totals = [0; OPTIONS_COUNT];
@@ -58,11 +59,11 @@ fn vote<G: Group>() {
         let choice = rng.gen_range(0..OPTIONS_COUNT);
         println!("\nVoter #{} making choice #{}", i + 1, choice + 1);
         expected_totals[choice] += 1;
-        let choice = EncryptedChoice::new(OPTIONS_COUNT, choice, key_set.shared_key(), &mut rng);
+        let choice = EncryptedChoice::single(choice, &choice_params, &mut rng);
 
         println!("Choice: {}", serde_json::to_string_pretty(&choice).unwrap());
 
-        let variants = choice.verify(key_set.shared_key()).unwrap();
+        let variants = choice.verify(&choice_params).unwrap();
         for (i, &variant) in variants.iter().enumerate() {
             encrypted_totals[i] += variant;
         }

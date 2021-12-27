@@ -277,6 +277,17 @@ impl<G: Group> ExtendedCiphertext<G> {
     }
 }
 
+impl<G: Group> ops::Add for ExtendedCiphertext<G> {
+    type Output = Self;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        Self {
+            inner: self.inner + rhs.inner,
+            random_scalar: self.random_scalar + rhs.random_scalar,
+        }
+    }
+}
+
 /// ElGamal [`Ciphertext`] together with fully retained information about the encrypted value and
 /// randomness used to create the ciphertext.
 ///

@@ -118,7 +118,11 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{app::EncryptedChoice, group::Curve25519Subgroup, DiscreteLogTable};
+    use crate::{
+        app::{ChoiceParams, EncryptedChoice},
+        group::Curve25519Subgroup,
+        DiscreteLogTable,
+    };
 
     type SecretKey = crate::SecretKey<Ristretto>;
     type Keypair = crate::Keypair<Ristretto>;
@@ -136,13 +140,14 @@ mod tests {
     #[test]
     fn encrypt_choice() {
         let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-        let encrypted_choice = EncryptedChoice::new(5, 3, keypair.public(), &mut rng);
-        let variant_ciphertexts = encrypted_choice.verify(keypair.public()).unwrap();
+        let (pk, sk) = Keypair::generate(&mut rng).into_tuple();
+        let choice_params = ChoiceParams::single(pk, 5);
+        let encrypted_choice = EncryptedChoice::single(3, &choice_params, &mut rng);
+        let variant_ciphertexts = encrypted_choice.verify(&choice_params).unwrap();
 
         let lookup_table = DiscreteLogTable::new(0..=1);
         for (i, &variant) in variant_ciphertexts.iter().enumerate() {
-            let decryption = keypair.secret().decrypt(variant, &lookup_table);
+            let decryption = sk.decrypt(variant, &lookup_table);
             assert_eq!(decryption.unwrap(), (i == 3) as u64);
         }
     }

@@ -4,6 +4,9 @@ mod choice;
 mod quadratic_voting;
 
 pub use self::{
-    choice::{ChoiceVerificationError, EncryptedChoice},
+    choice::{
+        ChoiceParams, ChoiceVerificationError, EncryptedChoice, ProveSum, RestrictedMultiChoice,
+        SingleChoice,
+    },
     quadratic_voting::{QuadraticVotingBallot, QuadraticVotingError, QuadraticVotingParams},
 };

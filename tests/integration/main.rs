@@ -7,6 +7,8 @@ use std::fmt;
 mod basic;
 mod sharing;
 
+// TODO: test quadratic voting
+
 pub fn assert_ct_eq<T: ConstantTimeEq + fmt::Debug>(x: &T, y: &T) {
     assert!(
         bool::from(x.ct_eq(y)),

@@ -351,6 +351,11 @@ impl<G: Group> PreparedRange<G> {
         }
     }
 
+    /// Returns a reference to the contained decomposition.
+    pub fn decomposition(&self) -> &RangeDecomposition {
+        &self.inner
+    }
+
     /// Decomposes the provided `secret_value` into value indexes in constituent rings.
     fn decompose(&self, secret_value: u64) -> Zeroizing<Vec<usize>> {
         assert!(

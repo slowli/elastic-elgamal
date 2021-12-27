@@ -5,7 +5,11 @@ use rand::{thread_rng, Rng};
 use std::collections::HashMap;
 
 use crate::assert_ct_eq;
-use elastic_elgamal::{app::EncryptedChoice, group::Group, Keypair, LogEqualityProof, RingProof};
+use elastic_elgamal::{
+    app::{ChoiceParams, EncryptedChoice},
+    group::Group,
+    Keypair, LogEqualityProof, RingProof,
+};
 
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = thread_rng();
@@ -141,10 +145,11 @@ fn test_bool_proof_serialization<G: Group>() {
 
 fn test_encrypted_choice_works<G: Group>() {
     let mut rng = thread_rng();
-    let keypair = Keypair::<G>::generate(&mut rng);
+    let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let choice_params = ChoiceParams::single(pk, 5);
 
-    let choice = EncryptedChoice::new(5, 2, keypair.public(), &mut rng);
-    let variants = choice.verify(keypair.public()).unwrap();
+    let choice = EncryptedChoice::single(2, &choice_params, &mut rng);
+    let variants = choice.verify(&choice_params).unwrap();
     assert_eq!(variants.len(), 5);
     for (i, &variant) in variants.iter().enumerate() {
         let expected_plaintext = if i == 2 {
@@ -152,12 +157,11 @@ fn test_encrypted_choice_works<G: Group>() {
         } else {
             G::identity()
         };
-        assert_ct_eq(
-            &keypair.secret().decrypt_to_element(variant),
-            &expected_plaintext,
-        );
+        assert_ct_eq(&sk.decrypt_to_element(variant), &expected_plaintext);
     }
 }
+
+// TODO: test multi-choice
 
 mod curve25519 {
     use super::*;

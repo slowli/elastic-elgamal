@@ -5,7 +5,7 @@ use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
 
 use elastic_elgamal::{
-    app::EncryptedChoice,
+    app::{ChoiceParams, EncryptedChoice},
     group::{Generic, Group, Ristretto},
     Keypair, RangeDecomposition,
 };
@@ -74,8 +74,9 @@ fn test_range_encryption_snapshot<G: Group + Named>() {
 fn test_encrypted_choice_snapshot<G: Group + Named>() {
     let mut rng = ChaChaRng::seed_from_u64(12345);
     let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let choice_params = ChoiceParams::single(public_key, 5);
 
-    let choice = EncryptedChoice::new(5, 3, &public_key, &mut rng);
+    let choice = EncryptedChoice::single(3, &choice_params, &mut rng);
     let full_name = format!("encrypted-choice-{}", G::NAME);
     assert_yaml_snapshot!(full_name, choice);
 }

@@ -7,7 +7,7 @@ use rand::{seq::SliceRandom, Rng, SeedableRng};
 use rand_chacha::ChaChaRng;
 
 use elastic_elgamal::{
-    app::{EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
+    app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
     CiphertextWithValue, Keypair, RingProofBuilder, SumOfSquaresProof,
 };
@@ -66,23 +66,25 @@ fn bench_bool_encryption_verification<G: Group>(b: &mut Bencher<'_>) {
 
 fn bench_choice_creation<G: Group>(b: &mut Bencher<'_>, number_of_variants: usize) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
-    let keypair: Keypair<G> = Keypair::generate(&mut rng);
+    let (pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let params = ChoiceParams::single(pk, number_of_variants);
     b.iter(|| {
         let choice = rng.gen_range(0..number_of_variants);
-        EncryptedChoice::new(number_of_variants, choice, keypair.public(), &mut rng)
+        EncryptedChoice::single(choice, &params, &mut rng)
     });
 }
 
 fn bench_choice_verification<G: Group>(b: &mut Bencher<'_>, number_of_variants: usize) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
-    let keypair: Keypair<G> = Keypair::generate(&mut rng);
+    let (pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let params = ChoiceParams::single(pk, number_of_variants);
     b.iter_batched(
         || {
             let choice = rng.gen_range(0..number_of_variants);
-            EncryptedChoice::new(number_of_variants, choice, keypair.public(), &mut rng)
+            EncryptedChoice::single(choice, &params, &mut rng)
         },
         |choice| {
-            choice.verify(keypair.public()).unwrap();
+            choice.verify(&params).unwrap();
         },
         BatchSize::SmallInput,
     );
