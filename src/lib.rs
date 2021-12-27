@@ -112,6 +112,10 @@ mod alloc {
     pub use std::{string::ToString, vec, vec::Vec};
 }
 
+mod sealed {
+    pub trait Sealed {}
+}
+
 pub use crate::{
     encryption::{Ciphertext, CiphertextWithValue, DiscreteLogTable},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},

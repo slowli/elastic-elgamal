@@ -166,7 +166,7 @@ fn test_encrypted_multi_choice<G: Group>() {
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::multi(pk, 5);
 
-    let choice = EncryptedChoice::new(&[false, true, true, false, true], &choice_params, &mut rng);
+    let choice = EncryptedChoice::new(&choice_params, &[false, true, true, false, true], &mut rng);
     let variants = choice.verify(&choice_params).unwrap();
     assert_eq!(variants.len(), 5);
     for (i, &variant) in variants.iter().enumerate() {

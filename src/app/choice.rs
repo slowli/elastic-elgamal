@@ -15,7 +15,9 @@ use crate::{
 
 /// Encapsulation of functionality for proving and verifying correctness of the sum of variant
 /// ciphertexts in an [`EncryptedChoice`].
-pub trait ProveSum<G: Group> {
+///
+/// This trait is not meant to be implemented for external types.
+pub trait ProveSum<G: Group>: Clone + crate::sealed::Sealed {
     /// Produced / verified proofs.
     #[cfg(not(feature = "serde"))]
     type Proof: Sized;
@@ -40,9 +42,15 @@ pub trait ProveSum<G: Group> {
     ) -> Result<(), ChoiceVerificationError>;
 }
 
-/// Single-choice polling.
-#[derive(Debug)]
+/// Single-choice polling, in which each [`EncryptedChoice`] can contain a single selected option.
+///
+/// # Examples
+///
+/// See [`EncryptedChoice`] docs for an example of usage.
+#[derive(Debug, Clone, Copy)]
 pub struct SingleChoice(());
+
+impl crate::sealed::Sealed for SingleChoice {}
 
 impl<G: Group> ProveSum<G> for SingleChoice {
     type Proof = LogEqualityProof<G>;
@@ -85,9 +93,16 @@ impl<G: Group> ProveSum<G> for SingleChoice {
     }
 }
 
-/// Multi-choice polling.
-#[derive(Debug)]
+/// Multi-choice polling, in which each [`EncryptedChoice`] can contain any possible number
+/// of selected options (`0..=n`, where `n` is the number of options).
+///
+/// # Examples
+///
+/// See [`EncryptedChoice`] docs for an example of usage.
+#[derive(Debug, Clone, Copy)]
 pub struct MultiChoice(());
+
+impl crate::sealed::Sealed for MultiChoice {}
 
 impl<G: Group> ProveSum<G> for MultiChoice {
     type Proof = ();
@@ -114,21 +129,41 @@ impl<G: Group> ProveSum<G> for MultiChoice {
 /// Parameters of an [`EncryptedChoice`] polling.
 #[derive(Debug)]
 pub struct ChoiceParams<G: Group, S: ProveSum<G>> {
-    variants_count: usize,
+    options_count: usize,
     sum_prover: S,
     receiver: PublicKey<G>,
 }
 
+impl<G: Group, S: ProveSum<G>> Clone for ChoiceParams<G, S> {
+    fn clone(&self) -> Self {
+        Self {
+            options_count: self.options_count,
+            sum_prover: self.sum_prover.clone(),
+            receiver: self.receiver.clone(),
+        }
+    }
+}
+
 impl<G: Group, S: ProveSum<G>> ChoiceParams<G, S> {
-    fn check_variants_count(&self, actual_count: usize) -> Result<(), ChoiceVerificationError> {
-        if self.variants_count == actual_count {
+    fn check_options_count(&self, actual_count: usize) -> Result<(), ChoiceVerificationError> {
+        if self.options_count == actual_count {
             Ok(())
         } else {
-            Err(ChoiceVerificationError::VariantsLenMismatch {
-                expected: self.variants_count,
+            Err(ChoiceVerificationError::OptionsLenMismatch {
+                expected: self.options_count,
                 actual: actual_count,
             })
         }
+    }
+
+    /// Returns the number of variants in these parameters.
+    pub fn variants_count(&self) -> usize {
+        self.options_count
+    }
+
+    /// Returns the public key for which the [`EncryptedChoice`] are encrypted.
+    pub fn receiver(&self) -> &PublicKey<G> {
+        &self.receiver
     }
 }
 
@@ -141,7 +176,7 @@ impl<G: Group> ChoiceParams<G, SingleChoice> {
     pub fn single(receiver: PublicKey<G>, variants_count: usize) -> Self {
         assert!(variants_count > 0, "Number of variants must be positive");
         Self {
-            variants_count,
+            options_count: variants_count,
             sum_prover: SingleChoice(()),
             receiver,
         }
@@ -157,20 +192,20 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
     pub fn multi(receiver: PublicKey<G>, variants_count: usize) -> Self {
         assert!(variants_count > 0, "Number of variants must be positive");
         Self {
-            variants_count,
+            options_count: variants_count,
             sum_prover: MultiChoice(()),
             receiver,
         }
     }
 }
 
-/// Encrypted choice of a value in a range `0..n` for certain integer `n > 1` together with
-/// validity zero-knowledge proofs.
+/// Zero or more encrypted choices from `n` options (`n >= 1`) together with a zero-knowledge
+/// proofs of correctness.
 ///
 /// # Construction
 ///
 /// The choice is represented as a vector of `n` *variant ciphertexts* of Boolean values (0 or 1),
-/// where the chosen variant encrypts 1 and other variants encrypt 0.
+/// where the chosen variants encrypt 1 and other variants encrypt 0.
 /// This ensures that multiple [`EncryptedChoice`]s can be added (e.g., within a voting protocol).
 /// These ciphertexts can be obtained via [`PublicKey::verify_choice()`].
 ///
@@ -180,9 +215,12 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 ///   This proof can be obtained via [`Self::range_proof()`].
 /// - A [`LogEqualityProof`] attesting that the encrypted values sum up to 1. Combined with
 ///   the range proof, this means that exactly one of encrypted values is 1, and all others are 0.
-///   This proof can be obtained via [`Self::sum_proof()`].
+///   This proof can be obtained via [`Self::sum_proof()`]. This proof is absent for
+///   a [`MultiChoice`] setup (`sum_proof()` just returns `()`).
 ///
 /// # Examples
+///
+/// ## Single-choice setup
 ///
 /// ```
 /// # use elastic_elgamal::{
@@ -210,6 +248,30 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # Ok(())
 /// # }
 /// ```
+///
+/// ## Multi-choice setup
+///
+/// ```
+/// # use elastic_elgamal::{
+/// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
+/// # };
+/// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut rng = thread_rng();
+/// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+/// let choice_params = ChoiceParams::multi(pk, 5);
+///
+/// let choices = [true, false, true, true, false];
+/// let enc = EncryptedChoice::new(&choice_params, &choices, &mut rng);
+/// let variants = enc.verify(&choice_params)?;
+///
+/// let lookup_table = DiscreteLogTable::new(0..=1);
+/// for (idx, &v) in variants.iter().enumerate() {
+///     assert_eq!(sk.decrypt(v, &lookup_table), Some(choices[idx] as u64));
+/// }
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]
@@ -231,17 +293,17 @@ impl<G: Group> EncryptedChoice<G, SingleChoice> {
         rng: &mut R,
     ) -> Self {
         assert!(
-            choice < params.variants_count,
+            choice < params.options_count,
             "invalid choice {}; expected a value in 0..{}",
             choice,
-            params.variants_count
+            params.options_count
         );
         let choices = Zeroizing::new(
-            (0..params.variants_count)
+            (0..params.options_count)
                 .map(|i| choice == i)
                 .collect::<Vec<_>>(),
         );
-        Self::new(&choices, params, rng)
+        Self::new(params, &choices, rng)
     }
 }
 
@@ -249,27 +311,30 @@ impl<G: Group> EncryptedChoice<G, SingleChoice> {
 impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
     /// Creates an encrypted multi-choice.
     ///
+    /// For a [`SingleChoice`] polling, it is caller's responsibility to ensure that `choices`
+    /// contains exactly one `true` value; otherwise, the produced proof will not verify.
+    ///
     /// # Panics
     ///
     /// Panics if the length of `choices` differs from the number of variants in `params`.
     pub fn new<R: CryptoRng + RngCore>(
-        choices: &[bool],
         params: &ChoiceParams<G, S>,
+        choices: &[bool],
         rng: &mut R,
     ) -> Self {
         assert!(!choices.is_empty(), "No choices provided");
         assert_eq!(
             choices.len(),
-            params.variants_count,
+            params.options_count,
             "Mismatch between expected and actual number of choices"
         );
 
         let admissible_values = [G::identity(), G::generator()];
-        let mut ring_responses = vec![G::Scalar::default(); 2 * params.variants_count];
+        let mut ring_responses = vec![G::Scalar::default(); 2 * params.options_count];
         let mut transcript = Transcript::new(b"encrypted_choice_ranges");
         let mut proof_builder = RingProofBuilder::new(
             &params.receiver,
-            params.variants_count,
+            params.options_count,
             &mut ring_responses,
             &mut transcript,
             rng,
@@ -304,7 +369,7 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
         &self,
         params: &ChoiceParams<G, S>,
     ) -> Result<&[Ciphertext<G>], ChoiceVerificationError> {
-        params.check_variants_count(self.len())?;
+        params.check_options_count(self.len())?;
         let sum_of_ciphertexts = self.variants.iter().copied().reduce(ops::Add::add);
         let sum_of_ciphertexts = sum_of_ciphertexts.ok_or(ChoiceVerificationError::Empty)?;
         params
@@ -353,37 +418,31 @@ pub enum ChoiceVerificationError {
     /// This error means that the `EncryptedChoice` is malformed (e.g., after deserializing it
     /// from an untrusted source).
     Empty,
-    /// Mismatch between expected and actual number of variants in the proof.
-    VariantsLenMismatch {
-        /// Expected number of variants.
+    /// Mismatch between expected and actual number of options in the `EncryptedChoice`.
+    OptionsLenMismatch {
+        /// Expected number of options.
         expected: usize,
-        /// Actual number of variants.
+        /// Actual number of options.
         actual: usize,
     },
     /// Error verifying [`EncryptedChoice::sum_proof()`].
     Sum(VerificationError),
     /// Error verifying [`EncryptedChoice::range_proof()`].
     Range(VerificationError),
-    /// Sum proof is absent when it must be present.
-    NoSumProof,
-    /// Sum proof is present when it must be absent.
-    UnexpectedSumProof,
 }
 
 impl fmt::Display for ChoiceVerificationError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Empty => formatter.write_str("encrypted choice does not have variants"),
-            Self::VariantsLenMismatch { expected, actual } => write!(
+            Self::OptionsLenMismatch { expected, actual } => write!(
                 formatter,
-                "number of variants ({act}) differs from expected ({exp})",
+                "number of options in the ballot ({act}) differs from expected ({exp})",
                 act = actual,
                 exp = expected
             ),
             Self::Sum(err) => write!(formatter, "cannot verify sum proof: {}", err),
             Self::Range(err) => write!(formatter, "cannot verify range proofs: {}", err),
-            Self::NoSumProof => formatter.write_str("sum proof is unexpectedly absent"),
-            Self::UnexpectedSumProof => formatter.write_str("sum proof is unexpectedly present"),
         }
     }
 }

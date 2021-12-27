@@ -92,28 +92,30 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher<'_>, number_of_variants: 
 
 fn bench_qv_creation<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([7; 32]);
-    let params = QuadraticVotingParams::new(4, 30);
+    let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let mut params = QuadraticVotingParams::new(receiver, 4, 30);
+    params.set_max_votes(4);
+
     let mut votes = [4, 0, 3, 1];
-    let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter(|| {
         votes.shuffle(&mut rng);
-        QuadraticVotingBallot::new(&params, &votes, keypair.public(), &mut rng)
+        QuadraticVotingBallot::new(&params, &votes, &mut rng)
     });
 }
 
 fn bench_qv_verification<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([7; 32]);
-    let params = QuadraticVotingParams::new(4, 30);
+    let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let mut params = QuadraticVotingParams::new(receiver, 4, 30);
+    params.set_max_votes(4);
+
     let mut votes = [4, 0, 3, 1];
-    let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
         || {
             votes.shuffle(&mut rng);
-            QuadraticVotingBallot::new(&params, &votes, keypair.public(), &mut rng)
+            QuadraticVotingBallot::new(&params, &votes, &mut rng)
         },
-        |ballot| {
-            drop(ballot.verify(&params, keypair.public()).unwrap());
-        },
+        |ballot| ballot.verify(&params).map(drop).unwrap(),
         BatchSize::SmallInput,
     );
 }
