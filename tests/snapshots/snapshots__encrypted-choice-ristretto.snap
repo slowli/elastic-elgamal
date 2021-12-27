@@ -3,7 +3,7 @@ source: tests/snapshots.rs
 expression: choice
 
 ---
-variants:
+choices:
   - random_element: gugt6pqWT9lwtV7WdEdZsVSYTUe0VyNh2w_CzDMKHXQ
     blinded_element: tExVM936V6m9VXTOFajptSiHhVXsac5ZKPMXE6V7vE8
   - random_element: MH-LpdrtV4wiXOhpdvyUnyfwRmCev3ggAcaPzjziZUM

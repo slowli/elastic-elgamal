@@ -142,12 +142,12 @@ mod tests {
         let mut rng = thread_rng();
         let (pk, sk) = Keypair::generate(&mut rng).into_tuple();
         let choice_params = ChoiceParams::single(pk, 5);
-        let encrypted_choice = EncryptedChoice::single(3, &choice_params, &mut rng);
-        let variant_ciphertexts = encrypted_choice.verify(&choice_params).unwrap();
+        let encrypted = EncryptedChoice::single(&choice_params, 3, &mut rng);
+        let choices = encrypted.verify(&choice_params).unwrap();
 
         let lookup_table = DiscreteLogTable::new(0..=1);
-        for (i, &variant) in variant_ciphertexts.iter().enumerate() {
-            let decryption = sk.decrypt(variant, &lookup_table);
+        for (i, &choice) in choices.iter().enumerate() {
+            let decryption = sk.decrypt(choice, &lookup_table);
             assert_eq!(decryption.unwrap(), (i == 3) as u64);
         }
     }

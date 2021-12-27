@@ -76,7 +76,7 @@ fn test_encrypted_choice_snapshot<G: Group + Named>() {
     let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::single(public_key, 5);
 
-    let choice = EncryptedChoice::single(3, &choice_params, &mut rng);
+    let choice = EncryptedChoice::single(&choice_params, 3, &mut rng);
     let full_name = format!("encrypted-choice-{}", G::NAME);
     assert_yaml_snapshot!(full_name, choice);
 }

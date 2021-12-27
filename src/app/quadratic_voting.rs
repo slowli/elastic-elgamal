@@ -14,7 +14,7 @@ use crate::{
 ///
 /// The parameters are:
 ///
-/// - [Receiver key](Self::receiver()) using which choices in [`QuadraticVotingBallot`]s
+/// - [Receiver key](Self::receiver()) using which votes in [`QuadraticVotingBallot`]s
 ///   are encrypted
 /// - [Number of options](Self::options_count()) in the ballot
 /// - [Number of credits](Self::credits()) per ballot
@@ -55,7 +55,14 @@ impl<G: Group> QuadraticVotingParams<G> {
     ///
     /// The maximum number of votes per option is automatically set as `floor(sqrt(credits))`;
     /// it can be changed via [`Self::set_max_votes()`].
+    ///
+    /// # Panics
+    ///
+    /// Panics if the number of options or credits is zero.
     pub fn new(receiver: PublicKey<G>, options: usize, credits: u64) -> Self {
+        assert!(options > 0, "Number of options must be positive");
+        assert!(credits > 0, "Number of credits must be positive");
+
         let max_votes = isqrt(credits);
         let vote_count_range = RangeDecomposition::optimal(max_votes + 1);
         let credit_range = RangeDecomposition::optimal(credits + 1);
@@ -135,7 +142,7 @@ fn isqrt(mut x: u64) -> u64 {
     root
 }
 
-/// Ballot for [quadratic voting].
+/// Encrypted ballot for [quadratic voting] together with zero-knowledge proofs of correctness.
 ///
 /// # Overview
 ///
@@ -147,12 +154,13 @@ fn isqrt(mut x: u64) -> u64 {
 ///
 /// The `QuadraticVotingBallot` construction assumes that there is a known number of credits
 /// for each ballot (e.g., it is uniform across all eligible voters), and that votes are tallied
-/// by a tallier or a federation of talliers that jointly control a [`SecretKey`].
+/// by a tallier or a federation of talliers that jointly control a [`SecretKey`](crate::SecretKey).
 /// As such, the ballot is represented as follows:
 ///
-/// - `n` ElGamal [`Ciphertext`]s (can be summed across all valid ballots to get vote totals
-///   that will be decrypted by the talliers)
-/// - [`RangeProof`] for each ciphertext proving that the encrypted value is in range `0..=V`
+/// - ElGamal [`Ciphertext`] for each of `n` options (can be summed across all valid ballots
+///   to get vote totals that will be decrypted by the talliers)
+/// - [`RangeProof`] for each of these ciphertexts proving that the encrypted value
+///   is in range `0..=V`
 /// - [`Ciphertext`] for the number of credits used by the ballot, and a [`RangeProof`]
 ///   that it is in range `0..=C`
 /// - Zero-knowledge [`SumOfSquaresProof`] proving that the encrypted number of credits is computed
@@ -194,7 +202,7 @@ fn isqrt(mut x: u64) -> u64 {
 /// ```
 #[derive(Debug, Clone)]
 pub struct QuadraticVotingBallot<G: Group> {
-    variants: Vec<CiphertextWithRangeProof<G>>,
+    votes: Vec<CiphertextWithRangeProof<G>>,
     credit: CiphertextWithRangeProof<G>,
     credit_equivalence_proof: SumOfSquaresProof<G>,
 }
@@ -229,13 +237,13 @@ impl<G: Group> QuadraticVotingBallot<G> {
         );
         let credit = votes.iter().map(|&x| x * x).sum::<u64>();
 
-        let variants: Vec<_> = votes
+        let votes: Vec<_> = votes
             .iter()
-            .map(|&variant| {
+            .map(|&vote_count| {
                 let (ciphertext, proof) = RangeProof::new(
                     &params.receiver,
                     &params.vote_count_range,
-                    variant,
+                    vote_count,
                     &mut Transcript::new(b"quadratic_voting_variant"),
                     rng,
                 );
@@ -252,7 +260,7 @@ impl<G: Group> QuadraticVotingBallot<G> {
         let credit = credit.generalize();
 
         let credit_equivalence_proof = SumOfSquaresProof::new(
-            variants.iter().map(|(ciphertext, _)| ciphertext),
+            votes.iter().map(|(ciphertext, _)| ciphertext),
             &credit,
             &params.receiver,
             &mut Transcript::new(b"quadratic_voting_credit_equiv"),
@@ -260,7 +268,7 @@ impl<G: Group> QuadraticVotingBallot<G> {
         );
 
         Self {
-            variants: variants
+            votes: votes
                 .into_iter()
                 .map(|(ciphertext, proof)| CiphertextWithRangeProof::new(ciphertext.into(), proof))
                 .collect(),
@@ -278,15 +286,15 @@ impl<G: Group> QuadraticVotingBallot<G> {
         &self,
         params: &QuadraticVotingParams<G>,
     ) -> Result<impl Iterator<Item = Ciphertext<G>> + '_, QuadraticVotingError> {
-        params.check_options_count(self.variants.len())?;
+        params.check_options_count(self.votes.len())?;
 
-        for (i, variant) in self.variants.iter().enumerate() {
-            variant
+        for (i, vote_count) in self.votes.iter().enumerate() {
+            vote_count
                 .proof
                 .verify(
                     &params.receiver,
                     &params.vote_count_range,
-                    variant.ciphertext,
+                    vote_count.ciphertext,
                     &mut Transcript::new(b"quadratic_voting_variant"),
                 )
                 .map_err(|error| QuadraticVotingError::Variant { index: i, error })?;
@@ -304,14 +312,14 @@ impl<G: Group> QuadraticVotingBallot<G> {
 
         self.credit_equivalence_proof
             .verify(
-                self.variants.iter().map(|c| &c.ciphertext),
+                self.votes.iter().map(|c| &c.ciphertext),
                 &self.credit.ciphertext,
                 &params.receiver,
                 &mut Transcript::new(b"quadratic_voting_credit_equiv"),
             )
             .map_err(QuadraticVotingError::CreditEquivalence)?;
 
-        Ok(self.variants.iter().map(|c| c.ciphertext))
+        Ok(self.votes.iter().map(|c| c.ciphertext))
     }
 }
 
@@ -319,9 +327,9 @@ impl<G: Group> QuadraticVotingBallot<G> {
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum QuadraticVotingError {
-    /// Error verifying a [`RangeProof`] for a variant.
+    /// Error verifying a [`RangeProof`] for a vote for a particular option.
     Variant {
-        /// Zero-based variant index.
+        /// Zero-based option index.
         index: usize,
         /// Error that occurred during range proof verification.
         error: VerificationError,
@@ -345,7 +353,7 @@ impl fmt::Display for QuadraticVotingError {
             Self::Variant { index, error } => {
                 write!(
                     formatter,
-                    "error verifying range proof for variant #{}: {}",
+                    "error verifying range proof for option #{}: {}",
                     *index + 1,
                     error
                 )
@@ -431,7 +439,7 @@ mod tests {
 
         {
             let mut bogus_ballot = ballot.clone();
-            bogus_ballot.variants[0].ciphertext.blinded_element += Ristretto::generator();
+            bogus_ballot.votes[0].ciphertext.blinded_element += Ristretto::generator();
             let err = bogus_ballot.verify(&params).map(drop).unwrap_err();
             assert!(matches!(
                 err,
@@ -457,7 +465,7 @@ mod tests {
             &mut Transcript::new(b"quadratic_voting_variant"),
             &mut rng,
         );
-        bogus_ballot.variants[0] = CiphertextWithRangeProof::new(ciphertext.into(), proof);
+        bogus_ballot.votes[0] = CiphertextWithRangeProof::new(ciphertext.into(), proof);
 
         let err = bogus_ballot.verify(&params).map(drop).unwrap_err();
         assert!(matches!(err, QuadraticVotingError::CreditEquivalence(_)));

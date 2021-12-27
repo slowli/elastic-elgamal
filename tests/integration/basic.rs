@@ -148,16 +148,16 @@ fn test_encrypted_choice<G: Group>() {
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::single(pk, 5);
 
-    let choice = EncryptedChoice::single(2, &choice_params, &mut rng);
-    let variants = choice.verify(&choice_params).unwrap();
-    assert_eq!(variants.len(), 5);
-    for (i, &variant) in variants.iter().enumerate() {
+    let encrypted = EncryptedChoice::single(&choice_params, 2, &mut rng);
+    let choices = encrypted.verify(&choice_params).unwrap();
+    assert_eq!(choices.len(), 5);
+    for (i, &choice) in choices.iter().enumerate() {
         let expected_plaintext = if i == 2 {
             G::generator()
         } else {
             G::identity()
         };
-        assert_ct_eq(&sk.decrypt_to_element(variant), &expected_plaintext);
+        assert_ct_eq(&sk.decrypt_to_element(choice), &expected_plaintext);
     }
 }
 
@@ -166,16 +166,17 @@ fn test_encrypted_multi_choice<G: Group>() {
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::multi(pk, 5);
 
-    let choice = EncryptedChoice::new(&choice_params, &[false, true, true, false, true], &mut rng);
-    let variants = choice.verify(&choice_params).unwrap();
-    assert_eq!(variants.len(), 5);
-    for (i, &variant) in variants.iter().enumerate() {
+    let encrypted =
+        EncryptedChoice::new(&choice_params, &[false, true, true, false, true], &mut rng);
+    let choices = encrypted.verify(&choice_params).unwrap();
+    assert_eq!(choices.len(), 5);
+    for (i, &choice) in choices.iter().enumerate() {
         let expected_plaintext = if i == 0 || i == 3 {
             G::identity()
         } else {
             G::generator()
         };
-        assert_ct_eq(&sk.decrypt_to_element(variant), &expected_plaintext);
+        assert_ct_eq(&sk.decrypt_to_element(choice), &expected_plaintext);
     }
 }
 

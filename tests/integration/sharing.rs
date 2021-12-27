@@ -92,26 +92,26 @@ fn test_simple_voting<G: Group>() {
     for _ in 0..VOTES {
         let choice = rng.gen_range(0..CHOICE_COUNT);
         expected_totals[choice] += 1;
-        let choice = EncryptedChoice::single(choice, &choice_params, &mut rng);
-        let variants = choice.verify(&choice_params).unwrap();
-
-        for (i, &variant) in variants.iter().enumerate() {
-            encrypted_totals[i] += variant;
+        let encrypted = EncryptedChoice::single(&choice_params, choice, &mut rng);
+        let choices = encrypted.verify(&choice_params).unwrap();
+        for (total, &choice) in encrypted_totals.iter_mut().zip(choices) {
+            *total += choice;
         }
     }
 
-    for (&variant_totals, &expected) in encrypted_totals.iter().zip(&expected_totals) {
+    for (&option_totals, &expected) in encrypted_totals.iter().zip(&expected_totals) {
         // Now, each counter produces a decryption share. We take 8 shares randomly
         // (slightly more than the necessary 7).
-        let decryption_shares = rig.decryption_shares(variant_totals, &mut rng);
+        let decryption_shares = rig.decryption_shares(option_totals, &mut rng);
         let decryption_shares = decryption_shares
             .into_iter()
             .enumerate()
             .choose_multiple(&mut rng, 8);
-        let variant_votes =
-            DecryptionShare::combine(params, variant_totals, decryption_shares).unwrap();
-        let variant_votes = lookup_table.get(&variant_votes).unwrap();
-        assert_eq!(variant_votes, expected);
+
+        let option_totals =
+            DecryptionShare::combine(params, option_totals, decryption_shares).unwrap();
+        let option_totals = lookup_table.get(&option_totals).unwrap();
+        assert_eq!(option_totals, expected);
     }
 }
 

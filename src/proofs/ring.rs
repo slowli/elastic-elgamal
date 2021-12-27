@@ -256,7 +256,7 @@ impl<'a, G: Group> Ring<'a, G> {
 ///
 /// ## Voting protocols
 ///
-/// [`EncryptedChoice`](crate::EncryptedChoice) uses `RingProof` to prove that all encrypted
+/// [`EncryptedChoice`](crate::app::EncryptedChoice) uses `RingProof` to prove that all encrypted
 /// values are Boolean (0 or 1). Using a common challenge allows to reduce proof size by ~33%.
 ///
 /// ## Range proofs

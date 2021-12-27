@@ -77,6 +77,7 @@ use crate::{
 /// partial ciphertexts.
 ///
 /// [fst]: https://en.wikipedia.org/wiki/Fiat%E2%80%93Shamir_heuristic
+/// [`LogEqualityProof`]: crate::LogEqualityProof
 #[derive(Debug, Clone)]
 pub struct SumOfSquaresProof<G: Group> {
     challenge: G::Scalar,

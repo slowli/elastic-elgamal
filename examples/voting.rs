@@ -59,24 +59,27 @@ fn vote<G: Group>() {
         let choice = rng.gen_range(0..OPTIONS_COUNT);
         println!("\nVoter #{} making choice #{}", i + 1, choice + 1);
         expected_totals[choice] += 1;
-        let choice = EncryptedChoice::single(choice, &choice_params, &mut rng);
+        let encrypted = EncryptedChoice::single(&choice_params, choice, &mut rng);
 
-        println!("Choice: {}", serde_json::to_string_pretty(&choice).unwrap());
+        println!(
+            "Choice: {}",
+            serde_json::to_string_pretty(&encrypted).unwrap()
+        );
 
-        let variants = choice.verify(&choice_params).unwrap();
-        for (i, &variant) in variants.iter().enumerate() {
-            encrypted_totals[i] += variant;
+        let votes = encrypted.verify(&choice_params).unwrap();
+        for (total, &vote) in encrypted_totals.iter_mut().zip(votes) {
+            *total += vote;
         }
     }
 
     println!(
-        "\nCumulative choice variants: {}",
+        "\nCumulative choices: {}",
         serde_json::to_string_pretty(&encrypted_totals).unwrap()
     );
 
     // After polling, talliers submit decryption shares together with a proof of their correctness.
     let lookup_table = DiscreteLogTable::<G>::new(0..=(VOTES as u64));
-    for (i, (&variant_totals, &expected)) in
+    for (i, (&option_totals, &expected)) in
         encrypted_totals.iter().zip(&expected_totals).enumerate()
     {
         println!("\nDecrypting cumulative total for option #{}", i + 1);
@@ -86,7 +89,7 @@ fn vote<G: Group>() {
             .enumerate()
             .choose_multiple(&mut rng, TALLIER_PARAMS.threshold)
             .into_iter()
-            .map(|(j, tallier)| (j, tallier.decrypt_share(variant_totals, &mut rng)))
+            .map(|(j, tallier)| (j, tallier.decrypt_share(option_totals, &mut rng)))
             .map(|(j, (share, proof))| {
                 let share = share.to_bytes(); // Emulate transfer via network
                 let candidate_share = CandidateShare::from_bytes(&share).unwrap();
@@ -102,17 +105,17 @@ fn vote<G: Group>() {
                 );
 
                 let share = key_set
-                    .verify_share(candidate_share, variant_totals, j, &proof)
+                    .verify_share(candidate_share, option_totals, j, &proof)
                     .unwrap();
                 (j, share)
             })
             .collect();
 
-        let variant_tally =
-            DecryptionShare::combine(TALLIER_PARAMS, variant_totals, decryption_shares).unwrap();
-        let variant_tally = lookup_table.get(&variant_tally).unwrap();
-        println!("Variant #{} decrypted tally: {}", i + 1, variant_tally);
-        assert_eq!(variant_tally, expected);
+        let option_tally =
+            DecryptionShare::combine(TALLIER_PARAMS, option_totals, decryption_shares).unwrap();
+        let option_tally = lookup_table.get(&option_tally).unwrap();
+        println!("Variant #{} decrypted tally: {}", i + 1, option_tally);
+        assert_eq!(option_tally, expected);
         println!("The decrypted number is as expected!");
     }
 }
