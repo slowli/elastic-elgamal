@@ -9,8 +9,8 @@ use zeroize::Zeroizing;
 use core::{fmt, iter, ops};
 
 use crate::{
-    group::Group, Ciphertext, CiphertextWithValue, LogEqualityProof, PreparedRange, PublicKey,
-    RangeProof, RingProof, RingProofBuilder, VerificationError,
+    group::Group, Ciphertext, CiphertextWithValue, LogEqualityProof, PublicKey, RingProof,
+    RingProofBuilder, VerificationError,
 };
 
 /// Encapsulation of functionality for proving and verifying correctness of the sum of variant
@@ -108,47 +108,6 @@ impl<G: Group> ProveSum<G> for MultiChoice {
         _receiver: &PublicKey<G>,
     ) -> Result<(), ChoiceVerificationError> {
         Ok(()) // no failure conditions
-    }
-}
-
-/// Multi-choice polling with an upper bound on the number of chosen variants.
-#[derive(Debug)]
-pub struct RestrictedMultiChoice<G: Group> {
-    choices_range: PreparedRange<G>,
-}
-
-impl<G: Group> ProveSum<G> for RestrictedMultiChoice<G> {
-    type Proof = RangeProof<G>;
-
-    fn prove<R: CryptoRng + RngCore>(
-        &self,
-        ciphertext: &CiphertextWithValue<G, u64>,
-        receiver: &PublicKey<G>,
-        rng: &mut R,
-    ) -> Self::Proof {
-        RangeProof::from_ciphertext(
-            receiver,
-            &self.choices_range,
-            ciphertext,
-            &mut Transcript::new(b"choice_encryption_sum"),
-            rng,
-        )
-    }
-
-    fn verify(
-        &self,
-        ciphertext: &Ciphertext<G>,
-        proof: &Self::Proof,
-        receiver: &PublicKey<G>,
-    ) -> Result<(), ChoiceVerificationError> {
-        proof
-            .verify(
-                receiver,
-                &self.choices_range,
-                *ciphertext,
-                &mut Transcript::new(b"choice_encryption_sum"),
-            )
-            .map_err(ChoiceVerificationError::Sum)
     }
 }
 

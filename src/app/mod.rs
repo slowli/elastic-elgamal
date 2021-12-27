@@ -5,7 +5,7 @@ mod quadratic_voting;
 
 pub use self::{
     choice::{
-        ChoiceParams, ChoiceVerificationError, EncryptedChoice, ProveSum, RestrictedMultiChoice,
+        ChoiceParams, ChoiceVerificationError, EncryptedChoice, ProveSum, MultiChoice,
         SingleChoice,
     },
     quadratic_voting::{QuadraticVotingBallot, QuadraticVotingError, QuadraticVotingParams},
