@@ -9,8 +9,10 @@ use zeroize::Zeroizing;
 use core::{fmt, iter, ops};
 
 use crate::{
-    group::Group, Ciphertext, CiphertextWithValue, LogEqualityProof, PublicKey, RingProof,
-    RingProofBuilder, VerificationError,
+    alloc::{vec, Vec},
+    group::Group,
+    Ciphertext, CiphertextWithValue, LogEqualityProof, PublicKey, RingProof, RingProofBuilder,
+    VerificationError,
 };
 
 /// Encapsulation of functionality for proving and verifying correctness of the sum of option

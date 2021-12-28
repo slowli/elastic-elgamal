@@ -6,8 +6,8 @@ use rand_core::{CryptoRng, RngCore};
 use core::iter;
 
 use crate::{
-    encryption::ExtendedCiphertext, group::Group, Ciphertext, DiscreteLogTable, LogEqualityProof,
-    PreparedRange, PublicKey, RangeProof, RingProof, RingProofBuilder, SecretKey,
+    alloc::vec, encryption::ExtendedCiphertext, group::Group, Ciphertext, DiscreteLogTable,
+    LogEqualityProof, PreparedRange, PublicKey, RangeProof, RingProof, RingProofBuilder, SecretKey,
     VerificationError,
 };
 

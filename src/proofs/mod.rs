@@ -4,7 +4,10 @@ use merlin::Transcript;
 
 use core::fmt;
 
-use crate::group::{Group, RandomBytesProvider};
+use crate::{
+    alloc::vec,
+    group::{Group, RandomBytesProvider},
+};
 
 mod log_equality;
 mod mul;

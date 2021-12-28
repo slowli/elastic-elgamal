@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use core::fmt;
 
 use crate::{
-    group::Group, Ciphertext, PreparedRange, PublicKey, RangeDecomposition, RangeProof,
+    alloc::Vec, group::Group, Ciphertext, PreparedRange, PublicKey, RangeDecomposition, RangeProof,
     SumOfSquaresProof, VerificationError,
 };
 
