@@ -1,5 +1,6 @@
 //! Basic tests.
 
+use merlin::Transcript;
 use rand::{thread_rng, Rng};
 
 use std::collections::HashMap;
@@ -8,7 +9,7 @@ use crate::assert_ct_eq;
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice},
     group::Group,
-    Keypair, LogEqualityProof, RingProof,
+    Ciphertext, CiphertextWithValue, Keypair, LogEqualityProof, RingProof, SumOfSquaresProof,
 };
 
 fn test_encryption_roundtrip<G: Group>() {
@@ -143,41 +144,98 @@ fn test_bool_proof_serialization<G: Group>() {
     }
 }
 
-fn test_encrypted_choice<G: Group>() {
+const OPTIONS_COUNTS: &[usize] = &[2, 3, 5, 10, 15];
+
+fn test_encrypted_choice<G: Group>(options_count: usize) {
     let mut rng = thread_rng();
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
-    let choice_params = ChoiceParams::single(pk, 5);
+    let choice_params = ChoiceParams::single(pk, options_count);
 
-    let encrypted = EncryptedChoice::single(&choice_params, 2, &mut rng);
+    let choice = rng.gen_range(0..options_count);
+    let encrypted = EncryptedChoice::single(&choice_params, choice, &mut rng);
     let choices = encrypted.verify(&choice_params).unwrap();
-    assert_eq!(choices.len(), 5);
-    for (i, &choice) in choices.iter().enumerate() {
-        let expected_plaintext = if i == 2 {
+    assert_eq!(choices.len(), options_count);
+    for (i, &ciphertext) in choices.iter().enumerate() {
+        let expected_plaintext = if i == choice {
             G::generator()
         } else {
             G::identity()
         };
-        assert_ct_eq(&sk.decrypt_to_element(choice), &expected_plaintext);
+        assert_ct_eq(&sk.decrypt_to_element(ciphertext), &expected_plaintext);
     }
 }
 
-fn test_encrypted_multi_choice<G: Group>() {
+fn test_encrypted_multi_choice<G: Group>(options_count: usize) {
     let mut rng = thread_rng();
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
-    let choice_params = ChoiceParams::multi(pk, 5);
+    let choice_params = ChoiceParams::multi(pk, options_count);
 
-    let encrypted =
-        EncryptedChoice::new(&choice_params, &[false, true, true, false, true], &mut rng);
-    let choices = encrypted.verify(&choice_params).unwrap();
-    assert_eq!(choices.len(), 5);
-    for (i, &choice) in choices.iter().enumerate() {
-        let expected_plaintext = if i == 0 || i == 3 {
-            G::identity()
-        } else {
+    let choices: Vec<_> = (0..options_count).map(|_| rng.gen()).collect();
+    let encrypted = EncryptedChoice::new(&choice_params, &choices, &mut rng);
+    let ciphertexts = encrypted.verify(&choice_params).unwrap();
+    assert_eq!(ciphertexts.len(), options_count);
+    for (i, &ciphertext) in ciphertexts.iter().enumerate() {
+        let expected_plaintext = if choices[i] {
             G::generator()
+        } else {
+            G::identity()
         };
-        assert_ct_eq(&sk.decrypt_to_element(choice), &expected_plaintext);
+        assert_ct_eq(&sk.decrypt_to_element(ciphertext), &expected_plaintext);
     }
+}
+
+fn test_sum_of_squares_proof<G: Group>(squares_count: usize) {
+    let mut rng = thread_rng();
+    let (pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+
+    let numbers: Vec<_> = (0..squares_count)
+        .map(|_| rng.gen_range(0_u64..1_000))
+        .collect();
+    let sum_of_squares = numbers.iter().map(|&x| x * x).sum::<u64>();
+    let numbers: Vec<_> = numbers
+        .into_iter()
+        .map(|x| CiphertextWithValue::new(x, &pk, &mut rng).generalize())
+        .collect();
+    let sum_of_squares = CiphertextWithValue::new(sum_of_squares, &pk, &mut rng).generalize();
+
+    let proof = SumOfSquaresProof::new(
+        numbers.iter(),
+        &sum_of_squares,
+        &pk,
+        &mut Transcript::new(b"test_sum_of_squares"),
+        &mut rng,
+    );
+
+    let numbers: Vec<_> = numbers.into_iter().map(Ciphertext::from).collect();
+    let mut sum_of_squares = Ciphertext::from(sum_of_squares);
+    proof
+        .verify(
+            numbers.iter(),
+            &sum_of_squares,
+            &pk,
+            &mut Transcript::new(b"test_sum_of_squares"),
+        )
+        .unwrap();
+
+    let (other_pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    assert!(proof
+        .verify(
+            numbers.iter(),
+            &sum_of_squares,
+            &other_pk,
+            &mut Transcript::new(b"test_sum_of_squares"),
+        )
+        .is_err());
+
+    sum_of_squares += -Ciphertext::non_blinded(1);
+    assert!(proof
+        .verify(
+            numbers.iter(),
+            &sum_of_squares,
+            &pk,
+            &mut Transcript::new(b"test_sum_of_squares"),
+        )
+        .is_err());
 }
 
 mod curve25519 {
@@ -211,12 +269,29 @@ mod curve25519 {
 
     #[test]
     fn encrypted_choice() {
-        test_encrypted_choice::<Curve25519Subgroup>();
+        for &options_count in OPTIONS_COUNTS {
+            println!("testing single choice with {} options", options_count);
+            test_encrypted_choice::<Curve25519Subgroup>(options_count);
+        }
     }
 
     #[test]
     fn encrypted_multi_choice() {
-        test_encrypted_multi_choice::<Curve25519Subgroup>();
+        for &options_count in OPTIONS_COUNTS {
+            println!("testing multi choice with {} options", options_count);
+            test_encrypted_multi_choice::<Curve25519Subgroup>(options_count);
+        }
+    }
+
+    #[test]
+    fn sum_of_squares_proof() {
+        for &squares_count in OPTIONS_COUNTS {
+            println!(
+                "testing sum of squares proof with {} squares",
+                squares_count
+            );
+            test_sum_of_squares_proof::<Curve25519Subgroup>(squares_count);
+        }
     }
 }
 
@@ -251,12 +326,29 @@ mod ristretto {
 
     #[test]
     fn encrypted_choice() {
-        test_encrypted_choice::<Ristretto>();
+        for &options_count in OPTIONS_COUNTS {
+            println!("testing single choice with {} options", options_count);
+            test_encrypted_choice::<Ristretto>(options_count);
+        }
     }
 
     #[test]
     fn encrypted_multi_choice() {
-        test_encrypted_multi_choice::<Ristretto>();
+        for &options_count in OPTIONS_COUNTS {
+            println!("testing multi choice with {} options", options_count);
+            test_encrypted_multi_choice::<Ristretto>(options_count);
+        }
+    }
+
+    #[test]
+    fn sum_of_squares_proof() {
+        for &squares_count in OPTIONS_COUNTS {
+            println!(
+                "testing sum of squares proof with {} squares",
+                squares_count
+            );
+            test_sum_of_squares_proof::<Ristretto>(squares_count);
+        }
     }
 }
 
@@ -293,11 +385,28 @@ mod k256 {
 
     #[test]
     fn encrypted_choice() {
-        test_encrypted_choice::<K256>();
+        for &options_count in OPTIONS_COUNTS {
+            println!("testing single choice with {} options", options_count);
+            test_encrypted_choice::<K256>(options_count);
+        }
     }
 
     #[test]
     fn encrypted_multi_choice() {
-        test_encrypted_multi_choice::<K256>();
+        for &options_count in OPTIONS_COUNTS {
+            println!("testing multi choice with {} options", options_count);
+            test_encrypted_multi_choice::<K256>(options_count);
+        }
+    }
+
+    #[test]
+    fn sum_of_squares_proof() {
+        for &squares_count in OPTIONS_COUNTS {
+            println!(
+                "testing sum of squares proof with {} squares",
+                squares_count
+            );
+            test_sum_of_squares_proof::<K256>(squares_count);
+        }
     }
 }
