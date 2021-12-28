@@ -126,3 +126,6 @@ pub use crate::{
         RingProof, RingProofBuilder, SumOfSquaresProof, VerificationError,
     },
 };
+
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md");
