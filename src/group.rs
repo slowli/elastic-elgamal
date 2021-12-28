@@ -128,6 +128,7 @@ pub trait ElementOps: ScalarOps {
     type Element: Copy
         + ops::Add<Output = Self::Element>
         + ops::Sub<Output = Self::Element>
+        + ops::Neg<Output = Self::Element>
         + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Element>
         + ConditionallySelectable
         + ConstantTimeEq

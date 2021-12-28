@@ -107,6 +107,19 @@ impl<G: Group> Ciphertext<G> {
         }
     }
 
+    /// Creates a non-blinded encryption of the specified scalar `value`, i.e., `(O, [value]G)`
+    /// where `O` is identity and `G` is the conventional group generator.
+    pub fn non_blinded<T>(value: T) -> Self
+    where
+        G::Scalar: From<T>,
+    {
+        let scalar = Zeroizing::new(G::Scalar::from(value));
+        Self {
+            random_element: G::identity(),
+            blinded_element: G::mul_generator(&scalar),
+        }
+    }
+
     /// Serializes this ciphertext as two group elements (the random element,
     /// then the blinded value).
     pub fn to_bytes(self) -> Vec<u8> {
@@ -168,6 +181,17 @@ impl<G: Group> ops::Mul<u64> for Ciphertext<G> {
     fn mul(self, rhs: u64) -> Self {
         let scalar = G::Scalar::from(rhs);
         self * &scalar
+    }
+}
+
+impl<G: Group> ops::Neg for Ciphertext<G> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Self {
+            random_element: -self.random_element,
+            blinded_element: -self.blinded_element,
+        }
     }
 }
 
@@ -382,5 +406,80 @@ where
 
     pub(crate) fn value(&self) -> &V {
         &self.value
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{group::Ristretto, Keypair};
+
+    use curve25519_dalek::scalar::Scalar as Curve25519Scalar;
+    use rand::{thread_rng, Rng};
+
+    #[test]
+    fn ciphertext_addition() {
+        let mut rng = thread_rng();
+        let numbers: Vec<_> = (0..10).map(|_| u64::from(rng.gen::<u32>())).collect();
+        let sum = numbers.iter().copied().sum::<u64>();
+
+        let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+        let ciphertexts = numbers.into_iter().map(|x| pk.encrypt(x, &mut rng));
+        let sum_ciphertext = ciphertexts.reduce(ops::Add::add).unwrap();
+        let decrypted = sk.decrypt_to_element(sum_ciphertext);
+
+        assert_eq!(decrypted, Ristretto::vartime_mul_generator(&sum.into()));
+    }
+
+    #[test]
+    fn ciphertext_mul_by_u64() {
+        let mut rng = thread_rng();
+        let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+        for _ in 0..100 {
+            let x = rng.gen::<u64>();
+            let multiplier = rng.gen::<u64>();
+            let ciphertext = pk.encrypt(x, &mut rng);
+            let decrypted = sk.decrypt_to_element(ciphertext * multiplier);
+
+            let expected_decryption =
+                Curve25519Scalar::from(x) * Curve25519Scalar::from(multiplier);
+            assert_eq!(
+                decrypted,
+                Ristretto::vartime_mul_generator(&expected_decryption)
+            );
+        }
+    }
+
+    #[test]
+    fn ciphertext_negation() {
+        let mut rng = thread_rng();
+        let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+        for _ in 0..100 {
+            let x = rng.gen::<u64>();
+            let ciphertext = pk.encrypt(x, &mut rng);
+            let neg_ciphertext = -ciphertext;
+            let decrypted = sk.decrypt_to_element(neg_ciphertext);
+
+            assert_eq!(
+                decrypted,
+                Ristretto::vartime_mul_generator(&-Curve25519Scalar::from(x))
+            );
+        }
+    }
+
+    #[test]
+    fn non_blinded_ciphertext() {
+        let mut rng = thread_rng();
+        let (_, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+        for _ in 0..100 {
+            let x = rng.gen::<u64>();
+            let ciphertext = Ciphertext::non_blinded(x);
+            let decrypted = sk.decrypt_to_element(ciphertext);
+
+            assert_eq!(
+                decrypted,
+                Ristretto::vartime_mul_generator(&Curve25519Scalar::from(x))
+            );
+        }
     }
 }
