@@ -225,11 +225,7 @@ impl<G: Group> SumOfSquaresProof<G> {
             transcript.append_element::<G>(b"[e_x]G + [e_r]K", &value_commitment);
         }
 
-        let scalars = self
-            .ciphertext_responses
-            .iter()
-            .enumerate()
-            .filter_map(|(i, response)| if i % 2 == 1 { Some(response) } else { None })
+        let scalars = OddItems::new(self.ciphertext_responses.iter())
             .chain([&self.sum_response, &neg_challenge]);
         let random_sum_commitment = {
             let elements = ciphertexts
@@ -256,6 +252,44 @@ impl<G: Group> SumOfSquaresProof<G> {
         } else {
             Err(VerificationError::ChallengeMismatch)
         }
+    }
+}
+
+/// Thin wrapper around an iterator that drops its even-indexed elements. This is necessary
+/// because `Ristretto::vartime_multi_mul()` panics otherwise, which is caused by an imprecise
+/// `Iterator::size_hint()` value.
+#[derive(Debug, Clone)]
+struct OddItems<I> {
+    iter: I,
+    ended: bool,
+}
+
+impl<I: Iterator> OddItems<I> {
+    fn new(iter: I) -> Self {
+        Self { iter, ended: false }
+    }
+}
+
+impl<I: Iterator> Iterator for OddItems<I> {
+    type Item = I::Item;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.ended {
+            return None;
+        }
+        self.ended = self.iter.next().is_none();
+        if self.ended {
+            return None;
+        }
+
+        let item = self.iter.next();
+        self.ended = item.is_none();
+        item
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let (min, max) = self.iter.size_hint();
+        (min / 2, max.map(|max| max / 2))
     }
 }
 
@@ -400,5 +434,16 @@ mod tests {
             )
             .unwrap_err();
         assert!(matches!(err, VerificationError::LenMismatch { .. }));
+    }
+
+    #[test]
+    fn odd_items() {
+        let odd_items = OddItems::new(iter::once(1).chain([2, 3, 4]));
+        assert_eq!(odd_items.size_hint(), (2, Some(2)));
+        assert_eq!(odd_items.collect::<Vec<_>>(), [2, 4]);
+
+        let other_items = OddItems::new(0..7);
+        assert_eq!(other_items.size_hint(), (3, Some(3)));
+        assert_eq!(other_items.collect::<Vec<_>>(), [1, 3, 5]);
     }
 }
