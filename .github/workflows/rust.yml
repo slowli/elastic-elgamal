@@ -94,12 +94,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: -p elastic-elgamal --all-features --example voting
-      - name: Run voting (k256)
+          args: -p elastic-elgamal --all-features --example voting -- --options 5 --votes 50 --talliers 3/4
+      - name: Run voting (quadratic, k256)
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: -p elastic-elgamal --all-features --example voting -- k256
+          args: -p elastic-elgamal --all-features --example voting -- --qv k256
       - name: Run range
         uses: actions-rs/cargo@v1
         with:
