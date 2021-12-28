@@ -15,7 +15,7 @@ mod impls;
 
 /// Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
 /// the [`Group`] scalar.
-pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
+pub struct SecretKey<G: Group>(G::Scalar);
 
 impl<G: Group> fmt::Debug for SecretKey<G> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -115,8 +115,8 @@ impl<G: Group> ops::Mul<&G::Scalar> for &SecretKey<G> {
 /// and its decompression into a [`Group`] element.
 /// This increases the memory footprint, but speeds up generating / verifying proofs.
 pub struct PublicKey<G: Group> {
-    pub(crate) bytes: Vec<u8>,
-    pub(crate) element: G::Element,
+    bytes: Vec<u8>,
+    element: G::Element,
 }
 
 impl<G: Group> Clone for PublicKey<G> {

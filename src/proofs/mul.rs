@@ -97,7 +97,7 @@ pub struct SumOfSquaresProof<G: Group> {
 impl<G: Group> SumOfSquaresProof<G> {
     fn initialize_transcript(transcript: &mut Transcript, receiver: &PublicKey<G>) {
         transcript.start_proof(b"sum_of_squares");
-        transcript.append_element_bytes(b"K", &receiver.bytes);
+        transcript.append_element_bytes(b"K", receiver.as_bytes());
     }
 
     /// Creates a new proof that squares of values encrypted in `ciphertexts` for `receiver` sum up
@@ -116,7 +116,7 @@ impl<G: Group> SumOfSquaresProof<G> {
         Self::initialize_transcript(transcript, receiver);
 
         let sum_scalar = SecretKey::<G>::generate(rng);
-        let mut sum_random_scalar = sum_of_squares_ciphertext.random_scalar().clone();
+        let mut sum_random_scalar = sum_of_squares_ciphertext.randomness().clone();
 
         let partial_scalars: Vec<_> = ciphertexts
             .map(|ciphertext| {
@@ -124,23 +124,23 @@ impl<G: Group> SumOfSquaresProof<G> {
                 transcript.append_element::<G>(b"X", &ciphertext.inner().blinded_element);
 
                 let random_scalar = SecretKey::<G>::generate(rng);
-                let random_commitment = G::mul_generator(&random_scalar.0);
+                let random_commitment = G::mul_generator(random_scalar.expose_scalar());
                 transcript.append_element::<G>(b"[e_r]G", &random_commitment);
                 let value_scalar = SecretKey::<G>::generate(rng);
-                let value_commitment =
-                    G::mul_generator(&value_scalar.0) + receiver.element * &random_scalar.0;
+                let value_commitment = G::mul_generator(value_scalar.expose_scalar())
+                    + receiver.as_element() * random_scalar.expose_scalar();
                 transcript.append_element::<G>(b"[e_x]G + [e_r]K", &value_commitment);
 
                 let neg_value = Zeroizing::new(-*ciphertext.value());
-                sum_random_scalar += ciphertext.random_scalar() * &neg_value;
+                sum_random_scalar += ciphertext.randomness() * &neg_value;
                 (ciphertext, random_scalar, value_scalar)
             })
             .collect();
 
         let scalars = partial_scalars
             .iter()
-            .map(|(_, _, value_scalar)| &value_scalar.0)
-            .chain(iter::once(&sum_scalar.0));
+            .map(|(_, _, value_scalar)| value_scalar.expose_scalar())
+            .chain(iter::once(sum_scalar.expose_scalar()));
         let random_sum_commitment = {
             let elements = partial_scalars
                 .iter()
@@ -152,7 +152,7 @@ impl<G: Group> SumOfSquaresProof<G> {
             let elements = partial_scalars
                 .iter()
                 .map(|(ciphertext, ..)| ciphertext.inner().blinded_element)
-                .chain(iter::once(receiver.element));
+                .chain(iter::once(receiver.as_element()));
             G::multi_mul(scalars, elements)
         };
 
@@ -166,12 +166,14 @@ impl<G: Group> SumOfSquaresProof<G> {
             .into_iter()
             .flat_map(|(ciphertext, random_scalar, value_scalar)| {
                 [
-                    random_scalar.0 + challenge * ciphertext.random_scalar().0,
-                    value_scalar.0 + challenge * *ciphertext.value(),
+                    challenge * ciphertext.randomness().expose_scalar()
+                        + random_scalar.expose_scalar(),
+                    challenge * ciphertext.value() + value_scalar.expose_scalar(),
                 ]
             })
             .collect();
-        let sum_response = sum_scalar.0 + challenge * sum_random_scalar.0;
+        let sum_response =
+            challenge * sum_random_scalar.expose_scalar() + sum_scalar.expose_scalar();
 
         Self {
             challenge,
@@ -220,7 +222,11 @@ impl<G: Group> SumOfSquaresProof<G> {
             transcript.append_element::<G>(b"[e_r]G", &random_commitment);
             let value_commitment = G::vartime_multi_mul(
                 [v_response, r_response, &neg_challenge],
-                [G::generator(), receiver.element, ciphertext.blinded_element],
+                [
+                    G::generator(),
+                    receiver.as_element(),
+                    ciphertext.blinded_element,
+                ],
             );
             transcript.append_element::<G>(b"[e_x]G + [e_r]K", &value_commitment);
         }
@@ -235,9 +241,10 @@ impl<G: Group> SumOfSquaresProof<G> {
             G::vartime_multi_mul(scalars.clone(), elements)
         };
         let value_sum_commitment = {
-            let elements = ciphertexts
-                .map(|c| c.blinded_element)
-                .chain([receiver.element, sum_of_squares_ciphertext.blinded_element]);
+            let elements = ciphertexts.map(|c| c.blinded_element).chain([
+                receiver.as_element(),
+                sum_of_squares_ciphertext.blinded_element,
+            ]);
             G::vartime_multi_mul(scalars, elements)
         };
 

@@ -83,7 +83,7 @@ impl<G: Group> Serialize for PublicKey<G> {
     where
         S: Serializer,
     {
-        serialize_bytes(&self.bytes, serializer)
+        serialize_bytes(self.as_bytes(), serializer)
     }
 }
 
@@ -103,7 +103,7 @@ impl<G: Group> Serialize for SecretKey<G> {
         S: Serializer,
     {
         let mut bytes = Zeroizing::new(vec![0_u8; G::SCALAR_SIZE]);
-        G::serialize_scalar(&self.0, &mut bytes);
+        G::serialize_scalar(self.expose_scalar(), &mut bytes);
         serialize_bytes(&bytes, serializer)
     }
 }

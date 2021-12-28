@@ -102,27 +102,31 @@ impl<G: Group> ProofOfPossession<G> {
         transcript.start_proof(b"multi_pop");
         let mut key_count = 0;
         for public_key in public_keys {
-            transcript.append_element_bytes(b"K", &public_key.bytes);
+            transcript.append_element_bytes(b"K", public_key.as_bytes());
             key_count += 1;
         }
 
-        let mut random_scalars: Vec<_> = (0..key_count)
+        let random_scalars: Vec<_> = (0..key_count)
             .map(|_| {
-                let random_scalar = SecretKey::<G>::generate(rng);
-                let random_element = G::mul_generator(&random_scalar.0);
+                let randomness = SecretKey::<G>::generate(rng);
+                let random_element = G::mul_generator(randomness.expose_scalar());
                 transcript.append_element::<G>(b"R", &random_element);
-                random_scalar
+                randomness
             })
             .collect();
 
         let challenge = transcript.challenge_scalar::<G>(b"c");
-        for (secret, response) in secrets.zip(&mut random_scalars) {
-            *response += secret * &challenge;
-        }
+        let responses = secrets
+            .zip(random_scalars)
+            .map(|(log, mut randomness)| {
+                randomness += log * &challenge;
+                *randomness.expose_scalar()
+            })
+            .collect();
 
         Self {
             challenge,
-            responses: random_scalars.into_iter().map(|scalar| scalar.0).collect(),
+            responses,
         }
     }
 
@@ -139,14 +143,17 @@ impl<G: Group> ProofOfPossession<G> {
         let mut key_count = 0;
         transcript.start_proof(b"multi_pop");
         for public_key in public_keys.clone() {
-            transcript.append_element_bytes(b"K", &public_key.bytes);
+            transcript.append_element_bytes(b"K", public_key.as_bytes());
             key_count += 1;
         }
         VerificationError::check_lengths("public keys", self.responses.len(), key_count)?;
 
         for (public_key, response) in public_keys.zip(&self.responses) {
-            let random_element =
-                G::vartime_double_mul_generator(&-self.challenge, public_key.element, response);
+            let random_element = G::vartime_double_mul_generator(
+                &-self.challenge,
+                public_key.as_element(),
+                response,
+            );
             transcript.append_element::<G>(b"R", &random_element);
         }
 

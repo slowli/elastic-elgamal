@@ -65,7 +65,7 @@ impl<G: Group> ProveSum<G> for SingleChoice {
     ) -> Self::Proof {
         LogEqualityProof::new(
             receiver,
-            ciphertext.random_scalar(),
+            ciphertext.randomness(),
             (
                 ciphertext.inner().random_element,
                 ciphertext.inner().blinded_element - G::generator(),
@@ -299,12 +299,8 @@ impl<G: Group> EncryptedChoice<G, SingleChoice> {
             choice,
             params.options_count
         );
-        let choices = Zeroizing::new(
-            (0..params.options_count)
-                .map(|i| choice == i)
-                .collect::<Vec<_>>(),
-        );
-        Self::new(params, &choices, rng)
+        let choices: Vec<_> = (0..params.options_count).map(|i| choice == i).collect();
+        Self::new(params, &Zeroizing::new(choices), rng)
     }
 }
 

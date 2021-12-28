@@ -65,8 +65,10 @@ pub trait ScalarOps {
         + From<Self::Scalar> // `PublicKey::encrypt()` doesn't work without this
         + ops::Neg<Output = Self::Scalar>
         + ops::Add<Output = Self::Scalar>
+        + for<'a> ops::Add<&'a Self::Scalar, Output = Self::Scalar>
         + ops::Sub<Output = Self::Scalar>
         + ops::Mul<Output = Self::Scalar>
+        + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Scalar>
         + ConditionallySelectable
         + ConstantTimeEq
         + Zeroize

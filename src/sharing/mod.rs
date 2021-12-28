@@ -379,7 +379,7 @@ impl<G: Group> PublicKeySet<G> {
         let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
         let starting_keys = participant_keys
             .iter()
-            .map(|key| key.element)
+            .map(PublicKey::as_element)
             .take(params.threshold);
         let shared_key = G::vartime_multi_mul(&denominators, starting_keys.clone());
         let shared_key = PublicKey::from_element(shared_key * &scale);
@@ -413,7 +413,7 @@ impl<G: Group> PublicKeySet<G> {
 
             let interpolated_key = G::vartime_multi_mul(&key_denominators, starting_keys.clone());
             let interpolated_key = interpolated_key * &key_scale;
-            if !bool::from(interpolated_key.ct_eq(&key.element)) {
+            if !bool::from(interpolated_key.ct_eq(&key.as_element())) {
                 return Err(Error::MalformedParticipantKeys);
             }
         }
@@ -449,7 +449,7 @@ impl<G: Group> PublicKeySet<G> {
     fn commit(&self, transcript: &mut Transcript) {
         transcript.append_u64(b"n", self.params.shares as u64);
         transcript.append_u64(b"t", self.params.threshold as u64);
-        transcript.append_element_bytes(b"K", &self.shared_key.bytes);
+        transcript.append_element_bytes(b"K", self.shared_key.as_bytes());
     }
 
     /// Verifies a proof of possession of the participant's secret key.
@@ -496,7 +496,7 @@ impl<G: Group> PublicKeySet<G> {
         index: usize,
         proof: &LogEqualityProof<G>,
     ) -> Result<DecryptionShare<G>, VerificationError> {
-        let key_share = self.participant_keys[index].element;
+        let key_share = self.participant_keys[index].as_element();
         let dh_element = candidate_share.dh_element();
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.commit(&mut transcript);
@@ -584,7 +584,8 @@ mod tests {
 
         for i in 0..params.shares {
             let mut bogus_keys = participant_keys.clone();
-            bogus_keys[i] = PublicKey::from_element(bogus_keys[i].element + Ristretto::generator());
+            bogus_keys[i] =
+                PublicKey::from_element(bogus_keys[i].as_element() + Ristretto::generator());
             let err = PublicKeySet::from_participants(params, bogus_keys).unwrap_err();
             assert!(matches!(err, Error::MalformedParticipantKeys));
         }

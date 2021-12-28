@@ -284,8 +284,8 @@ impl<G: Group> ExtendedCiphertext<G> {
         rng: &mut R,
     ) -> Self {
         let random_scalar = SecretKey::<G>::generate(rng);
-        let random_element = G::mul_generator(&random_scalar.0);
-        let dh_element = receiver.element * &random_scalar.0;
+        let random_element = G::mul_generator(random_scalar.expose_scalar());
+        let dh_element = receiver.as_element() * random_scalar.expose_scalar();
         let blinded_element = value + dh_element;
 
         Self {
@@ -400,7 +400,7 @@ where
         &self.inner
     }
 
-    pub(crate) fn random_scalar(&self) -> &SecretKey<G> {
+    pub(crate) fn randomness(&self) -> &SecretKey<G> {
         &self.inner.random_scalar
     }
 

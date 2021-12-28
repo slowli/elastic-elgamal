@@ -154,12 +154,14 @@ mod tests {
 
     #[test]
     fn edwards_and_ristretto_public_keys_differ() {
-        type EdKeypair = crate::Keypair<Curve25519Subgroup>;
+        type SubgroupSecretKey = crate::SecretKey<Curve25519Subgroup>;
+        type SubgroupKeypair = crate::Keypair<Curve25519Subgroup>;
 
         for _ in 0..1_000 {
             let secret_key = SecretKey::generate(&mut thread_rng());
             let keypair = Keypair::from(secret_key.clone());
-            let ed_keypair = EdKeypair::from(crate::SecretKey::<Curve25519Subgroup>(secret_key.0));
+            let secret_key = SubgroupSecretKey::new(*secret_key.expose_scalar());
+            let ed_keypair = SubgroupKeypair::from(secret_key);
             assert_ne!(keypair.public().as_bytes(), ed_keypair.public().as_bytes());
         }
     }

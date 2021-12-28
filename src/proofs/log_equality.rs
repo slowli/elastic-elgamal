@@ -121,15 +121,18 @@ impl<G: Group> LogEqualityProof<G> {
         rng: &mut R,
     ) -> Self {
         transcript.start_proof(b"log_eq");
-        transcript.append_element_bytes(b"K", &log_base.bytes);
+        transcript.append_element_bytes(b"K", log_base.as_bytes());
         transcript.append_element::<G>(b"[r]G", &powers.0);
         transcript.append_element::<G>(b"[r]K", &powers.1);
 
         let random_scalar = SecretKey::<G>::generate(rng);
-        transcript.append_element::<G>(b"[x]G", &G::mul_generator(&random_scalar.0));
-        transcript.append_element::<G>(b"[x]K", &(log_base.element * &random_scalar.0));
+        transcript.append_element::<G>(b"[x]G", &G::mul_generator(random_scalar.expose_scalar()));
+        transcript.append_element::<G>(
+            b"[x]K",
+            &(log_base.as_element() * random_scalar.expose_scalar()),
+        );
         let challenge = transcript.challenge_scalar::<G>(b"c");
-        let response = random_scalar.0 + challenge * secret.0;
+        let response = challenge * secret.expose_scalar() + random_scalar.expose_scalar();
 
         Self {
             challenge,
@@ -174,12 +177,12 @@ impl<G: Group> LogEqualityProof<G> {
             G::vartime_double_mul_generator(&-self.challenge, powers.0, &self.response),
             G::vartime_multi_mul(
                 &[-self.challenge, self.response],
-                [powers.1, log_base.element],
+                [powers.1, log_base.as_element()],
             ),
         );
 
         transcript.start_proof(b"log_eq");
-        transcript.append_element_bytes(b"K", &log_base.bytes);
+        transcript.append_element_bytes(b"K", log_base.as_bytes());
         transcript.append_element::<G>(b"[r]G", &powers.0);
         transcript.append_element::<G>(b"[r]K", &powers.1);
         transcript.append_element::<G>(b"[x]G", &commitments.0);
@@ -219,7 +222,7 @@ mod tests {
 
         for _ in 0..100 {
             let (generator_val, secret) = Keypair::generate(&mut rng).into_tuple();
-            let key_val = log_base.element * secret.expose_scalar();
+            let key_val = log_base.as_element() * secret.expose_scalar();
             let proof = LogEqualityProof::new(
                 &log_base,
                 &secret,
