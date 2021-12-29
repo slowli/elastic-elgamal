@@ -1,0 +1,31 @@
+---
+source: tests/snapshots.rs
+expression: choices
+
+---
+choices:
+  - random_element: AgQbzI7_NulX5AZav0Ty90yRPsu9APHrKvYGo03s3Dn_
+    blinded_element: Ap9uGRrxTZpokI5bSjq33H5WMsM6EwjF1o--egduVmgM
+  - random_element: ArTsnXyCGVQRsyWMha-strO2-d3lZjFcnhysFN6qdz5F
+    blinded_element: AvKO9hlU1CAgB1ti_cgIcKNbFknJhrGBQ-Jreq1TnPHs
+  - random_element: A1vpeX89czeuNEIMmtycQuD-vyOBOVhf_k8lFjDpGS1x
+    blinded_element: AudhDxb2dIyFKV70o_e0XUoYVWdycbYh9kY7c3yi-cWB
+  - random_element: Ahu1rSSRo-gjzP35fyMKcrz0ZKtKoMi2VpC2rAK50v_M
+    blinded_element: A_r6e0woor7xmm-vbFFE-r5bqP0h6BVJm5LWRHF0ZHwY
+  - random_element: A69jbhMtuT9nhecpopt7jnG62L9Rlq6Gaai6t3oW4hFK
+    blinded_element: AzhQRLqUpwIDs5jDvLVgb2XsKy68IzW0-0F1F6vyR1OJ
+range_proof:
+  common_challenge: H6eBWsmxZ5pusnsq38lgzjWoP7L78-I382BXmjpdHPM
+  ring_responses:
+    - 8x6rLuF6jjeb6TEl7rgbEfGMiGh3zU-R7OgxtHKEN94
+    - A5GmkLDdIK_ElgFwnTy7KW9tnQxDslStKdohL-Lw-jo
+    - dvzLv2IkNfu_cU_uzU5T1tr48nv-NKYqEzO-GFnhyKY
+    - MYSBRZ9EDoNJ6UYDYdAsb5F2yoX7XZGOS7dvEGJ6RQs
+    - AtxlAGMPfUxBlUGZd1QEkqsdVx9foXiJEJ2RkN0uY3U
+    - i9CRAZDbXHwZFa_0mue9wY_o5yhFSmv9nMx1_aOJzxQ
+    - 1HFSD8iyRxjDWIUPVKCtBhELA0HQjkOpduN8ayLTNlU
+    - Hq4ttiTnxW5k1afBQG3TVK1aTiVAsQKvK348xq_jtJY
+    - Rc6YO1oSKrOVLCUJsDvVJlA-isUazfUlNwwnvRPEFAI
+    - O7Yjqso4805YQ06JAQdPShIHpqm8BHs6pLYntAOiO64
+sum_proof: ~
+

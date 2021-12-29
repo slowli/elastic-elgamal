@@ -11,13 +11,15 @@
 Implementation of [ElGamal encryption] and related zero-knowledge proofs
 with pluggable crypto backend.
 
-The following protocols are included:
+The following protocols and high-level applications are included:
 
 - Additively homomorphic ElGamal encryption
 - Zero-knowledge proofs of zero encryption and Boolean value encryption
 - Zero-knowledge range proofs for ElGamal ciphertexts
-- Additively homomorphic 1-of-n choice encryption and the corresponding
-  zero-knowledge proof of correctness
+- Additively homomorphic m-of-n choice encryption with a zero-knowledge
+  proof of correctness
+- Additively homomorphic [quadratic voting] with a zero-knowledge
+  proof of correctness
 - Threshold ElGamal encryption via [Feldman's verifiable secret sharing][feldman-vss],
   including verifiable distributed decryption.
 
@@ -42,7 +44,63 @@ Add this to your `Crate.toml`:
 elastic-elgamal = "0.1.0" 
 ```
 
-See the crate docs for the examples of usage.
+### Single-choice polling
+
+```rust
+use elastic_elgamal::app::{ChoiceParams, EncryptedChoice};
+use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Keypair};
+use rand::thread_rng;
+
+let mut rng = thread_rng();
+// Generate a keypair for encrypting ballots. In more realistic setup,
+// this keypair would be distributed among multiple talliers.
+let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+let choice_params = ChoiceParams::single(pk, 5);
+// ^ single-choice polling with 5 options encrypted for `pk`
+
+let choice = 2; // voter's choice
+let enc = EncryptedChoice::single(&choice_params, choice, &mut rng);
+let choices = enc.verify(&choice_params).unwrap();
+// ^ 5 Boolean value ciphertexts that can be homomorphically added
+// across ballots
+
+// Decrypt a separate ballot for demo purposes.
+let lookup_table = DiscreteLogTable::new(0..=1);
+for (idx, &v) in choices.iter().enumerate() {
+    assert_eq!(
+        sk.decrypt(v, &lookup_table),
+        Some((idx == choice) as u64)
+    );
+}
+```
+
+### Quadratic voting
+
+```rust
+use elastic_elgamal::app::{QuadraticVotingParams, QuadraticVotingBallot};
+use elastic_elgamal::{group::Ristretto, Keypair, DiscreteLogTable};
+use rand::thread_rng;
+
+let mut rng = thread_rng();
+let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
+let params = QuadraticVotingParams::new(pk, 5, 20);
+// ^ 5 options, 20 credits (= 4 max votes per option)
+assert_eq!(params.max_votes(), 4);
+
+let votes = [4, 0, 0, 1, 1]; // voter's votes
+let ballot = QuadraticVotingBallot::new(&params, &votes, &mut rng);
+let encrypted = ballot.verify(&params).unwrap();
+// ^ 5 vote ciphertexts that can be homomorphically added across ballots
+
+// Decrypt a separate ballot for demo purposes.
+let lookup = DiscreteLogTable::new(0..=params.max_votes());
+let decrypted: Vec<_> = encrypted
+    .map(|vote| sk.decrypt(vote, &lookup).unwrap())
+    .collect();
+assert_eq!(decrypted, votes);
+```
+
+See the crate docs for more examples of usage.
 
 ## Naming
 
@@ -72,6 +130,7 @@ for inclusion in `elastic-elgamal` by you, as defined in the Apache-2.0 license,
 shall be dual licensed as above, without any additional terms or conditions.</small>
 
 [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
+[quadratic voting]: https://en.wikipedia.org/wiki/Quadratic_voting
 [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
 [DDH]: https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption
 [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem

@@ -1,0 +1,19 @@
+---
+source: tests/snapshots.rs
+expression: proof
+
+---
+challenge: hVfuguvzZ52rQ4jruked4fq5aayUc8nNCMUCqr-7TQ8
+ciphertext_responses:
+  - up02z0PM3DEX2Nl9TVuzBhbMXmI3u91zTeDGz_h2Pgo
+  - h4-zS5lKoZi-dvzQpirhIJnd-KlrvFjgTdVCfNKnZwM
+  - QxSQCDjN621_joW8pXRb2sfTNumzlv6Fbd4y_prvlw4
+  - OFPqR_RheWo4PtNnqVZMw5xlVXAthsLqvblIP6t-9AM
+  - BppAfzP-f7LleWvQPr9UQFiFNsDTNR55IjhR6Jyl5AA
+  - 2kt0TN8s4iyjIDd2f5dlENu_zKMEeMe9WpJpudRRnA8
+  - c0QglkQckHT4CIt4rU8a07lHRBB5HyObDPp0AGLYEQo
+  - JfSnwOFTTCmqLp5fhIOyCTcpnxdzk6w4nyEhj-oYfQs
+  - sFA2lCR_H8QEwJalmWCHyCZv04pLQ8z6Y1EUu1k4lgQ
+  - wJfvZfNB6Qn0BvyxYTYPQqignzxH7v3KUqEGYi9XbwE
+sum_response: 9RQpKeEhwdmH7m1jWLKGmOdAIrKRi1QNpkSdBGNTwAE
+

@@ -1,10 +1,14 @@
 //! Tests focused on sharing.
 
-use rand::{seq::IteratorRandom, thread_rng, Rng};
+use rand::{
+    seq::{IteratorRandom, SliceRandom},
+    thread_rng, Rng,
+};
 use rand_core::{CryptoRng, RngCore};
 
 use crate::assert_ct_eq;
 use elastic_elgamal::{
+    app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::Group,
     sharing::{ActiveParticipant, Dealer, DecryptionShare, Params, PublicKeySet},
     Ciphertext, DiscreteLogTable,
@@ -44,6 +48,32 @@ impl<G: Group> Rig<G> {
             .map(|participant| participant.decrypt_share(ciphertext, rng).0)
             .collect()
     }
+
+    fn assert_votes(
+        &self,
+        encrypted_totals: &[Ciphertext<G>],
+        expected_totals: &[u64],
+        rng: &mut (impl RngCore + CryptoRng),
+    ) {
+        let max_votes = expected_totals.iter().copied().max().unwrap();
+        let lookup_table = DiscreteLogTable::<G>::new(0..=max_votes);
+
+        for (&option_totals, &expected) in encrypted_totals.iter().zip(expected_totals) {
+            // Now, each counter produces a decryption share. We take 8 shares randomly
+            // (slightly more than the necessary 7).
+            let decryption_shares = self.decryption_shares(option_totals, rng);
+            let decryption_shares = decryption_shares
+                .into_iter()
+                .enumerate()
+                .choose_multiple(rng, 8);
+
+            let option_totals =
+                DecryptionShare::combine(self.key_set.params(), option_totals, decryption_shares)
+                    .unwrap();
+            let option_totals = lookup_table.get(&option_totals).unwrap();
+            assert_eq!(option_totals, expected);
+        }
+    }
 }
 
 fn test_group_info_can_be_restored_from_participants<G: Group>(params: Params) {
@@ -74,43 +104,75 @@ fn tiny_fuzz<G: Group>(params: Params) {
     }
 }
 
-fn test_simple_voting<G: Group>() {
-    const CHOICE_COUNT: usize = 5;
-    const VOTES: usize = 50;
+const OPTIONS_COUNT: usize = 5;
+const VOTES: usize = 50;
+const CREDIT_AMOUNT: u64 = 20;
 
-    let lookup_table = DiscreteLogTable::<G>::new(0..=(VOTES as u64));
+fn test_simple_voting<G: Group>() {
     let mut rng = thread_rng();
     let params = Params::new(10, 7);
     let rig = Rig::<G>::new(params, &mut rng);
-    let shared_key = rig.key_set.shared_key();
+    let shared_key = rig.key_set.shared_key().clone();
+    let choice_params = ChoiceParams::single(shared_key, OPTIONS_COUNT);
 
-    let mut expected_totals = [0; CHOICE_COUNT];
-    let mut encrypted_totals = [Ciphertext::zero(); CHOICE_COUNT];
+    let mut expected_totals = [0; OPTIONS_COUNT];
+    let mut encrypted_totals = [Ciphertext::zero(); OPTIONS_COUNT];
 
     for _ in 0..VOTES {
-        let choice = rng.gen_range(0..CHOICE_COUNT);
+        let choice = rng.gen_range(0..OPTIONS_COUNT);
         expected_totals[choice] += 1;
-        let choice = shared_key.encrypt_choice(CHOICE_COUNT, choice, &mut rng);
-        let variants = shared_key.verify_choice(&choice).unwrap();
-
-        for (i, &variant) in variants.iter().enumerate() {
-            encrypted_totals[i] += variant;
+        let encrypted = EncryptedChoice::single(&choice_params, choice, &mut rng);
+        let choices = encrypted.verify(&choice_params).unwrap();
+        for (total, &choice) in encrypted_totals.iter_mut().zip(choices) {
+            *total += choice;
         }
     }
 
-    for (&variant_totals, &expected) in encrypted_totals.iter().zip(&expected_totals) {
-        // Now, each counter produces a decryption share. We take 8 shares randomly
-        // (slightly more than the necessary 7).
-        let decryption_shares = rig.decryption_shares(variant_totals, &mut rng);
-        let decryption_shares = decryption_shares
-            .into_iter()
-            .enumerate()
-            .choose_multiple(&mut rng, 8);
-        let variant_votes =
-            DecryptionShare::combine(params, variant_totals, decryption_shares).unwrap();
-        let variant_votes = lookup_table.get(&variant_votes).unwrap();
-        assert_eq!(variant_votes, expected);
+    rig.assert_votes(&encrypted_totals, &expected_totals, &mut rng);
+}
+
+fn credit(votes: &[u64]) -> u64 {
+    votes.iter().map(|&x| x * x).sum::<u64>()
+}
+
+fn gen_votes(rng: &mut impl Rng) -> [u64; OPTIONS_COUNT] {
+    let mut votes = [0_u64; OPTIONS_COUNT];
+    while rng.gen_bool(0.8) {
+        let mut new_votes = votes;
+        *new_votes.choose_mut(rng).unwrap() += 1;
+        if credit(&new_votes) > CREDIT_AMOUNT {
+            break;
+        } else {
+            votes = new_votes;
+        }
     }
+    votes
+}
+
+fn test_quadratic_voting<G: Group>() {
+    let mut rng = thread_rng();
+    let params = Params::new(10, 7);
+    let rig = Rig::<G>::new(params, &mut rng);
+    let shared_key = rig.key_set.shared_key().clone();
+    let vote_params = QuadraticVotingParams::new(shared_key, OPTIONS_COUNT, CREDIT_AMOUNT);
+
+    let mut expected_totals = [0_u64; OPTIONS_COUNT];
+    let mut encrypted_totals = [Ciphertext::zero(); OPTIONS_COUNT];
+
+    for _ in 0..VOTES {
+        let votes = gen_votes(&mut rng);
+        for (exp, vote) in expected_totals.iter_mut().zip(votes) {
+            *exp += vote;
+        }
+
+        let encrypted = QuadraticVotingBallot::new(&vote_params, &votes, &mut rng);
+        let votes = encrypted.verify(&vote_params).unwrap();
+        for (total, vote) in encrypted_totals.iter_mut().zip(votes) {
+            *total += vote;
+        }
+    }
+
+    rig.assert_votes(&encrypted_totals, &expected_totals, &mut rng);
 }
 
 mod curve25519 {
@@ -192,6 +254,11 @@ mod curve25519 {
     fn simple_voting() {
         test_simple_voting::<Curve25519Subgroup>();
     }
+
+    #[test]
+    fn quadratic_voting() {
+        test_quadratic_voting::<Curve25519Subgroup>();
+    }
 }
 
 mod ristretto {
@@ -272,6 +339,11 @@ mod ristretto {
     #[test]
     fn simple_voting() {
         test_simple_voting::<Ristretto>();
+    }
+
+    #[test]
+    fn quadratic_voting() {
+        test_quadratic_voting::<Ristretto>();
     }
 }
 
@@ -355,5 +427,10 @@ mod k256 {
     #[test]
     fn simple_voting() {
         test_simple_voting::<K256>();
+    }
+
+    #[test]
+    fn quadratic_voting() {
+        test_quadratic_voting::<K256>();
     }
 }

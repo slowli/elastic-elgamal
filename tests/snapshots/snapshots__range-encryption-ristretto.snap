@@ -4,28 +4,28 @@ expression: ciphertext_with_proof
 
 ---
 ciphertext:
-  blinded_element: 9ERMZxlJmwa1pcLjSZfcLVU00hme4amWCqnRO3kfUSo
-  random_element: 0lT4d7k1SjKe3qyUc8RASsTAprkAqHoGLo1ZR65KNnY
+  blinded_element: "-iuJKFPKh-yQijAEz5yqaTA0b0gq45r3QABfdfF5HVg"
+  random_element: gugt6pqWT9lwtV7WdEdZsVSYTUe0VyNh2w_CzDMKHXQ
 proof:
-  common_challenge: P3E5UePUNP6Sb56SibaVPCF8w2OCs0KdG3aExgJjYQk
+  common_challenge: C2AVJmyDSfOOY9Uj5mfXL1uJCIGukDKYqJzrFLeViQs
   partial_ciphertexts:
-    - blinded_element: SIMcjNY1pEnnnmMVjVlo7litoJKQwE-RPTCSUjgQOkY
-      random_element: gugt6pqWT9lwtV7WdEdZsVSYTUe0VyNh2w_CzDMKHXQ
-    - blinded_element: dn-caVRfDfrcwaQLL3rNqEZTN2PVE4MQKxjHEUnInQU
-      random_element: 2nV9MTLOkmcRBlG2wTutVkbIi7BgH_z-Xjb8kU6L2jk
+    - blinded_element: wJha60YbAaVG54tHliwnryUKxoNV2cs0ZJB6nHFCUVM
+      random_element: 5HgwjTtoDjiv7IbW6nPaiMfD98umRrbt0Vtrnvk62EE
+    - blinded_element: gNyhWrCLLQ0w5UszNkk4CCS9hFMIMZb00BSSKuSsxXo
+      random_element: Mmg8vsLhioDg4QxKtuGWXU-FWVTM0OIw9a2DPCi4kw0
   ring_responses:
     - OVQmzJrszYnIb0oUFteCjWKpMx_Y2Ew9KFyEAeFejQg
     - EIfmWQ_74uv-AbLAn2ifW1sTu2BiaiqYYb4N6az2XAA
-    - 0eMUOW6AN37QMTLBLU6s1LXZtPzWnfKaxJBDnJX9swo
-    - CoNRRFG5wnN2eagD-EIlsKjTU-bcPvJxao51kp6b2Qk
+    - 3zu_5NWtom332ya4fHvO4JZkR6eEMhvbzFaDIpjcSAU
     - EWICmTsD9AiJ0cAhSLmzM70sMZRWZtWs8UUPJQ2EKwI
-    - HeI7WGnm9gqVKzMAAqY59P1PSOYAEE5V2jLDX0Ar6A4
-    - FWt6W-P4LfPFqq3fFe15WVvuEwFtRseqlFjwYRmQkQ4
+    - fu7Ftmh4yEzcntFAqgpKhKSA6DtZfh1no4S4iLr_Awc
+    - V8zCFv--ixm6u5TGZ96Ejnl26kbo-0h4KWHrAGjCjAs
     - sGf7fGoa-4sdoAqXhM_SmaRpGBHmkazRXmYpHlf0kwY
     - 7wu7Jci5S1Ppz2uIytwiVJ4jj_3WSI8SRRBA0hLsGQQ
     - HY3H4TRY_Xt5nn1KGaYmoHWfFgmQuMl7TgMwMQj7Agw
+    - cMgA1oCveJq4SSGOFG0RXaw3GGtvK2aBo2pAQWxLCwY
     - IZvQK70YQ9yiUjqdAX7NBfkPa0dq1hkts97xXrDw9Qg
     - yAUVqN1tPa_JxChHFLFXQsL-jt5frA7GJsj4D3Gs6gQ
-    - zI2752a_uLhwlKm8BULySmm_OQFHDQEXbOzemDKJVQg
+    - z-xZF1DZ3wl-LHDRbLa6ltnnQ6Z4GK5hv4RMEwjWvgM
     - Je2UfVEXzwRNj435C7RLleqRj55GHWtUQENhu5UeswE
 

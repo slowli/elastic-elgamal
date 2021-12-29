@@ -2,6 +2,7 @@
 
 use base64ct::{Base64UrlUnpadded, Encoding};
 use rand_core::{CryptoRng, RngCore};
+use zeroize::Zeroize;
 
 use core::{fmt, ops};
 
@@ -10,9 +11,11 @@ use crate::{
     group::Group,
 };
 
+mod impls;
+
 /// Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
 /// the [`Group`] scalar.
-pub struct SecretKey<G: Group>(pub(crate) G::Scalar);
+pub struct SecretKey<G: Group>(G::Scalar);
 
 impl<G: Group> fmt::Debug for SecretKey<G> {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -26,6 +29,12 @@ impl<G: Group> fmt::Debug for SecretKey<G> {
 impl<G: Group> Clone for SecretKey<G> {
     fn clone(&self) -> Self {
         SecretKey(self.0)
+    }
+}
+
+impl<G: Group> Drop for SecretKey<G> {
+    fn drop(&mut self) {
+        self.0.zeroize();
     }
 }
 
@@ -58,7 +67,7 @@ impl<G: Group> ops::Add for SecretKey<G> {
     type Output = Self;
 
     fn add(self, rhs: Self) -> Self {
-        SecretKey(self.0 + rhs.0)
+        Self(self.0 + rhs.0)
     }
 }
 
@@ -68,11 +77,25 @@ impl<G: Group> ops::AddAssign for SecretKey<G> {
     }
 }
 
+impl<G: Group> ops::Sub for SecretKey<G> {
+    type Output = Self;
+
+    fn sub(self, rhs: Self) -> Self {
+        Self(self.0 - rhs.0)
+    }
+}
+
+impl<G: Group> ops::SubAssign for SecretKey<G> {
+    fn sub_assign(&mut self, rhs: Self) {
+        self.0 = self.0 - rhs.0;
+    }
+}
+
 impl<G: Group> ops::Mul<&G::Scalar> for SecretKey<G> {
     type Output = Self;
 
     fn mul(self, &k: &G::Scalar) -> Self {
-        SecretKey(self.0 * k)
+        Self(self.0 * k)
     }
 }
 
@@ -92,8 +115,8 @@ impl<G: Group> ops::Mul<&G::Scalar> for &SecretKey<G> {
 /// and its decompression into a [`Group`] element.
 /// This increases the memory footprint, but speeds up generating / verifying proofs.
 pub struct PublicKey<G: Group> {
-    pub(crate) bytes: Vec<u8>,
-    pub(crate) element: G::Element,
+    bytes: Vec<u8>,
+    element: G::Element,
 }
 
 impl<G: Group> Clone for PublicKey<G> {

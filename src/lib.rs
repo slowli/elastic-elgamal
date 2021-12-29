@@ -21,11 +21,12 @@
 //!   protocols, e.g., re-encryption.
 //! - Zero-knowledge range proofs for ElGamal ciphertexts are provided via [`RangeProof`]s
 //!   and a high-level [`PublicKey` method](PublicKey::encrypt_range()).
-//! - [`EncryptedChoice`] provides a way to encrypt a choice of one of `n` variants so that
-//!   variant ciphertexts are additively homomorphic and have zero-knowledge proof of correctness.
 //! - [`sharing`](crate::sharing) module exposes a threshold encryption scheme based
 //!   on [Feldman's verifiable secret sharing][feldman-vss], including verifiable distributed
 //!   decryption.
+//! - [`app`](crate::app) module provides higher-level protocols utilizing zero-knowledge proofs
+//!   and ElGamal encryption, such as provable encryption of m-of-n choice and a simple version
+//!   of [quadratic voting].
 //!
 //! # Backends
 //!
@@ -79,6 +80,7 @@
 //! [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 //! [`k256`]: https://docs.rs/k256/
 //! [docker-rng]: https://github.com/moby/moby/blob/master/pkg/namesgenerator/names-generator.go
+//! [quadratic voting]: https://en.wikipedia.org/wiki/Quadratic_voting
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Documentation settings.
@@ -92,6 +94,7 @@
     clippy::doc_markdown
 )]
 
+pub mod app;
 mod encryption;
 pub mod group;
 mod keys;
@@ -111,11 +114,18 @@ mod alloc {
     pub use std::{string::ToString, vec, vec::Vec};
 }
 
+mod sealed {
+    pub trait Sealed {}
+}
+
 pub use crate::{
-    encryption::{ChoiceVerificationError, Ciphertext, DiscreteLogTable, EncryptedChoice},
+    encryption::{Ciphertext, CiphertextWithValue, DiscreteLogTable},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
     proofs::{
         LogEqualityProof, PreparedRange, ProofOfPossession, RangeDecomposition, RangeProof,
-        RingProof, RingProofBuilder, VerificationError,
+        RingProof, RingProofBuilder, SumOfSquaresProof, VerificationError,
     },
 };
+
+#[cfg(doctest)]
+doc_comment::doctest!("../README.md");

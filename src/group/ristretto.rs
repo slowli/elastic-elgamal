@@ -118,7 +118,11 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{group::Curve25519Subgroup, DiscreteLogTable};
+    use crate::{
+        app::{ChoiceParams, EncryptedChoice},
+        group::Curve25519Subgroup,
+        DiscreteLogTable,
+    };
 
     type SecretKey = crate::SecretKey<Ristretto>;
     type Keypair = crate::Keypair<Ristretto>;
@@ -136,25 +140,28 @@ mod tests {
     #[test]
     fn encrypt_choice() {
         let mut rng = thread_rng();
-        let keypair = Keypair::generate(&mut rng);
-        let encrypted_choice = keypair.public().encrypt_choice(5, 3, &mut rng);
-        let variant_ciphertexts = keypair.public().verify_choice(&encrypted_choice).unwrap();
+        let (pk, sk) = Keypair::generate(&mut rng).into_tuple();
+        let choice_params = ChoiceParams::single(pk, 5);
+        let encrypted = EncryptedChoice::single(&choice_params, 3, &mut rng);
+        let choices = encrypted.verify(&choice_params).unwrap();
 
         let lookup_table = DiscreteLogTable::new(0..=1);
-        for (i, &variant) in variant_ciphertexts.iter().enumerate() {
-            let decryption = keypair.secret().decrypt(variant, &lookup_table);
+        for (i, &choice) in choices.iter().enumerate() {
+            let decryption = sk.decrypt(choice, &lookup_table);
             assert_eq!(decryption.unwrap(), (i == 3) as u64);
         }
     }
 
     #[test]
     fn edwards_and_ristretto_public_keys_differ() {
-        type EdKeypair = crate::Keypair<Curve25519Subgroup>;
+        type SubgroupSecretKey = crate::SecretKey<Curve25519Subgroup>;
+        type SubgroupKeypair = crate::Keypair<Curve25519Subgroup>;
 
         for _ in 0..1_000 {
             let secret_key = SecretKey::generate(&mut thread_rng());
             let keypair = Keypair::from(secret_key.clone());
-            let ed_keypair = EdKeypair::from(crate::SecretKey::<Curve25519Subgroup>(secret_key.0));
+            let secret_key = SubgroupSecretKey::new(*secret_key.expose_scalar());
+            let ed_keypair = SubgroupKeypair::from(secret_key);
             assert_ne!(keypair.public().as_bytes(), ed_keypair.public().as_bytes());
         }
     }

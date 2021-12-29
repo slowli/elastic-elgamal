@@ -59,7 +59,7 @@ impl<G: Group> Dealer<G> {
         let public_polynomial = self
             .polynomial
             .iter()
-            .map(|pair| pair.public().element)
+            .map(|pair| pair.public().as_element())
             .collect();
         (public_polynomial, &self.proof_of_possession)
     }
@@ -110,8 +110,8 @@ impl<G: Group> ActiveParticipant<G> {
         index: usize,
         secret_share: SecretKey<G>,
     ) -> Result<Self, Error> {
-        let valid_share =
-            G::mul_generator(&secret_share.0).ct_eq(&key_set.participant_keys[index].element);
+        let expected_element = key_set.participant_keys[index].as_element();
+        let valid_share = G::mul_generator(secret_share.expose_scalar()).ct_eq(&expected_element);
         if bool::from(valid_share) {
             Ok(Self {
                 key_set,
@@ -169,8 +169,8 @@ impl<G: Group> ActiveParticipant<G> {
     where
         R: CryptoRng + RngCore,
     {
-        let dh_element = ciphertext.random_element * &self.secret_share.0;
-        let our_public_key = self.key_set.participant_keys[self.index].element;
+        let dh_element = ciphertext.random_element * self.secret_share.expose_scalar();
+        let our_public_key = self.key_set.participant_keys[self.index].as_element();
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.key_set.commit(&mut transcript);
         transcript.append_u64(b"i", self.index as u64);
