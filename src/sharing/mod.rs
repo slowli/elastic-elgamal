@@ -507,7 +507,7 @@ impl<G: Group> PublicKeySet<G> {
             (key_share, dh_element),
             &mut transcript,
         )?;
-        Ok(DecryptionShare::new(dh_element))
+        Ok(DecryptionShare::from_element(dh_element))
     }
 }
 
