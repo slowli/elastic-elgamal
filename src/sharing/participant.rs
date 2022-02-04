@@ -193,6 +193,41 @@ impl<G: Group> ActiveParticipant<G> {
 /// The share is a single group element – the result of combining
 /// participant's secret scalar with the random element of the ciphertext (i.e.,
 /// the Diffie – Hellman construction). This element can retrieved using [`Self::as_element()`].
+///
+/// # Examples
+///
+/// [`DecryptionShare`] can be used either within the threshold encryption scheme provided by
+/// [`ActiveParticipant::decrypt_share()`], or independently (for example, if another approach
+/// to secret sharing is used). An example of standalone usage is outlined below:
+///
+/// ```
+/// # use elastic_elgamal::{group::Ristretto, sharing::{CandidateShare, DecryptionShare}, Keypair};
+/// # use merlin::Transcript;
+/// # use rand::thread_rng;
+/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// let mut rng = thread_rng();
+/// let keys = Keypair::<Ristretto>::generate(&mut rng);
+/// // Suppose the `keys` holder wants to prove decryption
+/// // of the following ciphertext:
+/// let ciphertext = keys.public().encrypt(42_u64, &mut rng);
+/// let (share, proof) = DecryptionShare::new(
+///     ciphertext,
+///     &keys,
+///     &mut Transcript::new(b"decryption_share"),
+///     &mut rng,
+/// );
+///
+/// // This proof can then be universally verified:
+/// let candidate_share = CandidateShare::from(share);
+/// let restored_share = candidate_share.verify(
+///     ciphertext,
+///     keys.public(),
+///     &proof,
+///     &mut Transcript::new(b"decryption_share"),
+/// )?;
+/// # Ok(())
+/// # }
+/// ```
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]
@@ -281,8 +316,16 @@ impl<G: Group> DecryptionShare<G> {
     }
 }
 
-/// Candidate for a [`DecryptionShare`] that is not yet verified using
-/// [`PublicKeySet::verify_share()`].
+/// Candidate for a [`DecryptionShare`] that is not yet verified. This presentation should be
+/// used for shares retrieved from an untrusted source.
+///
+/// A share can be verified using [`PublicKeySet::verify_share()`] or [`Self::verify()`].
+/// The second option is low-level and could be used with secret sharing schemes
+/// differing from Shamir's secret sharing implemented by [`PublicKeySet`].
+///
+/// # Examples
+///
+/// See [`DecryptionShare`] for an example of usage.
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(transparent, bound = ""))]
