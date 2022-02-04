@@ -18,6 +18,20 @@ use crate::{
 
 /// Ciphertext for ElGamal encryption.
 ///
+/// A ciphertext consists of 2 group elements: the random element `R` and a blinded encrypted
+/// value `B`. If the ciphertext encrypts integer value `v`, it holds that
+///
+/// ```text
+/// R = [r]G;
+/// B = [v]G + [r]K = [v]G + [k]R;
+/// ```
+///
+/// where:
+///
+/// - `G` is the conventional group generator
+/// - `r` is a random scalar selected by the encrypting party
+/// - `K` and `k` are the recipient's public and private keys, respectively.
+///
 /// Ciphertexts are partially homomorphic: they can be added together or multiplied by a scalar
 /// value.
 ///
@@ -118,6 +132,16 @@ impl<G: Group> Ciphertext<G> {
             random_element: G::identity(),
             blinded_element: G::mul_generator(&scalar),
         }
+    }
+
+    /// Returns a reference to the random element.
+    pub fn random_element(&self) -> &G::Element {
+        &self.random_element
+    }
+
+    /// Returns a reference to the blinded element.
+    pub fn blinded_element(&self) -> &G::Element {
+        &self.blinded_element
     }
 
     /// Serializes this ciphertext as two group elements (the random element,

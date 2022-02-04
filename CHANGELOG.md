@@ -16,6 +16,8 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 - Extend supported operations for `Ciphertext`s, e.g. negation. 
 
+- Expose ciphertext components via getters.
+
 ### Changed
 
 - Update `elliptic-curve` dependency.
