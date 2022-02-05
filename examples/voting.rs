@@ -18,8 +18,8 @@ use std::{error::Error as StdError, str::FromStr};
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
-    sharing::{ActiveParticipant, CandidateShare, Dealer, DecryptionShare, Params, PublicKeySet},
-    Ciphertext, DiscreteLogTable,
+    sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
+    CandidateDecryption, Ciphertext, DiscreteLogTable,
 };
 
 type K256 = Generic<k256::Secp256k1>;
@@ -146,7 +146,7 @@ impl Args {
                 .map(|(j, tallier)| (j, tallier.decrypt_share(option_totals, &mut rng)))
                 .map(|(j, (share, proof))| {
                     let share = share.to_bytes(); // Emulate transfer via network
-                    let candidate_share = CandidateShare::from_bytes(&share).unwrap();
+                    let candidate_share = CandidateDecryption::from_bytes(&share).unwrap();
                     let share_with_proof = serde_json::json!({
                         "share": &candidate_share,
                         "proof": &proof,
@@ -165,10 +165,10 @@ impl Args {
                 })
                 .collect();
 
-            let option_tally =
-                DecryptionShare::combine(key_set.params(), option_totals, decryption_shares)
-                    .unwrap();
-            let option_tally = lookup_table.get(&option_tally).unwrap();
+            let combined_decryption = key_set.params().combine_shares(decryption_shares).unwrap();
+            let option_tally = combined_decryption
+                .decrypt(option_totals, &lookup_table)
+                .unwrap();
             println!("Variant #{} decrypted tally: {}", i + 1, option_tally);
             assert_eq!(option_tally, expected);
             println!("The decrypted number is as expected!");

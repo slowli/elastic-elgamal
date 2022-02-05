@@ -95,6 +95,7 @@
 )]
 
 pub mod app;
+mod decryption;
 mod encryption;
 pub mod group;
 mod keys;
@@ -119,6 +120,7 @@ mod sealed {
 }
 
 pub use crate::{
+    decryption::{CandidateDecryption, VerifiableDecryption},
     encryption::{Ciphertext, CiphertextWithValue, DiscreteLogTable},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
     proofs::{

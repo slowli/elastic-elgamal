@@ -16,6 +16,8 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 - Extend supported operations for `Ciphertext`s, e.g. negation. 
 
+- Expose ciphertext components via getters.
+
 ### Changed
 
 - Update `elliptic-curve` dependency.
@@ -25,6 +27,10 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 - Move `EncryptedChoice` to a separate `app` module. Introduce `EncryptedChoiceParams`
   to encapsulate all parameters related to `EncryptedChoice` creation / verification.
+
+- Generalize `DecryptionShare`s as `VerifiableDecryption`, which can be applied not only
+  with threshold encryption with Shamir's secret sharing, but in other sharing schemes
+  or independently.
 
 ### Fixed
 

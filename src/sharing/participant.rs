@@ -11,14 +11,12 @@ use subtle::ConstantTimeEq;
 
 use core::iter;
 
-#[cfg(feature = "serde")]
-use crate::serde::ElementHelper;
 use crate::{
-    alloc::{vec, Vec},
+    alloc::Vec,
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession},
-    sharing::{lagrange_coefficients, Error, Params, PublicKeySet},
-    Ciphertext, Keypair, PublicKey, SecretKey,
+    sharing::{Error, Params, PublicKeySet},
+    Ciphertext, Keypair, PublicKey, SecretKey, VerifiableDecryption,
 };
 
 /// Dealer in a [Feldman verifiable secret sharing][feldman-vss] scheme.
@@ -88,7 +86,7 @@ impl<G: Group> Dealer<G> {
 
 /// Personalized state of a participant of a threshold ElGamal encryption scheme
 /// once the participant receives the secret share from the [`Dealer`].
-/// At this point, the participant can produce [`DecryptionShare`]s.
+/// At this point, the participant can produce [`VerifiableDecryption`]s.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]
@@ -159,13 +157,13 @@ impl<G: Group> ActiveParticipant<G> {
         )
     }
 
-    /// Creates a [`DecryptionShare`] for the specified `ciphertext` together with a proof
+    /// Creates a [`VerifiableDecryption`] for the specified `ciphertext` together with a proof
     /// of its validity. `rng` is used to generate the proof.
     pub fn decrypt_share<R>(
         &self,
         ciphertext: Ciphertext<G>,
         rng: &mut R,
-    ) -> (DecryptionShare<G>, LogEqualityProof<G>)
+    ) -> (VerifiableDecryption<G>, LogEqualityProof<G>)
     where
         R: CryptoRng + RngCore,
     {
@@ -182,90 +180,7 @@ impl<G: Group> ActiveParticipant<G> {
             &mut transcript,
             rng,
         );
-        (DecryptionShare { dh_element }, proof)
-    }
-}
-
-/// Decryption share for a certain [`Ciphertext`] in a threshold ElGamal encryption scheme.
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(bound = ""))]
-pub struct DecryptionShare<G: Group> {
-    #[cfg_attr(feature = "serde", serde(with = "ElementHelper::<G>"))]
-    dh_element: G::Element,
-}
-
-impl<G: Group> DecryptionShare<G> {
-    pub(super) fn new(dh_element: G::Element) -> Self {
-        Self { dh_element }
-    }
-
-    /// Combines shares decrypting the specified `ciphertext`. The shares must be provided
-    /// together with the 0-based indexes of the participants they are coming from.
-    ///
-    /// Returns the decrypted value, or `None` if the number of shares is insufficient.
-    ///
-    /// # Panics
-    ///
-    /// Panics if any index in `shares` exceeds the maximum participant's index as per `params`.
-    pub fn combine(
-        params: Params,
-        ciphertext: Ciphertext<G>,
-        shares: impl IntoIterator<Item = (usize, Self)>,
-    ) -> Option<G::Element> {
-        let (indexes, shares): (Vec<_>, Vec<_>) = shares
-            .into_iter()
-            .take(params.threshold)
-            .map(|(index, share)| (index, share.dh_element))
-            .unzip();
-        if shares.len() < params.threshold {
-            return None;
-        }
-        assert!(
-            indexes.iter().all(|&index| index < params.shares),
-            "Invalid share indexes {:?}; expected values in 0..{}",
-            indexes.iter().copied(),
-            params.shares
-        );
-
-        let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
-        let restored_value = G::vartime_multi_mul(&denominators, shares);
-        let dh_element = restored_value * &scale;
-        Some(ciphertext.blinded_element - dh_element)
-    }
-
-    /// Serializes this share into bytes.
-    pub fn to_bytes(self) -> Vec<u8> {
-        let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
-        G::serialize_element(&self.dh_element, &mut bytes);
-        bytes
-    }
-}
-
-/// Candidate for a [`DecryptionShare`] that is not yet verified using
-/// [`PublicKeySet::verify_share()`].
-#[derive(Debug, Clone, Copy)]
-#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "serde", serde(transparent, bound = ""))]
-pub struct CandidateShare<G: Group> {
-    inner: DecryptionShare<G>,
-}
-
-impl<G: Group> CandidateShare<G> {
-    /// Deserializes a share from `bytes`. Returns `None` if the share is malformed.
-    pub fn from_bytes(bytes: &[u8]) -> Option<Self> {
-        if bytes.len() == G::ELEMENT_SIZE {
-            let dh_element = G::deserialize_element(bytes)?;
-            Some(Self {
-                inner: DecryptionShare { dh_element },
-            })
-        } else {
-            None
-        }
-    }
-
-    pub(super) fn dh_element(self) -> G::Element {
-        self.inner.dh_element
+        (VerifiableDecryption::from_element(dh_element), proof)
     }
 }
 
@@ -276,12 +191,6 @@ mod tests {
 
     use super::*;
     use crate::group::Ristretto;
-
-    impl<G: Group> DecryptionShare<G> {
-        fn to_candidate(self) -> CandidateShare<G> {
-            CandidateShare { inner: self }
-        }
-    }
 
     #[test]
     fn shared_2_of_3_key() {
@@ -315,19 +224,19 @@ mod tests {
         let ciphertext = key_set.shared_key.encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         key_set
-            .verify_share(alice_share.to_candidate(), ciphertext, 0, &proof)
+            .verify_share(alice_share.into(), ciphertext, 0, &proof)
             .unwrap();
 
         let (bob_share, proof) = bob.decrypt_share(ciphertext, &mut rng);
         key_set
-            .verify_share(bob_share.to_candidate(), ciphertext, 1, &proof)
+            .verify_share(bob_share.into(), ciphertext, 1, &proof)
             .unwrap();
 
         // We need to find `a0` from the following equations:
         // a0 +   a1 = alice_share.dh_element;
         // a0 + 2*a1 = bob_share.dh_element;
         let composite_dh_element =
-            alice_share.dh_element * Scalar25519::from(2_u64) - bob_share.dh_element;
+            *alice_share.as_element() * Scalar25519::from(2_u64) - *bob_share.as_element();
         let message = Ristretto::mul_generator(&Scalar25519::from(15_u64));
         assert_eq!(composite_dh_element, ciphertext.blinded_element - message);
     }

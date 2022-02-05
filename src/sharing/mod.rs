@@ -63,7 +63,9 @@
 //! Threshold encryption scheme requiring 2 of 3 participants.
 //!
 //! ```
-//! # use elastic_elgamal::{group::Ristretto, sharing::*, Ciphertext, DiscreteLogTable};
+//! # use elastic_elgamal::{
+//! #     group::Ristretto, sharing::*, CandidateDecryption, Ciphertext, DiscreteLogTable,
+//! # };
 //! # use rand::thread_rng;
 //! # use std::error::Error as StdError;
 //! # fn main() -> Result<(), Box<dyn StdError>> {
@@ -96,16 +98,16 @@
 //! let dec_shares = shares_with_proofs
 //!     .enumerate()
 //!     .map(|(i, (share, proof))| {
-//!         let share = CandidateShare::from_bytes(&share.to_bytes()).unwrap();
+//!         let share = CandidateDecryption::from_bytes(&share.to_bytes()).unwrap();
 //!         key_set.verify_share(share, enc, i, &proof).unwrap()
 //!     });
 //!
-//! // Reconstruct decryption from the shares.
-//! let dec = DecryptionShare::combine(params, enc, dec_shares.enumerate())
-//!     .unwrap();
-//! // Use lookup table to map decryption back to scalar.
+//! // Combine decryption shares.
+//! let combined = params.combine_shares(dec_shares.enumerate()).unwrap();
+//! // Use a lookup table to decrypt back to scalar.
 //! let lookup_table = DiscreteLogTable::<Ristretto>::new(0..10);
-//! assert_eq!(lookup_table.get(&dec), Some(encrypted_value));
+//! let dec = combined.decrypt(enc, &lookup_table);
+//! assert_eq!(dec, Some(encrypted_value));
 //! # Ok(())
 //! # }
 //! ```
@@ -123,11 +125,11 @@ use crate::{
     alloc::Vec,
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup, VerificationError},
-    Ciphertext, PublicKey,
+    CandidateDecryption, Ciphertext, PublicKey, VerifiableDecryption,
 };
 
 mod participant;
-pub use self::participant::{ActiveParticipant, CandidateShare, Dealer, DecryptionShare};
+pub use self::participant::{ActiveParticipant, Dealer};
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
 /// at the given points. The indexes are zero-based, hence points are determined as
@@ -248,6 +250,39 @@ impl Params {
         assert!(shares > 0);
         assert!(threshold > 0 && threshold <= shares);
         Self { shares, threshold }
+    }
+
+    /// Combines shares decrypting the specified `ciphertext`. The shares must be provided
+    /// together with the 0-based indexes of the participants they are coming from.
+    ///
+    /// Returns the combined decryption, or `None` if the number of shares is insufficient.
+    ///
+    /// # Panics
+    ///
+    /// Panics if any index in `shares` exceeds the maximum participant's index as per `params`.
+    pub fn combine_shares<G: Group>(
+        self,
+        shares: impl IntoIterator<Item = (usize, VerifiableDecryption<G>)>,
+    ) -> Option<VerifiableDecryption<G>> {
+        let (indexes, shares): (Vec<_>, Vec<_>) = shares
+            .into_iter()
+            .take(self.threshold)
+            .map(|(index, share)| (index, *share.as_element()))
+            .unzip();
+        if shares.len() < self.threshold {
+            return None;
+        }
+        assert!(
+            indexes.iter().all(|&index| index < self.shares),
+            "Invalid share indexes {:?}; expected values in 0..{}",
+            indexes.iter().copied(),
+            self.shares
+        );
+
+        let (denominators, scale) = lagrange_coefficients::<G>(&indexes);
+        let restored_value = G::vartime_multi_mul(&denominators, shares);
+        let dh_element = restored_value * &scale;
+        Some(VerifiableDecryption::from_element(dh_element))
     }
 }
 
@@ -491,11 +526,11 @@ impl<G: Group> PublicKeySet<G> {
     /// Returns an error if the `proof` does not verify.
     pub fn verify_share(
         &self,
-        candidate_share: CandidateShare<G>,
+        candidate_share: CandidateDecryption<G>,
         ciphertext: Ciphertext<G>,
         index: usize,
         proof: &LogEqualityProof<G>,
-    ) -> Result<DecryptionShare<G>, VerificationError> {
+    ) -> Result<VerifiableDecryption<G>, VerificationError> {
         let key_share = self.participant_keys[index].as_element();
         let dh_element = candidate_share.dh_element();
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
@@ -507,7 +542,7 @@ impl<G: Group> PublicKeySet<G> {
             (key_share, dh_element),
             &mut transcript,
         )?;
-        Ok(DecryptionShare::new(dh_element))
+        Ok(VerifiableDecryption::from_element(dh_element))
     }
 }
 
