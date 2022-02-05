@@ -9,7 +9,8 @@ use crate::assert_ct_eq;
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice},
     group::Group,
-    Ciphertext, CiphertextWithValue, Keypair, LogEqualityProof, RingProof, SumOfSquaresProof,
+    CandidateDecryption, Ciphertext, CiphertextWithValue, Keypair, LogEqualityProof, RingProof,
+    SumOfSquaresProof, VerifiableDecryption, VerificationError,
 };
 
 fn test_encryption_roundtrip<G: Group>() {
@@ -238,6 +239,68 @@ fn test_sum_of_squares_proof<G: Group>(squares_count: usize) {
         .is_err());
 }
 
+fn test_verifiable_decryption<G: Group>() {
+    let mut rng = thread_rng();
+    let (bogus_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+
+    for _ in 0..20 {
+        let keypair = Keypair::<G>::generate(&mut rng);
+        let value = rng.gen_range(0_u64..100);
+        let ciphertext = keypair.public().encrypt(value, &mut rng);
+
+        let (decryption, proof) = VerifiableDecryption::new(
+            ciphertext,
+            &keypair,
+            &mut Transcript::new(b"decryption_test"),
+            &mut rng,
+        );
+
+        let candidate_decryption = CandidateDecryption::from(decryption);
+        candidate_decryption
+            .verify(
+                ciphertext,
+                keypair.public(),
+                &proof,
+                &mut Transcript::new(b"decryption_test"),
+            )
+            .unwrap();
+
+        let err = candidate_decryption
+            .verify(
+                ciphertext,
+                &bogus_key,
+                &proof,
+                &mut Transcript::new(b"decryption_test"),
+            )
+            .map(drop)
+            .unwrap_err();
+        assert!(matches!(err, VerificationError::ChallengeMismatch));
+
+        let bogus_ciphertext = ciphertext + keypair.public().encrypt(0_u64, &mut rng);
+        let err = candidate_decryption
+            .verify(
+                bogus_ciphertext,
+                keypair.public(),
+                &proof,
+                &mut Transcript::new(b"decryption_test"),
+            )
+            .map(drop)
+            .unwrap_err();
+        assert!(matches!(err, VerificationError::ChallengeMismatch));
+
+        let err = candidate_decryption
+            .verify(
+                ciphertext,
+                keypair.public(),
+                &proof,
+                &mut Transcript::new(b"other"),
+            )
+            .map(drop)
+            .unwrap_err();
+        assert!(matches!(err, VerificationError::ChallengeMismatch));
+    }
+}
+
 mod curve25519 {
     use super::*;
     use elastic_elgamal::group::Curve25519Subgroup;
@@ -292,6 +355,11 @@ mod curve25519 {
             );
             test_sum_of_squares_proof::<Curve25519Subgroup>(squares_count);
         }
+    }
+
+    #[test]
+    fn verifiable_decryption() {
+        test_verifiable_decryption::<Curve25519Subgroup>();
     }
 }
 
@@ -349,6 +417,11 @@ mod ristretto {
             );
             test_sum_of_squares_proof::<Ristretto>(squares_count);
         }
+    }
+
+    #[test]
+    fn verifiable_decryption() {
+        test_verifiable_decryption::<Ristretto>();
     }
 }
 
@@ -408,5 +481,10 @@ mod k256 {
             );
             test_sum_of_squares_proof::<K256>(squares_count);
         }
+    }
+
+    #[test]
+    fn verifiable_decryption() {
+        test_verifiable_decryption::<K256>();
     }
 }
