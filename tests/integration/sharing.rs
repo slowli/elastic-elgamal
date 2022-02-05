@@ -10,8 +10,8 @@ use crate::assert_ct_eq;
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::Group,
-    sharing::{ActiveParticipant, Dealer, DecryptionShare, Params, PublicKeySet},
-    Ciphertext, DiscreteLogTable,
+    sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
+    Ciphertext, DiscreteLogTable, VerifiableDecryption,
 };
 
 struct Rig<G: Group> {
@@ -42,7 +42,7 @@ impl<G: Group> Rig<G> {
         &self,
         ciphertext: Ciphertext<G>,
         rng: &mut (impl RngCore + CryptoRng),
-    ) -> Vec<DecryptionShare<G>> {
+    ) -> Vec<VerifiableDecryption<G>> {
         self.participants
             .iter()
             .map(|participant| participant.decrypt_share(ciphertext, rng).0)
@@ -57,6 +57,7 @@ impl<G: Group> Rig<G> {
     ) {
         let max_votes = expected_totals.iter().copied().max().unwrap();
         let lookup_table = DiscreteLogTable::<G>::new(0..=max_votes);
+        let params = self.key_set.params();
 
         for (&option_totals, &expected) in encrypted_totals.iter().zip(expected_totals) {
             // Now, each counter produces a decryption share. We take 8 shares randomly
@@ -67,10 +68,10 @@ impl<G: Group> Rig<G> {
                 .enumerate()
                 .choose_multiple(rng, 8);
 
-            let option_totals =
-                DecryptionShare::combine(self.key_set.params(), option_totals, decryption_shares)
-                    .unwrap();
-            let option_totals = lookup_table.get(&option_totals).unwrap();
+            let combined_decryption = params.combine_shares(decryption_shares).unwrap();
+            let option_totals = combined_decryption
+                .decrypt(option_totals, &lookup_table)
+                .unwrap();
             assert_eq!(option_totals, expected);
         }
     }
@@ -97,9 +98,10 @@ fn tiny_fuzz<G: Group>(params: Params) {
                 .copied()
                 .enumerate()
                 .choose_multiple(&mut rng, params.threshold);
-            let decrypted = DecryptionShare::combine(params, encrypted, chosen_shares);
+            let combined = params.combine_shares(chosen_shares).unwrap();
+            let decrypted = combined.decrypt_to_element(encrypted);
 
-            assert_ct_eq(&decrypted.unwrap(), &G::vartime_mul_generator(&value));
+            assert_ct_eq(&decrypted, &G::vartime_mul_generator(&value));
         }
     }
 }
