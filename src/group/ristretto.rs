@@ -148,7 +148,7 @@ mod tests {
         let lookup_table = DiscreteLogTable::new(0..=1);
         for (i, &choice) in choices.iter().enumerate() {
             let decryption = sk.decrypt(choice, &lookup_table);
-            assert_eq!(decryption.unwrap(), (i == 3) as u64);
+            assert_eq!(decryption.unwrap(), u64::from(i == 3));
         }
     }
 

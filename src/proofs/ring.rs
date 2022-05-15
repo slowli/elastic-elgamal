@@ -653,7 +653,7 @@ mod tests {
                 .chunks_mut(2)
                 .enumerate()
                 .map(|(ring_index, ring_responses)| {
-                    let val = rng.gen_bool(0.5) as u32;
+                    let val: u32 = rng.gen_range(0..=1);
                     let element_val = Ristretto::mul_generator(&Scalar25519::from(val));
                     let ext_ciphertext =
                         ExtendedCiphertext::new(element_val, keypair.public(), &mut rng);
