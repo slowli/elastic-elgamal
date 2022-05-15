@@ -1,6 +1,5 @@
 //! `Ciphertext` and closely related types.
 
-use hashbrown::HashMap;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -11,7 +10,7 @@ use core::{fmt, marker::PhantomData, ops};
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
-    alloc::{vec, Vec},
+    alloc::{vec, HashMap, Vec},
     group::{Group, ScalarOps},
     PublicKey, SecretKey,
 };

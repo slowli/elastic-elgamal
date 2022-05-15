@@ -77,7 +77,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Clippy: no features"
-          args: --lib --no-default-features -- -D warnings
+          args: --lib --no-default-features --features hashbrown -- -D warnings
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -130,7 +130,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --lib --no-default-features --target thumbv7m-none-eabi -Z avoid-dev-deps
+          args: --lib --no-default-features --features hashbrown --target thumbv7m-none-eabi -Z avoid-dev-deps
 
   document:
     if: github.event_name == 'push'
