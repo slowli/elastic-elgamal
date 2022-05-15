@@ -305,7 +305,6 @@ mod tests {
     use super::*;
     use crate::{group::Ristretto, Keypair};
 
-    use core::array;
     use rand::thread_rng;
 
     #[test]
@@ -316,7 +315,7 @@ mod tests {
         let sq_ciphertext = CiphertextWithValue::new(9_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(
-            array::IntoIter::new([&ciphertext]),
+            IntoIterator::into_iter([&ciphertext]),
             &sq_ciphertext,
             &receiver,
             &mut Transcript::new(b"test"),
@@ -327,7 +326,7 @@ mod tests {
         let sq_ciphertext = sq_ciphertext.into();
         proof
             .verify(
-                array::IntoIter::new([&ciphertext]),
+                IntoIterator::into_iter([&ciphertext]),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -337,7 +336,7 @@ mod tests {
         let other_ciphertext = receiver.encrypt(8_u64, &mut rng);
         let err = proof
             .verify(
-                array::IntoIter::new([&ciphertext]),
+                IntoIterator::into_iter([&ciphertext]),
                 &other_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -347,7 +346,7 @@ mod tests {
 
         let err = proof
             .verify(
-                array::IntoIter::new([&other_ciphertext]),
+                IntoIterator::into_iter([&other_ciphertext]),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -357,7 +356,7 @@ mod tests {
 
         let err = proof
             .verify(
-                array::IntoIter::new([&ciphertext]),
+                IntoIterator::into_iter([&ciphertext]),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"other_transcript"),
@@ -374,7 +373,7 @@ mod tests {
         let sq_ciphertext = CiphertextWithValue::new(10_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(
-            array::IntoIter::new([&ciphertext]),
+            IntoIterator::into_iter([&ciphertext]),
             &sq_ciphertext,
             &receiver,
             &mut Transcript::new(b"test"),
@@ -385,7 +384,7 @@ mod tests {
         let sq_ciphertext = sq_ciphertext.into();
         let err = proof
             .verify(
-                array::IntoIter::new([&ciphertext]),
+                IntoIterator::into_iter([&ciphertext]),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -398,7 +397,7 @@ mod tests {
     fn sum_of_squares_proof_with_several_squares() {
         let mut rng = thread_rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
-        let ciphertexts: Vec<_> = array::IntoIter::new([3_u64, 1, 4, 1])
+        let ciphertexts: Vec<_> = IntoIterator::into_iter([3_u64, 1, 4, 1])
             .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng).generalize())
             .collect();
         let sq_ciphertext = CiphertextWithValue::new(27_u64, &receiver, &mut rng).generalize();

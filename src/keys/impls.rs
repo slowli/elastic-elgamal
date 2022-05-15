@@ -78,7 +78,7 @@ impl<G: Group> PublicKey<G> {
         let admissible_values = [G::identity(), G::generator()];
         let mut ring_responses = vec![G::Scalar::default(); 2];
         let mut builder = RingProofBuilder::new(self, 1, &mut ring_responses, &mut transcript, rng);
-        let ciphertext = builder.add_value(&admissible_values, value as usize);
+        let ciphertext = builder.add_value(&admissible_values, usize::from(value));
         let proof = RingProof::new(builder.build(), ring_responses);
         (ciphertext.inner, proof)
     }

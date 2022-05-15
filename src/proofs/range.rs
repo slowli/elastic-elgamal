@@ -1,6 +1,5 @@
 //! Range proofs for ElGamal ciphertexts.
 
-use hashbrown::HashMap;
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
@@ -11,7 +10,7 @@ use zeroize::Zeroizing;
 use core::{convert::TryFrom, fmt};
 
 use crate::{
-    alloc::{vec, ToString, Vec},
+    alloc::{vec, HashMap, ToString, Vec},
     encryption::{CiphertextWithValue, ExtendedCiphertext},
     group::Group,
     proofs::{RingProof, RingProofBuilder, TranscriptForGroup},

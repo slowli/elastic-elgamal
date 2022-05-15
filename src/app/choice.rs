@@ -337,10 +337,10 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
             rng,
         );
 
-        let sum = choices.iter().map(|&flag| flag as u64).sum::<u64>();
+        let sum = choices.iter().map(|&flag| u64::from(flag)).sum::<u64>();
         let choices: Vec<_> = choices
             .iter()
-            .map(|&flag| proof_builder.add_value(&admissible_values, flag as usize))
+            .map(|&flag| proof_builder.add_value(&admissible_values, usize::from(flag)))
             .collect();
         let range_proof = RingProof::new(proof_builder.build(), ring_responses);
 

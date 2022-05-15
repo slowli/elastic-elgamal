@@ -32,6 +32,9 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
   with threshold encryption with Shamir's secret sharing, but in other sharing schemes
   or independently.
 
+- Make `hashbrown` an optional dependency, which is only necessary if the std library
+  is not available.
+
 ### Fixed
 
 - Remove unused `byteorder` and `smallvec` dependencies.

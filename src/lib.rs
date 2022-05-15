@@ -45,7 +45,15 @@
 //!
 //! *(on by default)*
 //!
-//! Enables support of types from `std`, such as the `Error` trait.
+//! Enables support of types from `std`, such as the `Error` trait and the `HashMap` collection.
+//!
+//! ## `hashbrown`
+//!
+//! *(off by default)*
+//!
+//! Imports hash maps and sets from the [eponymous crate][`hashbrown`]
+//! instead of using ones from the Rust std library. This feature is necessary
+//! if the `std` feature is disabled.
 //!
 //! ## `serde`
 //!
@@ -79,6 +87,7 @@
 //! [`Generic`]: crate::group::Generic
 //! [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 //! [`k256`]: https://docs.rs/k256/
+//! [`hashbrown`]: https://docs.rs/hashbrown/
 //! [docker-rng]: https://github.com/moby/moby/blob/master/pkg/namesgenerator/names-generator.go
 //! [quadratic voting]: https://en.wikipedia.org/wiki/Quadratic_voting
 
@@ -113,6 +122,17 @@ mod alloc {
     pub use alloc::{string::ToString, vec, vec::Vec};
     #[cfg(feature = "std")]
     pub use std::{string::ToString, vec, vec::Vec};
+
+    #[cfg(all(not(feature = "std"), not(feature = "hashbrown")))]
+    compile_error!(
+        "One of `std` or `hashbrown` features must be enabled in order \
+         to get a hash map implementation"
+    );
+
+    #[cfg(feature = "hashbrown")]
+    pub use hashbrown::HashMap;
+    #[cfg(not(feature = "hashbrown"))]
+    pub use std::collections::HashMap;
 }
 
 mod sealed {
