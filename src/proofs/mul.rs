@@ -73,7 +73,7 @@ use crate::{
 ///   partial ciphertext in the same way as above.
 /// - Commitments `E_rz` and `E_z` sum over `[e_x]R_x` and `[e_x]X` for all ciphertexts,
 ///   respectively.
-/// - Response `s_z` is similarly substitutes `x * r_x` with the corresponding sum.
+/// - Response `s_z` similarly substitutes `x * r_x` with the corresponding sum.
 ///
 /// A non-interactive version of the proof is obtained by applying [Fiat–Shamir transform][fst].
 /// As with [`LogEqualityProof`], it is more efficient to represent a proof as the challenge

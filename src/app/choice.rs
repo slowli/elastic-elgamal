@@ -387,6 +387,12 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
             .map_err(ChoiceVerificationError::Range)
     }
 
+    /// Returns the number of encrypted choices. This value is equal to
+    /// [`ChoiceParams::options_count()`] with which the encryption was created.
+    pub fn len(&self) -> usize {
+        self.choices.len()
+    }
+
     /// Returns ciphertexts for all options **without** checking the validity of this choice.
     pub fn choices_unchecked(&self) -> &[Ciphertext<G>] {
         &self.choices
