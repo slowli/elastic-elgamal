@@ -73,7 +73,7 @@ use crate::{
 ///   partial ciphertext in the same way as above.
 /// - Commitments `E_rz` and `E_z` sum over `[e_x]R_x` and `[e_x]X` for all ciphertexts,
 ///   respectively.
-/// - Response `s_z` is similarly substitutes `x * r_x` with the corresponding sum.
+/// - Response `s_z` similarly substitutes `x * r_x` with the corresponding sum.
 ///
 /// A non-interactive version of the proof is obtained by applying [Fiat–Shamir transform][fst].
 /// As with [`LogEqualityProof`], it is more efficient to represent a proof as the challenge
@@ -315,7 +315,7 @@ mod tests {
         let sq_ciphertext = CiphertextWithValue::new(9_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(
-            IntoIterator::into_iter([&ciphertext]),
+            [&ciphertext].into_iter(),
             &sq_ciphertext,
             &receiver,
             &mut Transcript::new(b"test"),
@@ -326,7 +326,7 @@ mod tests {
         let sq_ciphertext = sq_ciphertext.into();
         proof
             .verify(
-                IntoIterator::into_iter([&ciphertext]),
+                [&ciphertext].into_iter(),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -336,7 +336,7 @@ mod tests {
         let other_ciphertext = receiver.encrypt(8_u64, &mut rng);
         let err = proof
             .verify(
-                IntoIterator::into_iter([&ciphertext]),
+                [&ciphertext].into_iter(),
                 &other_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -346,7 +346,7 @@ mod tests {
 
         let err = proof
             .verify(
-                IntoIterator::into_iter([&other_ciphertext]),
+                [&other_ciphertext].into_iter(),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -356,7 +356,7 @@ mod tests {
 
         let err = proof
             .verify(
-                IntoIterator::into_iter([&ciphertext]),
+                [&ciphertext].into_iter(),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"other_transcript"),
@@ -373,7 +373,7 @@ mod tests {
         let sq_ciphertext = CiphertextWithValue::new(10_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(
-            IntoIterator::into_iter([&ciphertext]),
+            [&ciphertext].into_iter(),
             &sq_ciphertext,
             &receiver,
             &mut Transcript::new(b"test"),
@@ -384,7 +384,7 @@ mod tests {
         let sq_ciphertext = sq_ciphertext.into();
         let err = proof
             .verify(
-                IntoIterator::into_iter([&ciphertext]),
+                [&ciphertext].into_iter(),
                 &sq_ciphertext,
                 &receiver,
                 &mut Transcript::new(b"test"),
@@ -397,9 +397,8 @@ mod tests {
     fn sum_of_squares_proof_with_several_squares() {
         let mut rng = thread_rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
-        let ciphertexts: Vec<_> = IntoIterator::into_iter([3_u64, 1, 4, 1])
-            .map(|x| CiphertextWithValue::new(x, &receiver, &mut rng).generalize())
-            .collect();
+        let ciphertexts =
+            [3_u64, 1, 4, 1].map(|x| CiphertextWithValue::new(x, &receiver, &mut rng).generalize());
         let sq_ciphertext = CiphertextWithValue::new(27_u64, &receiver, &mut rng).generalize();
 
         let proof = SumOfSquaresProof::new(

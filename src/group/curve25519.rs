@@ -18,7 +18,7 @@ use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 /// a laptop).
 ///
 /// Prefer using [`Ristretto`] if compatibility with other Curve25519 applications is not a concern.
-/// (If it *is* a concern, beware of [pitfalls]!)
+/// (If it *is* a concern, beware of [cofactor pitfalls]!)
 ///
 /// [`Ristretto`]: crate::group::Ristretto
 /// [pitfalls]: https://ristretto.group/why_ristretto.html#pitfalls-of-a-cofactor

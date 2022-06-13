@@ -103,12 +103,16 @@ impl<G: Group> ActiveParticipant<G> {
     ///
     /// Returns an error if `secret_share` does not correspond to the participant's public key share
     /// in `key_set`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `index` is greater or equal than the number of participants in `key_set`.
     pub fn new(
         key_set: PublicKeySet<G>,
         index: usize,
         secret_share: SecretKey<G>,
     ) -> Result<Self, Error> {
-        let expected_element = key_set.participant_keys[index].as_element();
+        let expected_element = key_set.participant_keys()[index].as_element();
         let valid_share = G::mul_generator(secret_share.expose_scalar()).ct_eq(&expected_element);
         if bool::from(valid_share) {
             Ok(Self {
@@ -140,7 +144,7 @@ impl<G: Group> ActiveParticipant<G> {
 
     /// Returns share of the public key for this participant.
     pub fn public_key_share(&self) -> &PublicKey<G> {
-        &self.key_set.participant_keys[self.index]
+        &self.key_set.participant_keys()[self.index]
     }
 
     /// Generates a [`ProofOfPossession`] of the participant's
@@ -168,7 +172,7 @@ impl<G: Group> ActiveParticipant<G> {
         R: CryptoRng + RngCore,
     {
         let dh_element = ciphertext.random_element * self.secret_share.expose_scalar();
-        let our_public_key = self.key_set.participant_keys[self.index].as_element();
+        let our_public_key = self.public_key_share().as_element();
         let mut transcript = Transcript::new(b"elgamal_decryption_share");
         self.key_set.commit(&mut transcript);
         transcript.append_u64(b"i", self.index as u64);
@@ -221,7 +225,7 @@ mod tests {
             .verify_participant(1, &alice.proof_of_possession(&mut rng))
             .is_err());
 
-        let ciphertext = key_set.shared_key.encrypt(15_u64, &mut rng);
+        let ciphertext = key_set.shared_key().encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         key_set
             .verify_share(alice_share.into(), ciphertext, 0, &proof)
