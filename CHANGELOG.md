@@ -5,6 +5,8 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## 0.2.1 - 2022-07-04
+
 ### Fixed
 
 - Fix `serde` feature. The `serde` dependency requires the `alloc` feature enabled,

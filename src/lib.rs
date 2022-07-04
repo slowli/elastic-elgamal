@@ -93,7 +93,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Documentation settings.
-#![doc(html_root_url = "https://docs.rs/elastic-elgamal/0.2.0")]
+#![doc(html_root_url = "https://docs.rs/elastic-elgamal/0.2.1")]
 // Linter settings.
 #![warn(missing_debug_implementations, missing_docs, bare_trait_objects)]
 #![warn(clippy::all, clippy::pedantic)]
