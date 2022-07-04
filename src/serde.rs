@@ -368,7 +368,7 @@ mod tests {
     #[test]
     fn public_key_deserialization_of_non_element() {
         let err = serde_json::from_str::<PublicKey<Ristretto>>(
-            "\"tNDkeYUVQWgh34d-RqaElOk7yFB8d2qCh5f4Vi2euT1\"",
+            "\"tNDkeYUVQWgh34d-RqaElOk7yFB8d2qCh5f4Vi2euT0\"",
         )
         .unwrap_err();
         let err_string = err.to_string();
@@ -392,10 +392,10 @@ mod tests {
 
     #[test]
     fn secret_key_deserialization_of_invalid_scalar() {
-        // Last `__` chars set the upper byte of the scalar bytes to 0xff, which is invalid
+        // Last `_8` chars set the upper byte of the scalar bytes to 0xff, which is invalid
         // (all scalars are less than 2^253).
         let err = serde_json::from_str::<SecretKey<Ristretto>>(
-            "\"nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__\"",
+            "\"nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM_8\"",
         )
         .unwrap_err();
         let err_string = err.to_string();
@@ -453,7 +453,7 @@ mod tests {
 
         json.as_object_mut().unwrap().insert(
             "scalar".into(),
-            "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__".into(),
+            "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM_8".into(),
         );
         let err = serde_json::from_value::<TestObject<Ristretto>>(json).unwrap_err();
         let err_string = err.to_string();
@@ -482,7 +482,7 @@ mod tests {
 
         json.as_object_mut().unwrap().insert(
             "element".into(),
-            "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM__".into(),
+            "nN3xf7lSOX0_zs6QPBwWHYi0Dkx2Ln_z1MPwnbzaM_8".into(),
         );
         let err = serde_json::from_value::<TestObject<Ristretto>>(json).unwrap_err();
         let err_string = err.to_string();
