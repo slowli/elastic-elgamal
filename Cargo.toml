@@ -1,6 +1,6 @@
 [package]
 name = "elastic-elgamal"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Alex Ostrovski <ostrovski.alex@gmail.com>"]
 edition = "2021"
 rust-version = "1.57"
