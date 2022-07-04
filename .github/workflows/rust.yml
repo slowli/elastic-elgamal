@@ -72,12 +72,18 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Clippy: all features"
           args: --workspace --all-features --all-targets -- -D warnings
-      - name: Clippy (no features)
+      - name: Clippy (features=hashbrown)
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: no features"
+          name: "Clippy: features=hashbrown"
           args: --lib --no-default-features --features hashbrown -- -D warnings
+      - name: Clippy (features=hashbrown,serde)
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: "Clippy: features=hashbrown,serde"
+          args: --lib --no-default-features --features hashbrown,serde -- -D warnings
 
       - name: Run tests
         uses: actions-rs/cargo@v1
