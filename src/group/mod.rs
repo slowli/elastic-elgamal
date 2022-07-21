@@ -20,10 +20,15 @@ use zeroize::Zeroize;
 
 use core::{fmt, ops, str};
 
+#[cfg(feature = "curve25519-dalek")]
 mod curve25519;
 mod generic;
+#[cfg(feature = "curve25519-dalek")]
 mod ristretto;
-pub use self::{curve25519::Curve25519Subgroup, generic::Generic, ristretto::Ristretto};
+
+pub use self::generic::Generic;
+#[cfg(feature = "curve25519-dalek")]
+pub use self::{curve25519::Curve25519Subgroup, ristretto::Ristretto};
 
 /// Provides an arbitrary number of random bytes.
 ///

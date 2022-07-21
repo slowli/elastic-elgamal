@@ -55,6 +55,13 @@
 //! instead of using ones from the Rust std library. This feature is necessary
 //! if the `std` feature is disabled.
 //!
+//! ## `curve25519-dalek`
+//!
+//! *(on by default)*
+//!
+//! Implements [`Group`] for two prime groups based on Curve25519: its prime subgroup,
+//! and the Ristretto transform of Curve25519.
+//!
 //! ## `serde`
 //!
 //! *(off by default)*
@@ -93,6 +100,7 @@
 
 #![cfg_attr(not(feature = "std"), no_std)]
 // Documentation settings.
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![doc(html_root_url = "https://docs.rs/elastic-elgamal/0.2.1")]
 // Linter settings.
 #![warn(missing_debug_implementations, missing_docs, bare_trait_objects)]

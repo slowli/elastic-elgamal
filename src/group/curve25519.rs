@@ -23,6 +23,7 @@ use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 /// [`Ristretto`]: crate::group::Ristretto
 /// [pitfalls]: https://ristretto.group/why_ristretto.html#pitfalls-of-a-cofactor
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(docsrs, doc(cfg(feature = "curve25519-dalek")))]
 pub struct Curve25519Subgroup(());
 
 impl ScalarOps for Curve25519Subgroup {
