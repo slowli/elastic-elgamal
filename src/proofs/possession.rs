@@ -67,7 +67,6 @@ use crate::{
 /// # Ok(())
 /// # }
 /// ```
-// TODO: binary serialization?
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]
