@@ -120,6 +120,12 @@ As mentioned in the *Warnings* section, ElGamal is not a good choice for general
 public-key encryption. RSA or [ECIES] schemes (such as the [`box`] primitive from NaCl / libsodium)
 can be used instead.
 
+## See also
+
+- [elasticpoll.app](https://elasticpoll.app/) – an [open-source][elasticpoll-src] web app
+  that uses this library to implement universally verifiable voting. (Like this library,
+  the website is not audited and should not be used for serious votes.)
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE)
@@ -141,3 +147,4 @@ shall be dual licensed as above, without any additional terms or conditions.</sm
 [`elgamal_ristretto`]: https://docs.rs/elgamal_ristretto/0.2.3/elgamal_ristretto/index.html
 [ECIES]: https://en.wikipedia.org/wiki/Integrated_Encryption_Scheme
 [`box`]: https://doc.libsodium.org/public-key_cryptography/sealed_boxes
+[elasticpoll-src]: https://github.com/slowli/elasticpoll.app

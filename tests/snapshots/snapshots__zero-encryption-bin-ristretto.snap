@@ -1,0 +1,6 @@
+---
+source: tests/snapshots.rs
+assertion_line: 68
+expression: stringify_bytes(&proof.to_bytes())
+---
+Hp0IXFKkKoK-GiCLRKdMvbv5d3xKc3mHoMK5SLnXOAH6C9rLo6_-dkIh3TqNsnHKtFarN9kcl977zIFl_SBZDQ

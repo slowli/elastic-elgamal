@@ -78,12 +78,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Clippy: features=hashbrown"
           args: --lib --no-default-features --features hashbrown -- -D warnings
-      - name: Clippy (features=hashbrown,serde)
+      - name: Clippy (features=hashbrown,serde,dalek/u32)
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: features=hashbrown,serde"
-          args: --lib --no-default-features --features hashbrown,serde -- -D warnings
+          name: "Clippy: features=hashbrown,serde,dalek/u32"
+          args: --lib --no-default-features --features hashbrown,serde,curve25519-dalek/u32_backend -- -D warnings
 
       - name: Run tests
         uses: actions-rs/cargo@v1
@@ -158,13 +158,13 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: stable
+          toolchain: ${{ env.nightly }}
           profile: minimal
           override: true
 
       - name: Build docs
         run: |
-          cargo clean --doc && cargo rustdoc -p elastic-elgamal --all-features
+          cargo clean --doc && cargo rustdoc -p elastic-elgamal --all-features -- --cfg docsrs
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@releases/v3

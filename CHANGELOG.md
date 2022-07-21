@@ -5,6 +5,11 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Make `curve25519-dalek` dependency optional and do not force the choice of its math backend.
+  The dependency is still enabled by default.
+
 ## 0.2.1 - 2022-07-04
 
 ### Fixed

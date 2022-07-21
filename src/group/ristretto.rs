@@ -12,6 +12,7 @@ use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 
 /// [Ristretto](https://ristretto.group/) transform of Curve25519.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(docsrs, doc(cfg(feature = "curve25519-dalek")))]
 pub struct Ristretto(());
 
 impl ScalarOps for Ristretto {

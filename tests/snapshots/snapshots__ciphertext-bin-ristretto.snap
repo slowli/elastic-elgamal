@@ -1,0 +1,6 @@
+---
+source: tests/snapshots.rs
+assertion_line: 46
+expression: stringify_bytes(&ciphertext.to_bytes())
+---
+gugt6pqWT9lwtV7WdEdZsVSYTUe0VyNh2w_CzDMKHXT6K4koU8qH7JCKMATPnKppMDRvSCrjmvdAAF918XkdWA
