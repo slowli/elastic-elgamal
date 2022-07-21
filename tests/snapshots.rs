@@ -1,6 +1,7 @@
-//! Snapshot testing to check compatibility of `serde` serialization of types.
+//! Snapshot testing to check compatibility of `serde` and binary serializations of types.
 
-use insta::assert_yaml_snapshot;
+use base64ct::{Base64UrlUnpadded, Encoding};
+use insta::{assert_snapshot, assert_yaml_snapshot};
 use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
 
@@ -23,6 +24,10 @@ impl Named for Generic<::k256::Secp256k1> {
     const NAME: &'static str = "k256";
 }
 
+fn stringify_bytes(bytes: &[u8]) -> String {
+    Base64UrlUnpadded::encode_string(bytes)
+}
+
 fn test_ciphertext_snapshot<G: Group + Named>() {
     let mut rng = ChaChaRng::seed_from_u64(12345);
     let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
@@ -30,6 +35,15 @@ fn test_ciphertext_snapshot<G: Group + Named>() {
 
     let full_name = format!("ciphertext-{}", G::NAME);
     assert_yaml_snapshot!(full_name, ciphertext);
+}
+
+fn test_ciphertext_binary_snapshot<G: Group + Named>() {
+    let mut rng = ChaChaRng::seed_from_u64(12345);
+    let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let ciphertext = public_key.encrypt(42, &mut rng);
+
+    let full_name = format!("ciphertext-bin-{}", G::NAME);
+    assert_snapshot!(full_name, stringify_bytes(&ciphertext.to_bytes()));
 }
 
 fn test_zero_encryption_snapshot<G: Group + Named>() {
@@ -45,6 +59,15 @@ fn test_zero_encryption_snapshot<G: Group + Named>() {
     assert_yaml_snapshot!(full_name, ciphertext_with_proof);
 }
 
+fn test_zero_encryption_binary_snapshot<G: Group + Named>() {
+    let mut rng = ChaChaRng::seed_from_u64(12345);
+    let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+
+    let (_, proof) = public_key.encrypt_zero(&mut rng);
+    let full_name = format!("zero-encryption-bin-{}", G::NAME);
+    assert_snapshot!(full_name, stringify_bytes(&proof.to_bytes()));
+}
+
 fn test_bool_encryption_snapshot<G: Group + Named>() {
     let mut rng = ChaChaRng::seed_from_u64(12345);
     let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
@@ -56,6 +79,15 @@ fn test_bool_encryption_snapshot<G: Group + Named>() {
     });
     let full_name = format!("bool-encryption-{}", G::NAME);
     assert_yaml_snapshot!(full_name, ciphertext_with_proof);
+}
+
+fn test_bool_encryption_binary_snapshot<G: Group + Named>() {
+    let mut rng = ChaChaRng::seed_from_u64(12345);
+    let (public_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+
+    let (_, proof) = public_key.encrypt_bool(true, &mut rng);
+    let full_name = format!("bool-encryption-bin-{}", G::NAME);
+    assert_snapshot!(full_name, stringify_bytes(&proof.to_bytes()));
 }
 
 fn test_range_encryption_snapshot<G: Group + Named>() {
@@ -137,13 +169,28 @@ mod ristretto {
     }
 
     #[test]
+    fn ciphertext_binary_snapshot() {
+        test_ciphertext_binary_snapshot::<Ristretto>();
+    }
+
+    #[test]
     fn zero_encryption_snapshot() {
         test_zero_encryption_snapshot::<Ristretto>();
     }
 
     #[test]
+    fn zero_encryption_binary_snapshot() {
+        test_zero_encryption_binary_snapshot::<Ristretto>();
+    }
+
+    #[test]
     fn bool_encryption_snapshot() {
         test_bool_encryption_snapshot::<Ristretto>();
+    }
+
+    #[test]
+    fn bool_encryption_binary_snapshot() {
+        test_bool_encryption_binary_snapshot::<Ristretto>();
     }
 
     #[test]
@@ -183,13 +230,28 @@ mod k256 {
     }
 
     #[test]
+    fn ciphertext_binary_snapshot() {
+        test_ciphertext_binary_snapshot::<K256>();
+    }
+
+    #[test]
     fn zero_encryption_snapshot() {
         test_zero_encryption_snapshot::<K256>();
     }
 
     #[test]
+    fn zero_encryption_binary_snapshot() {
+        test_zero_encryption_binary_snapshot::<K256>();
+    }
+
+    #[test]
     fn bool_encryption_snapshot() {
         test_bool_encryption_snapshot::<K256>();
+    }
+
+    #[test]
+    fn bool_encryption_binary_snapshot() {
+        test_bool_encryption_binary_snapshot::<K256>();
     }
 
     #[test]
