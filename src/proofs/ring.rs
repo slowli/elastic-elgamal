@@ -4,7 +4,6 @@ use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use subtle::ConstantTimeEq;
 
 use core::{fmt, mem};
 
@@ -82,7 +81,7 @@ impl<'a, G: Group> Ring<'a, G> {
             {
                 let expected_blinded_value = log_base * ciphertext.random_scalar.expose_scalar()
                     + admissible_values[value_index];
-                bool::from(expected_blinded_value.ct_eq(&blinded_value))
+                expected_blinded_value == blinded_value
             },
             "Specified ciphertext does not match the specified `value_index`"
         );
@@ -189,9 +188,7 @@ impl<'a, G: Group> Ring<'a, G> {
 
         // Finally, compute the response for equation #`value_index`, using our knowledge
         // of the trapdoor.
-        debug_assert!(bool::from(
-            self.responses[self.value_index].ct_eq(&G::Scalar::from(0_u64))
-        ));
+        debug_assert_eq!(self.responses[self.value_index], G::Scalar::from(0_u64));
         self.responses[self.value_index] =
             challenge * self.discrete_log.expose_scalar() + self.random_scalar.expose_scalar();
     }
@@ -369,7 +366,7 @@ impl<G: Group> RingProof<G> {
         }
 
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
-        if expected_challenge.ct_eq(&self.common_challenge).into() {
+        if expected_challenge == self.common_challenge {
             Ok(())
         } else {
             Err(VerificationError::ChallengeMismatch)
@@ -511,15 +508,15 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::{
-        ristretto::RistrettoPoint, scalar::Scalar as Scalar25519, traits::Identity,
-    };
     use rand::{thread_rng, Rng};
 
     use core::iter;
 
     use super::*;
-    use crate::group::{ElementOps, Ristretto};
+    use crate::{
+        curve25519::{ristretto::RistrettoPoint, scalar::Scalar as Scalar25519, traits::Identity},
+        group::{ElementOps, Ristretto},
+    };
 
     type Keypair = crate::Keypair<Ristretto>;
 

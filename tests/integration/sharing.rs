@@ -6,7 +6,6 @@ use rand::{
 };
 use rand_core::{CryptoRng, RngCore};
 
-use crate::assert_ct_eq;
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::Group,
@@ -101,7 +100,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
             let combined = params.combine_shares(chosen_shares).unwrap();
             let decrypted = combined.decrypt_to_element(encrypted);
 
-            assert_ct_eq(&decrypted, &G::vartime_mul_generator(&value));
+            assert_eq!(decrypted, G::vartime_mul_generator(&value));
         }
     }
 }

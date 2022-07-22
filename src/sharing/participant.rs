@@ -7,7 +7,6 @@ use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use subtle::ConstantTimeEq;
 
 use core::iter;
 
@@ -113,8 +112,7 @@ impl<G: Group> ActiveParticipant<G> {
         secret_share: SecretKey<G>,
     ) -> Result<Self, Error> {
         let expected_element = key_set.participant_keys()[index].as_element();
-        let valid_share = G::mul_generator(secret_share.expose_scalar()).ct_eq(&expected_element);
-        if bool::from(valid_share) {
+        if G::mul_generator(secret_share.expose_scalar()) == expected_element {
             Ok(Self {
                 key_set,
                 index,
@@ -190,11 +188,10 @@ impl<G: Group> ActiveParticipant<G> {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::scalar::Scalar as Scalar25519;
     use rand::thread_rng;
 
     use super::*;
-    use crate::group::Ristretto;
+    use crate::{curve25519::scalar::Scalar as Scalar25519, group::Ristretto};
 
     #[test]
     fn shared_2_of_3_key() {

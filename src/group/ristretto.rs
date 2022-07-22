@@ -1,18 +1,21 @@
-use curve25519_dalek::{
+use rand_core::{CryptoRng, RngCore};
+
+use core::convert::TryInto;
+
+use crate::curve25519::{
     constants::{RISTRETTO_BASEPOINT_POINT, RISTRETTO_BASEPOINT_TABLE},
     ristretto::{CompressedRistretto, RistrettoPoint},
     scalar::Scalar,
     traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
 };
-use rand_core::{CryptoRng, RngCore};
-
-use core::convert::TryInto;
-
 use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 
 /// [Ristretto](https://ristretto.group/) transform of Curve25519.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(docsrs, doc(cfg(feature = "curve25519-dalek")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "curve25519-dalek", feature = "curve25519-dalek-ng")))
+)]
 pub struct Ristretto(());
 
 impl ScalarOps for Ristretto {

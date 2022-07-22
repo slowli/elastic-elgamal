@@ -143,6 +143,18 @@ mod alloc {
     pub use std::collections::HashMap;
 }
 
+// Polyfill for Curve25519 types.
+#[cfg(any(feature = "curve25519-dalek-ng", feature = "curve25519-dalek"))]
+mod curve25519 {
+    #[cfg(all(feature = "curve25519-dalek-ng", feature = "curve25519-dalek"))]
+    compile_error!("`curve25519-dalek-ng` and `curve25519-dalek` features are mutually exclusive");
+
+    #[cfg(feature = "curve25519-dalek")]
+    pub use curve25519_dalek::*;
+    #[cfg(feature = "curve25519-dalek-ng")]
+    pub use curve25519_dalek_ng::*;
+}
+
 mod sealed {
     pub trait Sealed {}
 }

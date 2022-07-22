@@ -434,11 +434,10 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use crate::{group::Ristretto, Keypair};
-
-    use curve25519_dalek::scalar::Scalar as Curve25519Scalar;
     use rand::{thread_rng, Rng};
+
+    use super::*;
+    use crate::{curve25519::scalar::Scalar as Curve25519Scalar, group::Ristretto, Keypair};
 
     #[test]
     fn ciphertext_addition() {

@@ -4,7 +4,6 @@ use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use subtle::ConstantTimeEq;
 use zeroize::Zeroizing;
 
 use core::iter;
@@ -254,7 +253,7 @@ impl<G: Group> SumOfSquaresProof<G> {
         transcript.append_element::<G>(b"[e_x]X + [e_z]K", &value_sum_commitment);
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
 
-        if expected_challenge.ct_eq(&self.challenge).into() {
+        if expected_challenge == self.challenge {
             Ok(())
         } else {
             Err(VerificationError::ChallengeMismatch)

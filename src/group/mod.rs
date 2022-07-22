@@ -15,19 +15,18 @@
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
-use subtle::{ConditionallySelectable, ConstantTimeEq};
 use zeroize::Zeroize;
 
 use core::{fmt, ops, str};
 
-#[cfg(feature = "curve25519-dalek")]
+#[cfg(any(feature = "curve25519-dalek", feature = "curve25519-dalek-ng"))]
 mod curve25519;
 mod generic;
-#[cfg(feature = "curve25519-dalek")]
+#[cfg(any(feature = "curve25519-dalek", feature = "curve25519-dalek-ng"))]
 mod ristretto;
 
 pub use self::generic::Generic;
-#[cfg(feature = "curve25519-dalek")]
+#[cfg(any(feature = "curve25519-dalek", feature = "curve25519-dalek-ng"))]
 pub use self::{curve25519::Curve25519Subgroup, ristretto::Ristretto};
 
 /// Provides an arbitrary number of random bytes.
@@ -74,8 +73,7 @@ pub trait ScalarOps {
         + ops::Sub<Output = Self::Scalar>
         + ops::Mul<Output = Self::Scalar>
         + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Scalar>
-        + ConditionallySelectable
-        + ConstantTimeEq
+        + PartialEq
         + Zeroize
         + fmt::Debug;
 
@@ -137,8 +135,7 @@ pub trait ElementOps: ScalarOps {
         + ops::Sub<Output = Self::Element>
         + ops::Neg<Output = Self::Element>
         + for<'a> ops::Mul<&'a Self::Scalar, Output = Self::Element>
-        + ConditionallySelectable
-        + ConstantTimeEq
+        + PartialEq
         + fmt::Debug;
 
     /// Byte size of a serialized [`Self::Element`].
