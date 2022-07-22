@@ -52,6 +52,7 @@ features = ["alloc"]
 optional = true
 
 [dev-dependencies]
+bulletproofs = "4.0.0"
 criterion = "0.3.4"
 doc-comment = "0.3.3"
 insta = "1.8.0"

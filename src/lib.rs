@@ -164,8 +164,9 @@ pub use crate::{
     encryption::{Ciphertext, CiphertextWithValue, DiscreteLogTable},
     keys::{Keypair, PublicKey, PublicKeyConversionError, SecretKey},
     proofs::{
-        LogEqualityProof, PreparedRange, ProofOfPossession, RangeDecomposition, RangeProof,
-        RingProof, RingProofBuilder, SumOfSquaresProof, VerificationError,
+        CommitmentEquivalenceProof, LogEqualityProof, PreparedRange,
+        ProofOfPossession, RangeDecomposition, RangeProof, RingProof, RingProofBuilder,
+        SumOfSquaresProof, VerificationError,
     },
 };
 
