@@ -1,0 +1,123 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="ElGamal encryption and related cryptographic protocols with pluggable crypto backend."><meta name="keywords" content="rust, rustlang, rust-lang, elastic_elgamal"><title>elastic_elgamal - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../ayu.css"disabled><link rel="stylesheet" type="text/css" href="../dark.css"disabled><link rel="stylesheet" type="text/css" href="../light.css"id="themeStyle"><script id="default-settings" ></script><script src="../storage.js"></script><script src="../crates.js"></script><script defer src="../main.js"></script>
+    <noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="alternate icon" type="image/png" href="../favicon-16x16.png"><link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><link rel="icon" type="image/svg+xml" href="../favicon.svg"></head><body class="rustdoc mod crate"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu" role="button">&#9776;</div><a href='../elastic_elgamal/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><h2 class="location">Crate elastic_elgamal</h2><div class="block version"><div class="narrow-helper"></div><p>Version 0.2.1</p></div><div class="sidebar-elems"><a id="all-types" href="all.html"><p>See all elastic_elgamal's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></div><div id="sidebar-vars" data-name="elastic_elgamal" data-ty="mod" data-relpath=""></div><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!" aria-haspopup="menu" title="themes"><img width="18" height="18" alt="Pick another theme!" src="../brush.svg"></button><div id="theme-choices" role="menu"></div></div><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><button type="button" id="help-button" title="help">?</button><a id="settings-menu" href="../settings.html" title="settings"><img width="18" height="18" alt="Change settings" src="../wheel.svg"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="in-band">Crate <a class="mod" href="#">elastic_elgamal</a><button id="copy-path" onclick="copy_path(this)" title="Copy item path to clipboard"><img src="../clipboard.svg" width="19" height="18" alt="Copy item path"></button></span><span class="out-of-band"><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="../src/elastic_elgamal/lib.rs.html#1-203" title="goto source code">[src]</a></span></h1><details class="rustdoc-toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="https://en.wikipedia.org/wiki/ElGamal_encryption">ElGamal encryption</a> and related cryptographic protocols with pluggable crypto backend.</p>
+<h2 id="-warnings" class="section-header"><a href="#-warnings">⚠ Warnings</a></h2>
+<p>While the logic in this crate relies on standard cryptographic assumptions
+(complexity of discrete log and computational / decisional Diffie–Hellman problems
+in certain groups), it has not been independently verified for correctness or absence
+of side-channel attack vectors. <strong>Use at your own risk.</strong></p>
+<p>ElGamal encryption is not a good choice for general-purpose public-key encryption
+since it is vulnerable to <a href="https://en.wikipedia.org/wiki/Chosen-ciphertext_attack">chosen-ciphertext attacks</a>. For security,
+decryption operations should be limited on the application level.</p>
+<h2 id="overview" class="section-header"><a href="#overview">Overview</a></h2>
+<ul>
+<li><a href="struct.Ciphertext.html" title="Ciphertext"><code>Ciphertext</code></a> provides ElGamal encryption. This and other protocols use
+<a href="struct.PublicKey.html" title="PublicKey"><code>PublicKey</code></a>, <a href="struct.SecretKey.html" title="SecretKey"><code>SecretKey</code></a> and <a href="struct.Keypair.html" title="Keypair"><code>Keypair</code></a> to represent participants’ keys.</li>
+<li>Besides basic encryption, <code>PublicKey</code> also provides zero-knowledge proofs of
+<a href="struct.PublicKey.html#method.encrypt_zero">zero encryption</a> and of
+<a href="struct.PublicKey.html#method.encrypt_bool">Boolean value encryption</a>. These are useful in higher-level
+protocols, e.g., re-encryption.</li>
+<li>Zero-knowledge range proofs for ElGamal ciphertexts are provided via <a href="struct.RangeProof.html" title="RangeProof"><code>RangeProof</code></a>s
+and a high-level <a href="struct.PublicKey.html#method.encrypt_range"><code>PublicKey</code> method</a>.</li>
+<li>Proof of equivalence between an ElGamal ciphertext and a Pedersen commitment
+is available as <a href="struct.CommitmentEquivalenceProof.html" title="CommitmentEquivalenceProof"><code>CommitmentEquivalenceProof</code></a>.</li>
+<li><a href="sharing/index.html"><code>sharing</code></a> module exposes a threshold encryption scheme based
+on <a href="https://www.cs.umd.edu/%7Egasarch/TOPICS/secretsharing/feldmanVSS.pdf">Feldman’s verifiable secret sharing</a>, including verifiable distributed
+decryption.</li>
+<li><a href="app/index.html"><code>app</code></a> module provides higher-level protocols utilizing zero-knowledge proofs
+and ElGamal encryption, such as provable encryption of m-of-n choice and a simple version
+of <a href="https://en.wikipedia.org/wiki/Quadratic_voting">quadratic voting</a>.</li>
+</ul>
+<h2 id="backends" class="section-header"><a href="#backends">Backends</a></h2>
+<p><a href="group/index.html"><code>group</code></a> module exposes a generic framework for plugging a <a href="group/trait.Group.html"><code>Group</code></a>
+implementation into crypto primitives. It also provides several implementations:</p>
+<ul>
+<li><a href="group/struct.Ristretto.html"><code>Ristretto</code></a> and <a href="group/struct.Curve25519Subgroup.html"><code>Curve25519Subgroup</code></a> implementations based on Curve25519.</li>
+<li><a href="group/struct.Generic.html"><code>Generic</code></a> implementation allowing to plug in any elliptic curve group conforming to
+the traits specified by the <a href="https://docs.rs/elliptic-curve/"><code>elliptic-curve</code></a> crate. For example,
+the secp256k1 curve can be used via the <a href="https://docs.rs/k256/"><code>k256</code></a> crate.</li>
+</ul>
+<h2 id="crate-features" class="section-header"><a href="#crate-features">Crate features</a></h2><h3 id="std" class="section-header"><a href="#std"><code>std</code></a></h3>
+<p><em>(on by default)</em></p>
+<p>Enables support of types from <code>std</code>, such as the <code>Error</code> trait and the <code>HashMap</code> collection.</p>
+<h3 id="hashbrown" class="section-header"><a href="#hashbrown"><code>hashbrown</code></a></h3>
+<p><em>(off by default)</em></p>
+<p>Imports hash maps and sets from the <a href="https://docs.rs/hashbrown/">eponymous crate</a>
+instead of using ones from the Rust std library. This feature is necessary
+if the <code>std</code> feature is disabled.</p>
+<h3 id="curve25519-dalek" class="section-header"><a href="#curve25519-dalek"><code>curve25519-dalek</code></a></h3>
+<p><em>(on by default)</em></p>
+<p>Implements <a href="group/trait.Group.html"><code>Group</code></a> for two prime groups based on Curve25519 using the <a href="https://docs.rs/curve25519-dalek/"><code>curve25519-dalek</code></a>
+crate: its prime subgroup, and the Ristretto transform of Curve25519 (aka ristretto255).</p>
+<p>By default, <code>u64_backend</code> is selected for the <code>curve25519-dalek</code> crate. (The crate does not
+compile unless <em>some</em> backend is selected.) You may opt out of this selection by specifying
+dependencies as follows:</p>
+<div class="example-wrap"><pre class="language-toml"><code>[dependencies.elastic-elgamal]
+version = &quot;...&quot;
+default-features = false
+features = [&quot;std&quot;, &quot;curve25519-dalek&quot;]
+
+[dependencies.curve25519-dalek]
+version = &quot;3&quot;
+default-features = false
+features = [&quot;u32_backend&quot;] # or other backend</code></pre></div><h3 id="curve25519-dalek-ng" class="section-header"><a href="#curve25519-dalek-ng"><code>curve25519-dalek-ng</code></a></h3>
+<p><em>(off by default)</em></p>
+<p>Same in terms of functionality as <code>curve25519-dalek</code>, but uses the <a href="https://docs.rs/curve25519-dalek-ng/"><code>curve25519-dalek-ng</code></a>
+crate instead of <a href="https://docs.rs/curve25519-dalek/"><code>curve25519-dalek</code></a>. This may be beneficial for applications that use
+<a href="https://docs.rs/bulletproofs/"><code>bulletproofs</code></a> or other libraries depending on <code>curve25519-dalek-ng</code>.</p>
+<p>This feature is mutually exclusive with <code>curve25519-dalek</code>.</p>
+<h3 id="serde" class="section-header"><a href="#serde"><code>serde</code></a></h3>
+<p><em>(off by default)</em></p>
+<p>Enables <a href="https://docs.rs/serde/1.0.140/serde/ser/trait.Serialize.html"><code>Serialize</code></a> / <a href="https://docs.rs/serde/1.0.140/serde/de/trait.Deserialize.html"><code>Deserialize</code></a>
+implementations for most types in the crate.
+Group scalars, elements and wrapper key types are serialized to human-readable formats
+(JSON, YAML, TOML, etc.) as strings that represent corresponding byte buffers using
+base64-url encoding without padding. For binary formats, byte buffers are serialized directly.</p>
+<p>For complex types (e.g., participant states from the <a href="sharing/index.html" title="sharing"><code>sharing</code></a> module), self-consistency
+checks are <strong>not</strong> performed on deserialization. That is, deserialization of such types
+should only be performed from a trusted source or in the presence of additional integrity
+checks.</p>
+<h2 id="crate-naming" class="section-header"><a href="#crate-naming">Crate naming</a></h2>
+<p>“Elastic” refers to pluggable backends, configurable params for threshold encryption,
+and the construction of zero-knowledge <a href="struct.RingProof.html" title="RingProof"><code>RingProof</code></a>s (a proof consists of
+a variable number of rings, each of which consists of a variable number of admissible values).
+<code>elastic_elgamal</code> is also one of <a href="https://github.com/moby/moby/blob/master/pkg/namesgenerator/names-generator.go">autogenerated Docker container names</a>.</p>
+</div></details><h2 id="modules" class="section-header"><a href="#modules">Modules</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="mod" href="app/index.html" title="elastic_elgamal::app mod">app</a></div><div class="item-right docblock-short"><p>High-level applications for proofs defined in this crate.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="group/index.html" title="elastic_elgamal::group mod">group</a></div><div class="item-right docblock-short"><p>Traits and implementations for prime-order groups in which
+the <a href="https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption">decisional Diffie–Hellman</a> (DDH), <a href="https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem">computational Diffie–Hellman</a> (CDH)
+and <a href="https://en.wikipedia.org/wiki/Discrete_logarithm">discrete log</a> (DL) problems are believed to be hard.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="mod" href="sharing/index.html" title="elastic_elgamal::sharing mod">sharing</a></div><div class="item-right docblock-short"><p><a href="https://www.cs.umd.edu/%7Egasarch/TOPICS/secretsharing/feldmanVSS.pdf">Feldman’s verifiable secret sharing</a> (VSS) for ElGamal encryption.</p>
+</div></div></div><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.CandidateDecryption.html" title="elastic_elgamal::CandidateDecryption struct">CandidateDecryption</a></div><div class="item-right docblock-short"><p>Candidate for a <a href="struct.VerifiableDecryption.html" title="VerifiableDecryption"><code>VerifiableDecryption</code></a> that is not yet verified. This presentation should be
+used for decryption data retrieved from an untrusted source.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Ciphertext.html" title="elastic_elgamal::Ciphertext struct">Ciphertext</a></div><div class="item-right docblock-short"><p>Ciphertext for ElGamal encryption.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.CiphertextWithValue.html" title="elastic_elgamal::CiphertextWithValue struct">CiphertextWithValue</a></div><div class="item-right docblock-short"><p>ElGamal <a href="struct.Ciphertext.html" title="Ciphertext"><code>Ciphertext</code></a> together with fully retained information about the encrypted value and
+randomness used to create the ciphertext.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.CommitmentEquivalenceProof.html" title="elastic_elgamal::CommitmentEquivalenceProof struct">CommitmentEquivalenceProof</a></div><div class="item-right docblock-short"><p>Zero-knowledge proof that an ElGamal ciphertext encrypts the same value as a Pedersen
+commitment.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.DiscreteLogTable.html" title="elastic_elgamal::DiscreteLogTable struct">DiscreteLogTable</a></div><div class="item-right docblock-short"><p>Lookup table for discrete logarithms.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.Keypair.html" title="elastic_elgamal::Keypair struct">Keypair</a></div><div class="item-right docblock-short"><p>Keypair for ElGamal encryption and related protocols, consisting of a <a href="struct.SecretKey.html" title="SecretKey"><code>SecretKey</code></a>
+and the matching <a href="struct.PublicKey.html" title="PublicKey"><code>PublicKey</code></a>.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.LogEqualityProof.html" title="elastic_elgamal::LogEqualityProof struct">LogEqualityProof</a></div><div class="item-right docblock-short"><p>Zero-knowledge proof of equality of two discrete logarithms in different bases,
+aka Chaum–Pedersen protocol.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.PreparedRange.html" title="elastic_elgamal::PreparedRange struct">PreparedRange</a></div><div class="item-right docblock-short"><p><a href="struct.RangeDecomposition.html" title="RangeDecomposition"><code>RangeDecomposition</code></a> together with values precached for creating and/or verifying
+<a href="struct.RangeProof.html" title="RangeProof"><code>RangeProof</code></a>s in a certain <a href="group/trait.Group.html" title="Group"><code>Group</code></a>.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.ProofOfPossession.html" title="elastic_elgamal::ProofOfPossession struct">ProofOfPossession</a></div><div class="item-right docblock-short"><p>Zero-knowledge proof of possession of one or more secret scalars.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.PublicKey.html" title="elastic_elgamal::PublicKey struct">PublicKey</a></div><div class="item-right docblock-short"><p>Public key for ElGamal encryption and related protocols.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.RangeDecomposition.html" title="elastic_elgamal::RangeDecomposition struct">RangeDecomposition</a></div><div class="item-right docblock-short"><p>Decomposition of an integer range <code>0..n</code> into one or more sub-ranges. Decomposing the range
+allows constructing <a href="struct.RangeProof.html" title="RangeProof"><code>RangeProof</code></a>s with size / computational complexity <code>O(log n)</code>.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.RangeProof.html" title="elastic_elgamal::RangeProof struct">RangeProof</a></div><div class="item-right docblock-short"><p>Zero-knowledge proof that an ElGamal ciphertext encrypts a value into a certain range <code>0..n</code>.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.RingProof.html" title="elastic_elgamal::RingProof struct">RingProof</a></div><div class="item-right docblock-short"><p>Zero-knowledge proof that the one or more encrypted values is each in the a priori known set of
+admissible values. (Admissible values may differ among encrypted values.)</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.SecretKey.html" title="elastic_elgamal::SecretKey struct">SecretKey</a></div><div class="item-right docblock-short"><p>Secret key for ElGamal encryption and related protocols. This is a thin wrapper around
+the <a href="group/trait.Group.html" title="Group"><code>Group</code></a> scalar.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.SumOfSquaresProof.html" title="elastic_elgamal::SumOfSquaresProof struct">SumOfSquaresProof</a></div><div class="item-right docblock-short"><p>Zero-knowledge proof that an ElGamal-encrypted value is equal to a sum of squares
+of one or more other ElGamal-encrypted values.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="struct" href="struct.VerifiableDecryption.html" title="elastic_elgamal::VerifiableDecryption struct">VerifiableDecryption</a></div><div class="item-right docblock-short"><p>Verifiable decryption for a certain <a href="struct.Ciphertext.html" title="Ciphertext"><code>Ciphertext</code></a> in the ElGamal encryption scheme.
+Usable both for standalone proofs and in threshold encryption.</p>
+</div></div></div><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
+<div class="item-table"><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.PublicKeyConversionError.html" title="elastic_elgamal::PublicKeyConversionError enum">PublicKeyConversionError</a></div><div class="item-right docblock-short"><p>Errors that can occur when converting other types to <a href="struct.PublicKey.html" title="PublicKey"><code>PublicKey</code></a>.</p>
+</div></div><div class="item-row"><div class="item-left module-item"><a class="enum" href="enum.VerificationError.html" title="elastic_elgamal::VerificationError enum">VerificationError</a></div><div class="item-right docblock-short"><p>Error verifying base proofs, such as <a href="struct.RingProof.html" title="RingProof"><code>RingProof</code></a>, <a href="struct.LogEqualityProof.html" title="LogEqualityProof"><code>LogEqualityProof</code></a>
+or <a href="struct.ProofOfPossession.html" title="ProofOfPossession"><code>ProofOfPossession</code></a>.</p>
+</div></div></div></section><section id="search" class="content hidden"></section><div id="rustdoc-vars" data-root-path="../" data-current-crate="elastic_elgamal" data-themes="ayu,dark,light" data-resource-suffix="" data-rustdoc-version="1.59.0-nightly (acbe4443c 2021-12-02)" ></div>
+</body></html>
