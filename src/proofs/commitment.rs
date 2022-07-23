@@ -88,14 +88,8 @@ use crate::{
 /// let value = 424242_u64;
 /// let ciphertext = CiphertextWithValue::new(value, &receiver, &mut rng)
 ///     .generalize();
-/// // Create a Pedersen commitment of the same value.
+/// // Create a blinding factor for the Pedersen commitment of the same value.
 /// let blinding = SecretKey::generate(&mut rng);
-/// let commitment = Ristretto::multi_mul(
-///     [&value.into(), blinding.expose_scalar()],
-///     [Ristretto::generator(), blinding_base],
-/// );
-/// // Use `commitment` and `blinding` in other proofs...
-///
 /// let (proof, commitment) = CommitmentEquivalenceProof::new(
 ///     &ciphertext,
 ///     &receiver,
@@ -104,6 +98,8 @@ use crate::{
 ///     &mut Transcript::new(b"custom_proof"),
 ///     &mut rng,
 /// );
+/// // Use `commitment` and `blinding` in other proofs...
+///
 /// proof.verify(
 ///     &ciphertext.into(),
 ///     &receiver,
