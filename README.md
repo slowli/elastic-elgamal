@@ -6,7 +6,7 @@
 ![no_std supported](https://img.shields.io/badge/no__std-tested-green.svg)
 
 **Documentation:** [![Docs.rs](https://docs.rs/elastic-elgamal/badge.svg)](https://docs.rs/elastic-elgamal/)
-[![crate docs (master)](https://img.shields.io/badge/master-yellow.svg?label=docs)](https://slowli.github.io/elastic-elgamal/elastic_elgamal/)
+[![crate docs (main)](https://img.shields.io/badge/main-yellow.svg?label=docs)](https://slowli.github.io/elastic-elgamal/elastic_elgamal/)
 
 Implementation of [ElGamal encryption] and related zero-knowledge proofs
 with pluggable crypto backend.
@@ -16,6 +16,8 @@ The following protocols and high-level applications are included:
 - Additively homomorphic ElGamal encryption
 - Zero-knowledge proofs of zero encryption and Boolean value encryption
 - Zero-knowledge range proofs for ElGamal ciphertexts
+- Zero-knowledge proof of equivalence between an ElGamal ciphertext and
+  a Pedersen commitment in the same group
 - Additively homomorphic m-of-n choice encryption with a zero-knowledge
   proof of correctness
 - Additively homomorphic [quadratic voting] with a zero-knowledge

@@ -5,7 +5,6 @@ use rand::{thread_rng, Rng};
 
 use std::collections::HashMap;
 
-use crate::assert_ct_eq;
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice},
     group::Group,
@@ -20,7 +19,7 @@ fn test_encryption_roundtrip<G: Group>() {
     let ciphertext = keypair.public().encrypt(message, &mut rng);
     let decryption = keypair.secret().decrypt_to_element(ciphertext);
     let message = G::mul_generator(&G::Scalar::from(message));
-    assert_ct_eq(&decryption, &message);
+    assert_eq!(decryption, message);
 }
 
 fn test_zero_encryption_works<G: Group>() {
@@ -32,7 +31,7 @@ fn test_zero_encryption_works<G: Group>() {
         .verify_zero(zero_ciphertext, &proof)
         .unwrap();
     let decrypted = keypair.secret().decrypt_to_element(zero_ciphertext);
-    assert_ct_eq(&decrypted, &G::identity());
+    assert_eq!(decrypted, G::identity());
 
     // The proof should not verify for non-zero messages.
     let ciphertext = keypair.public().encrypt(123_u64, &mut rng);
@@ -89,16 +88,16 @@ fn test_bool_encryption_works<G: Group>() {
     let keypair = Keypair::<G>::generate(&mut rng);
 
     let (ciphertext, proof) = keypair.public().encrypt_bool(false, &mut rng);
-    assert_ct_eq(
-        &keypair.secret().decrypt_to_element(ciphertext),
-        &G::identity(),
+    assert_eq!(
+        keypair.secret().decrypt_to_element(ciphertext),
+        G::identity(),
     );
     keypair.public().verify_bool(ciphertext, &proof).unwrap();
 
     let (other_ciphertext, other_proof) = keypair.public().encrypt_bool(true, &mut rng);
-    assert_ct_eq(
-        &keypair.secret().decrypt_to_element(other_ciphertext),
-        &G::generator(),
+    assert_eq!(
+        keypair.secret().decrypt_to_element(other_ciphertext),
+        G::generator(),
     );
     keypair
         .public()
@@ -117,9 +116,9 @@ fn test_bool_encryption_works<G: Group>() {
 
     // ...even if the encryption is obtained from the "correct" value.
     let combined_ciphertext = ciphertext + other_ciphertext;
-    assert_ct_eq(
-        &keypair.secret().decrypt_to_element(combined_ciphertext),
-        &G::generator(),
+    assert_eq!(
+        keypair.secret().decrypt_to_element(combined_ciphertext),
+        G::generator(),
     );
     assert!(keypair
         .public()
@@ -162,7 +161,7 @@ fn test_encrypted_choice<G: Group>(options_count: usize) {
         } else {
             G::identity()
         };
-        assert_ct_eq(&sk.decrypt_to_element(ciphertext), &expected_plaintext);
+        assert_eq!(sk.decrypt_to_element(ciphertext), expected_plaintext);
     }
 }
 
@@ -181,7 +180,7 @@ fn test_encrypted_multi_choice<G: Group>(options_count: usize) {
         } else {
             G::identity()
         };
-        assert_ct_eq(&sk.decrypt_to_element(ciphertext), &expected_plaintext);
+        assert_eq!(sk.decrypt_to_element(ciphertext), expected_plaintext);
     }
 }
 

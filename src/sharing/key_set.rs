@@ -3,7 +3,6 @@
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
-use subtle::ConstantTimeEq;
 
 use core::{iter, ops};
 
@@ -181,7 +180,7 @@ impl<G: Group> PublicKeySet<G> {
 
             let interpolated_key = G::vartime_multi_mul(&key_denominators, starting_keys.clone());
             let interpolated_key = interpolated_key * &key_scale;
-            if !bool::from(interpolated_key.ct_eq(&key.as_element())) {
+            if interpolated_key != key.as_element() {
                 return Err(Error::MalformedParticipantKeys);
             }
         }

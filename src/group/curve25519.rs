@@ -1,13 +1,13 @@
-use curve25519_dalek::{
+use rand_core::{CryptoRng, RngCore};
+
+use core::convert::TryInto;
+
+use crate::curve25519::{
     constants::{ED25519_BASEPOINT_POINT, ED25519_BASEPOINT_TABLE},
     edwards::{CompressedEdwardsY, EdwardsPoint},
     scalar::Scalar,
     traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
 };
-use rand_core::{CryptoRng, RngCore};
-
-use core::convert::TryInto;
-
 use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 
 /// Prime-order subgroup of Curve25519 without any transforms performed for EC points.
@@ -21,9 +21,12 @@ use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 /// (If it *is* a concern, beware of [cofactor pitfalls]!)
 ///
 /// [`Ristretto`]: crate::group::Ristretto
-/// [pitfalls]: https://ristretto.group/why_ristretto.html#pitfalls-of-a-cofactor
+/// [cofactor pitfalls]: https://ristretto.group/why_ristretto.html#pitfalls-of-a-cofactor
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-#[cfg_attr(docsrs, doc(cfg(feature = "curve25519-dalek")))]
+#[cfg_attr(
+    docsrs,
+    doc(cfg(any(feature = "curve25519-dalek", feature = "curve25519-dalek-ng")))
+)]
 pub struct Curve25519Subgroup(());
 
 impl ScalarOps for Curve25519Subgroup {
@@ -129,11 +132,13 @@ impl Group for Curve25519Subgroup {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity};
     use rand::thread_rng;
 
     use super::*;
-    use crate::PublicKeyConversionError;
+    use crate::{
+        curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
+        PublicKeyConversionError,
+    };
 
     type PublicKey = crate::PublicKey<Curve25519Subgroup>;
 

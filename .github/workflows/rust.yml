@@ -35,12 +35,12 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-features --all-targets
+          args: --workspace --features serde --all-targets
       - name: Run doc tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-features --doc
+          args: --workspace --features serde --doc
 
   build:
     runs-on: ubuntu-latest
@@ -66,12 +66,12 @@ jobs:
         with:
           command: fmt
           args: --all -- --check
-      - name: Clippy
+      - name: Clippy (non-conflicting features)
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: all features"
-          args: --workspace --all-features --all-targets -- -D warnings
+          name: "Clippy: non-conflicting features"
+          args: --workspace --features serde --all-targets -- -D warnings
       - name: Clippy (features=hashbrown)
         uses: actions-rs/clippy-check@v1
         with:
@@ -84,33 +84,44 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Clippy: features=hashbrown,serde,dalek/u32"
           args: --lib --no-default-features --features hashbrown,serde,curve25519-dalek/u32_backend -- -D warnings
+      - name: Clippy (features=std,serde,dalek-ng)
+        uses: actions-rs/clippy-check@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: "Clippy: features=std,serde,dalek-ng"
+          args: --lib --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend -- -D warnings
 
       - name: Run tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-features --all-targets
+          args: --workspace --features serde --all-targets
       - name: Run doc tests
         uses: actions-rs/cargo@v1
         with:
           command: test
-          args: --workspace --all-features --doc
+          args: --workspace --features serde --doc
 
       - name: Run voting (ristretto)
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: -p elastic-elgamal --all-features --example voting -- --options 5 --votes 50 --talliers 3/4
+          args: -p elastic-elgamal --features serde --example voting -- --options 5 --votes 50 --talliers 3/4
       - name: Run voting (quadratic, k256)
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: -p elastic-elgamal --all-features --example voting -- --qv k256
+          args: -p elastic-elgamal --features serde --example voting -- --qv k256
       - name: Run range
         uses: actions-rs/cargo@v1
         with:
           command: run
-          args: -p elastic-elgamal --all-features --example range
+          args: -p elastic-elgamal --features serde --example range
+      - name: Run equivalence
+        uses: actions-rs/cargo@v1
+        with:
+          command: run
+          args: -p elastic-elgamal --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend --example equivalence
 
   build-nostd:
     runs-on: ubuntu-latest
@@ -136,7 +147,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --lib --no-default-features --features hashbrown --target thumbv7m-none-eabi -Z avoid-dev-deps
+          args: --lib --no-default-features --features hashbrown,curve25519-dalek/u32_backend --target thumbv7m-none-eabi -Z avoid-dev-deps
 
   document:
     if: github.event_name == 'push'
@@ -164,7 +175,7 @@ jobs:
 
       - name: Build docs
         run: |
-          cargo clean --doc && cargo rustdoc -p elastic-elgamal --all-features -- --cfg docsrs
+          cargo clean --doc && cargo rustdoc -p elastic-elgamal --features serde -- --cfg docsrs
 
       - name: Deploy
         uses: JamesIves/github-pages-deploy-action@releases/v3

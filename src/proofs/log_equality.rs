@@ -4,7 +4,6 @@ use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use subtle::ConstantTimeEq;
 
 #[cfg(feature = "serde")]
 use crate::serde::ScalarHelper;
@@ -174,7 +173,7 @@ impl<G: Group> LogEqualityProof<G> {
         transcript.append_element::<G>(b"[x]K", &commitments.1);
         let expected_challenge = transcript.challenge_scalar::<G>(b"c");
 
-        if expected_challenge.ct_eq(&self.challenge).into() {
+        if expected_challenge == self.challenge {
             Ok(())
         } else {
             Err(VerificationError::ChallengeMismatch)

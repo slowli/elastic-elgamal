@@ -1,0 +1,15 @@
+---
+source: tests/snapshots.rs
+assertion_line: 189
+expression: commitment_with_proof
+---
+ciphertext:
+  blinded_element: AnlDgrDKfjVwC2gZp-LoKHYR9GG_UFOYt3d8qQZwUmEU
+  random_element: AgQbzI7_NulX5AZav0Ty90yRPsu9APHrKvYGo03s3Dn_
+commitment: A6EmmnhLsZ1jBLCRax0Rb075Tlp33Xzhbo0S6_Dz6KlK
+proof:
+  challenge: hIkpBORFeMenC7kaonVc10xckm3hp32Gh-FYtGCLsSY
+  commitment_response: l_e2IMM5PnIGGZEZh72HI8h59ZiEgkv9z2PnOpMTn38
+  randomness_response: 8X6oldgfdXnYj2reoB6XcpzxLUDEGO-gmuWxa72ef3A
+  value_response: m9PyCaAJ3P6pUcsVgwGUVCpVHaiuovBQlGCRfOSEoEU
+

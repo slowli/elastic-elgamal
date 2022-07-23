@@ -9,6 +9,7 @@ use crate::{
     group::{Group, RandomBytesProvider},
 };
 
+mod commitment;
 mod log_equality;
 mod mul;
 mod possession;
@@ -16,6 +17,7 @@ mod range;
 mod ring;
 
 pub use self::{
+    commitment::CommitmentEquivalenceProof,
     log_equality::LogEqualityProof,
     mul::SumOfSquaresProof,
     possession::ProofOfPossession,

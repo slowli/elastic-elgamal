@@ -284,10 +284,8 @@ impl Params {
 
 #[cfg(test)]
 mod tests {
-    use curve25519_dalek::scalar::Scalar as Scalar25519;
-
     use super::*;
-    use crate::group::Ristretto;
+    use crate::{curve25519::scalar::Scalar as Scalar25519, group::Ristretto};
 
     #[test]
     fn lagrange_coeffs_are_computed_correctly() {

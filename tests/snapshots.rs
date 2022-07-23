@@ -3,12 +3,13 @@
 use base64ct::{Base64UrlUnpadded, Encoding};
 use insta::{assert_snapshot, assert_yaml_snapshot};
 use rand_chacha::ChaChaRng;
-use rand_core::SeedableRng;
+use rand_core::{RngCore, SeedableRng};
 
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
-    CiphertextWithValue, Keypair, RangeDecomposition, SumOfSquaresProof,
+    Ciphertext, CiphertextWithValue, CommitmentEquivalenceProof, Keypair, RangeDecomposition,
+    SecretKey, SumOfSquaresProof,
 };
 use merlin::Transcript;
 
@@ -160,8 +161,37 @@ fn test_qv_ballot_snapshot<G: Group + Named>() {
     assert_yaml_snapshot!(full_name, ballot);
 }
 
+fn test_commitment_equivalence_snapshot<G: Group + Named>(blinding_base: G::Element) {
+    let mut rng = ChaChaRng::seed_from_u64(12345);
+    let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
+    let value = 123_u64;
+    let ciphertext = CiphertextWithValue::new(value, &receiver, &mut rng).generalize();
+    let blinding = SecretKey::generate(&mut rng);
+
+    let (proof, commitment) = CommitmentEquivalenceProof::new(
+        &ciphertext,
+        &receiver,
+        &blinding,
+        blinding_base,
+        &mut Transcript::new(b"test"),
+        &mut rng,
+    );
+
+    let mut commitment_bytes = vec![0_u8; G::ELEMENT_SIZE];
+    G::serialize_element(&commitment, &mut commitment_bytes);
+    let commitment_with_proof = serde_json::json!({
+        "ciphertext": Ciphertext::from(ciphertext),
+        "commitment": stringify_bytes(&commitment_bytes),
+        "proof": proof,
+    });
+
+    let full_name = format!("commitment-equiv-proof-{}", G::NAME);
+    assert_yaml_snapshot!(full_name, commitment_with_proof);
+}
+
 mod ristretto {
     use super::*;
+    use elastic_elgamal::group::ElementOps;
 
     #[test]
     fn ciphertext_snapshot() {
@@ -217,10 +247,23 @@ mod ristretto {
     fn qv_ballot_snapshot() {
         test_qv_ballot_snapshot::<Ristretto>();
     }
+
+    #[test]
+    fn commitment_equivalence_snapshot() {
+        // Blinding base used in Bulletproofs.
+        const BLINDING_BASE: &[u8] = &[
+            140, 146, 64, 180, 86, 169, 230, 220, 101, 195, 119, 161, 4, 141, 116, 95, 148, 160,
+            140, 219, 127, 68, 203, 205, 123, 70, 243, 64, 72, 135, 17, 52,
+        ];
+
+        let blinding_base = Ristretto::deserialize_element(BLINDING_BASE).unwrap();
+        test_commitment_equivalence_snapshot::<Ristretto>(blinding_base);
+    }
 }
 
 mod k256 {
     use super::*;
+    use elastic_elgamal::group::ElementOps;
 
     type K256 = Generic<::k256::Secp256k1>;
 
@@ -277,5 +320,21 @@ mod k256 {
     #[test]
     fn qv_ballot_snapshot() {
         test_qv_ballot_snapshot::<K256>();
+    }
+
+    #[test]
+    fn commitment_equivalence_snapshot() {
+        // Very primitive, but generic way to generate a blinding base; do not use
+        // in real apps!
+        let mut rng = ChaChaRng::seed_from_u64(12345);
+        let mut element_bytes = vec![0_u8; K256::ELEMENT_SIZE];
+        let blinding_base = loop {
+            element_bytes[0] = 2; // one of two allowed markers for compressed keys
+            rng.fill_bytes(&mut element_bytes[1..]);
+            if let Some(element) = K256::deserialize_element(&element_bytes) {
+                break element;
+            }
+        };
+        test_commitment_equivalence_snapshot::<K256>(blinding_base);
     }
 }
