@@ -89,6 +89,11 @@ name = "range"
 path = "examples/range.rs"
 required-features = ["default", "serde"]
 
+[[example]]
+name = "equivalence"
+path = "examples/equivalence.rs"
+required-features = ["curve25519-dalek-ng/u64_backend", "serde"]
+
 [[test]]
 name = "integration"
 path = "tests/integration/main.rs"
