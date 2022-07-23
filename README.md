@@ -16,6 +16,8 @@ The following protocols and high-level applications are included:
 - Additively homomorphic ElGamal encryption
 - Zero-knowledge proofs of zero encryption and Boolean value encryption
 - Zero-knowledge range proofs for ElGamal ciphertexts
+- Zero-knowledge proof of equivalence between an ElGamal ciphertext and
+  a Pedersen commitment in the same group
 - Additively homomorphic m-of-n choice encryption with a zero-knowledge
   proof of correctness
 - Additively homomorphic [quadratic voting] with a zero-knowledge

@@ -21,6 +21,8 @@
 //!   protocols, e.g., re-encryption.
 //! - Zero-knowledge range proofs for ElGamal ciphertexts are provided via [`RangeProof`]s
 //!   and a high-level [`PublicKey` method](PublicKey::encrypt_range()).
+//! - Proof of equivalence between an ElGamal ciphertext and a Pedersen commitment
+//!   is available as [`CommitmentEquivalenceProof`].
 //! - [`sharing`](crate::sharing) module exposes a threshold encryption scheme based
 //!   on [Feldman's verifiable secret sharing][feldman-vss], including verifiable distributed
 //!   decryption.

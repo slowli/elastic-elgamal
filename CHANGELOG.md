@@ -9,6 +9,13 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 - Make `curve25519-dalek` dependency optional and do not force the choice of its math backend.
   The dependency is still enabled by default.
+- Allow for the `curve25519-dalek-ng` crypto backend as an alternative to `curve25519-dalek`.
+  This may be beneficial for applications that use [`bulletproofs`] or other libraries 
+  depending on `curve25519-dalek-ng`.
+- Implement zero-knowledge proof of equivalence between an ElGamal ciphertext and
+  a Pedersen commitment in the same group. This proof can be used to switch 
+  from frameworks applicable to ElGamal ciphertexts, to ones applicable to Pedersen commitments 
+  (e.g., Bulletproofs for range proofs).
 
 ## 0.2.1 - 2022-07-04
 
@@ -63,3 +70,5 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 ## 0.1.0 - 2021-06-28
 
 The initial release of `elastic-elgamal`.
+
+[`bulletproofs`]: https://crates.io/crates/bulletproofs
