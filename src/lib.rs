@@ -33,8 +33,7 @@
 //! [`group`](crate::group) module exposes a generic framework for plugging a [`Group`]
 //! implementation into crypto primitives. It also provides several implementations:
 //!
-//! - [`Ristretto`] and [`Curve25519Subgroup`] implementations based on Curve25519 using
-//!   [`curve25519-dalek`].
+//! - [`Ristretto`] and [`Curve25519Subgroup`] implementations based on Curve25519.
 //! - [`Generic`] implementation allowing to plug in any elliptic curve group conforming to
 //!   the traits specified by the [`elliptic-curve`] crate. For example,
 //!   the secp256k1 curve can be used via the [`k256`] crate.
@@ -59,8 +58,34 @@
 //!
 //! *(on by default)*
 //!
-//! Implements [`Group`] for two prime groups based on Curve25519: its prime subgroup,
-//! and the Ristretto transform of Curve25519.
+//! Implements [`Group`] for two prime groups based on Curve25519 using the [`curve25519-dalek`]
+//! crate: its prime subgroup, and the Ristretto transform of Curve25519 (aka ristretto255).
+//!
+//! By default, `u64_backend` is selected for the `curve25519-dalek` crate. (The crate does not
+//! compile unless *some* backend is selected.) You may opt out of this selection by specifying
+//! dependencies as follows:
+//!
+//! ```toml
+//! [dependencies.elastic-elgamal]
+//! version = "..."
+//! default-features = false
+//! features = ["std", "curve25519-dalek"]
+//!
+//! [dependencies.curve25519-dalek]
+//! version = "3"
+//! default-features = false
+//! features = ["u32_backend"] # or other backend
+//! ```
+//!
+//! ## `curve25519-dalek-ng`
+//!
+//! *(off by default)*
+//!
+//! Same in terms of functionality as `curve25519-dalek`, but uses the [`curve25519-dalek-ng`]
+//! crate instead of [`curve25519-dalek`]. This may be beneficial for applications that use
+//! [`bulletproofs`] or other libraries depending on `curve25519-dalek-ng`.
+//!
+//! This feature is mutually exclusive with `curve25519-dalek`.
 //!
 //! ## `serde`
 //!
@@ -91,6 +116,8 @@
 //! [`Ristretto`]: crate::group::Ristretto
 //! [`Curve25519Subgroup`]: crate::group::Curve25519Subgroup
 //! [`curve25519-dalek`]: https://docs.rs/curve25519-dalek/
+//! [`curve25519-dalek-ng`]: https://docs.rs/curve25519-dalek-ng/
+//! [`bulletproofs`]: https://docs.rs/bulletproofs/
 //! [`Generic`]: crate::group::Generic
 //! [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 //! [`k256`]: https://docs.rs/k256/

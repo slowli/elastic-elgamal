@@ -21,7 +21,7 @@ use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 /// (If it *is* a concern, beware of [cofactor pitfalls]!)
 ///
 /// [`Ristretto`]: crate::group::Ristretto
-/// [pitfalls]: https://ristretto.group/why_ristretto.html#pitfalls-of-a-cofactor
+/// [cofactor pitfalls]: https://ristretto.group/why_ristretto.html#pitfalls-of-a-cofactor
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(
     docsrs,

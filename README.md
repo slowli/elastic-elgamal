@@ -6,7 +6,7 @@
 ![no_std supported](https://img.shields.io/badge/no__std-tested-green.svg)
 
 **Documentation:** [![Docs.rs](https://docs.rs/elastic-elgamal/badge.svg)](https://docs.rs/elastic-elgamal/)
-[![crate docs (master)](https://img.shields.io/badge/master-yellow.svg?label=docs)](https://slowli.github.io/elastic-elgamal/elastic_elgamal/)
+[![crate docs (main)](https://img.shields.io/badge/main-yellow.svg?label=docs)](https://slowli.github.io/elastic-elgamal/elastic_elgamal/)
 
 Implementation of [ElGamal encryption] and related zero-knowledge proofs
 with pluggable crypto backend.

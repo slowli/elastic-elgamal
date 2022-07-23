@@ -10,7 +10,7 @@ use crate::curve25519::{
 };
 use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 
-/// [Ristretto](https://ristretto.group/) transform of Curve25519.
+/// [Ristretto](https://ristretto.group/) transform of Curve25519, also known as ristretto255.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(
     docsrs,
