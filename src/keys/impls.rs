@@ -22,6 +22,15 @@ impl<G: Group> PublicKey<G> {
         ExtendedCiphertext::new(element, self, rng).inner
     }
 
+    /// Encrypts a group element
+    pub fn encrypt_element<R: CryptoRng + RngCore>(
+        &self, value:
+         G::Element,
+        rng: &mut R,
+    ) -> Ciphertext<G> {
+        ExtendedCiphertext::new(value, self, rng).inner
+    }
+
     /// Encrypts zero value and provides a zero-knowledge proof of encryption correctness.
     pub fn encrypt_zero<R>(&self, rng: &mut R) -> (Ciphertext<G>, LogEqualityProof<G>)
     where
