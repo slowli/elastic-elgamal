@@ -22,10 +22,10 @@ impl<G: Group> PublicKey<G> {
         ExtendedCiphertext::new(element, self, rng).inner
     }
 
-    /// Encrypts a group element
+    /// Encrypts a group element.
     pub fn encrypt_element<R: CryptoRng + RngCore>(
-        &self, value:
-         G::Element,
+        &self,
+        value: G::Element,
         rng: &mut R,
     ) -> Ciphertext<G> {
         ExtendedCiphertext::new(value, self, rng).inner
