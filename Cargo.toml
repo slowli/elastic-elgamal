@@ -1,7 +1,10 @@
 [package]
 name = "elastic-elgamal"
 version = "0.2.1"
-authors = ["Alex Ostrovski <ostrovski.alex@gmail.com>"]
+authors = [
+  "Alex Ostrovski <ostrovski.alex@gmail.com>",
+  "Jiří Gavenda <jirigavenda98@gmail.com>",
+]
 edition = "2021"
 rust-version = "1.57"
 readme = "README.md"
