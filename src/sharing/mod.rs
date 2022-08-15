@@ -227,7 +227,7 @@ impl std::error::Error for Error {
 }
 
 /// Parameters of a threshold ElGamal encryption scheme.
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 pub struct Params {
     /// Total number of shares / participants.

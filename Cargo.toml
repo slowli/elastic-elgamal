@@ -1,7 +1,10 @@
 [package]
 name = "elastic-elgamal"
 version = "0.2.1"
-authors = ["Alex Ostrovski <ostrovski.alex@gmail.com>"]
+authors = [
+  "Alex Ostrovski <ostrovski.alex@gmail.com>",
+  "Jiří Gavenda <jirigavenda98@gmail.com>",
+]
 edition = "2021"
 rust-version = "1.57"
 readme = "README.md"
@@ -55,7 +58,7 @@ optional = true
 bulletproofs = "4.0.0"
 criterion = "0.3.4"
 doc-comment = "0.3.3"
-insta = "1.8.0"
+insta = { version = "1.18.2", features = ["yaml"] }
 k256 = { version = "0.11", default-features = false, features = ["arithmetic"] }
 rand = "0.8.3"
 serde_json = "1.0"
