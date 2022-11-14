@@ -17,6 +17,11 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
   from frameworks applicable to ElGamal ciphertexts, to ones applicable to Pedersen commitments 
   (e.g., Bulletproofs for range proofs).
 
+### Changed
+
+- Update `hashbrown` dependency.
+- Bump minimum supported Rust version to 1.61.
+
 ## 0.2.1 - 2022-07-04
 
 ### Fixed
