@@ -295,8 +295,7 @@ impl<G: Group> EncryptedChoice<G, SingleChoice> {
     ) -> Self {
         assert!(
             choice < params.options_count,
-            "invalid choice {}; expected a value in 0..{}",
-            choice,
+            "invalid choice {choice}; expected a value in 0..{}",
             params.options_count
         );
         let choices: Vec<_> = (0..params.options_count).map(|i| choice == i).collect();
@@ -435,8 +434,8 @@ impl fmt::Display for ChoiceVerificationError {
                 act = actual,
                 exp = expected
             ),
-            Self::Sum(err) => write!(formatter, "cannot verify sum proof: {}", err),
-            Self::Range(err) => write!(formatter, "cannot verify range proofs: {}", err),
+            Self::Sum(err) => write!(formatter, "cannot verify sum proof: {err}"),
+            Self::Range(err) => write!(formatter, "cannot verify range proofs: {err}"),
         }
     }
 }

@@ -239,8 +239,7 @@ impl<G: Group> PublicKeySet<G> {
     ) -> Result<(), VerificationError> {
         let participant_key = self.participant_key(index).unwrap_or_else(|| {
             panic!(
-                "participant index {} out of bounds, expected a value in 0..{}",
-                index,
+                "participant index {index} out of bounds, expected a value in 0..{}",
                 self.participant_keys.len()
             );
         });

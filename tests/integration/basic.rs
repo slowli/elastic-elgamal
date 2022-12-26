@@ -332,7 +332,7 @@ mod curve25519 {
     #[test]
     fn encrypted_choice() {
         for &options_count in OPTIONS_COUNTS {
-            println!("testing single choice with {} options", options_count);
+            println!("testing single choice with {options_count} options");
             test_encrypted_choice::<Curve25519Subgroup>(options_count);
         }
     }
@@ -340,7 +340,7 @@ mod curve25519 {
     #[test]
     fn encrypted_multi_choice() {
         for &options_count in OPTIONS_COUNTS {
-            println!("testing multi choice with {} options", options_count);
+            println!("testing multi choice with {options_count} options");
             test_encrypted_multi_choice::<Curve25519Subgroup>(options_count);
         }
     }
@@ -348,10 +348,7 @@ mod curve25519 {
     #[test]
     fn sum_of_squares_proof() {
         for &squares_count in OPTIONS_COUNTS {
-            println!(
-                "testing sum of squares proof with {} squares",
-                squares_count
-            );
+            println!("testing sum of squares proof with {squares_count} squares");
             test_sum_of_squares_proof::<Curve25519Subgroup>(squares_count);
         }
     }
@@ -394,7 +391,7 @@ mod ristretto {
     #[test]
     fn encrypted_choice() {
         for &options_count in OPTIONS_COUNTS {
-            println!("testing single choice with {} options", options_count);
+            println!("testing single choice with {options_count} options");
             test_encrypted_choice::<Ristretto>(options_count);
         }
     }
@@ -402,7 +399,7 @@ mod ristretto {
     #[test]
     fn encrypted_multi_choice() {
         for &options_count in OPTIONS_COUNTS {
-            println!("testing multi choice with {} options", options_count);
+            println!("testing multi choice with {options_count} options");
             test_encrypted_multi_choice::<Ristretto>(options_count);
         }
     }
@@ -410,10 +407,7 @@ mod ristretto {
     #[test]
     fn sum_of_squares_proof() {
         for &squares_count in OPTIONS_COUNTS {
-            println!(
-                "testing sum of squares proof with {} squares",
-                squares_count
-            );
+            println!("testing sum of squares proof with {squares_count} squares");
             test_sum_of_squares_proof::<Ristretto>(squares_count);
         }
     }
@@ -458,7 +452,7 @@ mod k256 {
     #[test]
     fn encrypted_choice() {
         for &options_count in OPTIONS_COUNTS {
-            println!("testing single choice with {} options", options_count);
+            println!("testing single choice with {options_count} options");
             test_encrypted_choice::<K256>(options_count);
         }
     }
@@ -466,7 +460,7 @@ mod k256 {
     #[test]
     fn encrypted_multi_choice() {
         for &options_count in OPTIONS_COUNTS {
-            println!("testing multi choice with {} options", options_count);
+            println!("testing multi choice with {options_count} options");
             test_encrypted_multi_choice::<K256>(options_count);
         }
     }
@@ -474,10 +468,7 @@ mod k256 {
     #[test]
     fn sum_of_squares_proof() {
         for &squares_count in OPTIONS_COUNTS {
-            println!(
-                "testing sum of squares proof with {} squares",
-                squares_count
-            );
+            println!("testing sum of squares proof with {squares_count} squares");
             test_sum_of_squares_proof::<K256>(squares_count);
         }
     }
