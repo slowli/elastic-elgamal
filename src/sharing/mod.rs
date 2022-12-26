@@ -113,9 +113,12 @@
 //! ```
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use core::{cmp::Ordering, fmt};
+#[cfg(feature = "serde")]
+use crate::serde::{ElementHelper, VecHelper};
+
+use core::{cmp::Ordering, fmt, ops};
 
 use crate::{alloc::Vec, group::Group, proofs::VerificationError, VerifiableDecryption};
 
@@ -124,7 +127,7 @@ mod participant;
 
 pub use self::{
     key_set::PublicKeySet,
-    participant::{ActiveParticipant, Dealer},
+    participant::{ActiveParticipant, Dealer, DkgParticipant},
 };
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
@@ -170,6 +173,62 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
     (denominators, scale)
 }
 
+#[derive(Debug, Clone)]
+struct PublicPolynomial<G: Group>(Vec<G::Element>);
+
+impl<G: Group> PublicPolynomial<G> {
+    fn value_at_zero(&self) -> G::Element {
+        self.0[0]
+    }
+
+    /// Computes value of this public polynomial at the specified point in variable time.
+    fn value_at(&self, x: G::Scalar) -> G::Element {
+        let mut val = G::Scalar::from(1_u64);
+        let scalars: Vec<_> = (0..self.0.len())
+            .map(|_| {
+                let output = val;
+                val = val * x;
+                output
+            })
+            .collect();
+
+        G::vartime_multi_mul(&scalars, self.0.iter().copied())
+    }
+}
+
+impl<G: Group> ops::AddAssign<&Self> for PublicPolynomial<G> {
+    fn add_assign(&mut self, rhs: &Self) {
+        debug_assert_eq!(
+            self.0.len(),
+            rhs.0.len(),
+            "cannot add polynomials of different degrees"
+        );
+        for (val, &rhs_val) in self.0.iter_mut().zip(&rhs.0) {
+            *val = *val + rhs_val;
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<G: Group> Serialize for PublicPolynomial<G> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        VecHelper::<ElementHelper<G>, 1>::serialize(&self.0, serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de, G: Group> Deserialize<'de> for PublicPolynomial<G> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        VecHelper::<ElementHelper<G>, 1>::deserialize(deserializer).map(Self)
+    }
+}
+
 /// Errors that can occur during the secret sharing protocol.
 #[derive(Debug)]
 #[non_exhaustive]
@@ -186,6 +245,8 @@ pub enum Error {
     ParticipantCountMismatch,
     /// Participants' public keys do not correspond to a single shared key.
     MalformedParticipantKeys,
+    /// Provided commitment does not correspond to the party's public key share.
+    InvalidCommitment,
 }
 
 impl fmt::Display for Error {
@@ -212,6 +273,11 @@ impl fmt::Display for Error {
             ),
             Self::MalformedParticipantKeys => formatter
                 .write_str("participants' public keys do not correspond to a single shared key"),
+
+            Self::InvalidCommitment => formatter.write_str(
+                "public polynomial received from one of the parties does not correspond \
+                to their commitment",
+            ),
         }
     }
 }
