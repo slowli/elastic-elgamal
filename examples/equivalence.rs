@@ -26,7 +26,7 @@ fn main() {
         arg.parse().expect("cannot parse value as `u64` integer")
     });
     let ciphertext = CiphertextWithValue::new(value, &receiver, &mut rng).generalize();
-    println!("Encrypted value: {}", value);
+    println!("Encrypted value: {value}");
 
     let commitment_gens = PedersenGens::default();
     let bulletproof_gens = BulletproofGens::new(BULLETPROOFS_CAPACITY, 1);

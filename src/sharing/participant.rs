@@ -69,8 +69,7 @@ impl<G: Group> Dealer<G> {
     pub fn secret_share_for_participant(&self, index: usize) -> SecretKey<G> {
         assert!(
             index < self.params.shares,
-            "participant index {} out of bounds, expected a value in 0..{}",
-            index,
+            "participant index {index} out of bounds, expected a value in 0..{}",
             self.params.shares
         );
 
