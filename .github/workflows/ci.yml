@@ -1,4 +1,4 @@
-name: Rust
+name: CI
 
 on:
   push:
@@ -10,7 +10,7 @@ env:
   # Minimum supported Rust version.
   msrv: 1.61.0
   # Nightly Rust toolchain for checking no-std support.
-  nightly: nightly-2022-09-22
+  nightly: nightly-2022-11-24
 
 jobs:
   build-msrv:
@@ -20,7 +20,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Cache cargo build
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-msrv-cargo-build-target
@@ -49,7 +49,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Cache cargo build
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target
@@ -130,7 +130,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Cache cargo build
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-nostd-cargo-build-target
@@ -161,7 +161,7 @@ jobs:
       - uses: actions/checkout@v2
 
       - name: Cache cargo build
-        uses: actions/cache@v1
+        uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-cargo-document-target
@@ -178,9 +178,8 @@ jobs:
           cargo clean --doc && cargo rustdoc -p elastic-elgamal --features serde -- --cfg docsrs
 
       - name: Deploy
-        uses: JamesIves/github-pages-deploy-action@releases/v3
+        uses: JamesIves/github-pages-deploy-action@v4
         with:
-          ACCESS_TOKEN: ${{ secrets.ACCESS_TOKEN }}
-          BRANCH: gh-pages
-          FOLDER: target/doc
-          SINGLE_COMMIT: true
+          branch: gh-pages
+          folder: target/doc
+          single-commit: true
