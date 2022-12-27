@@ -9,11 +9,7 @@ const UPPER_BOUND: u64 = 100;
 
 fn main() {
     let range = RangeDecomposition::optimal(UPPER_BOUND);
-    println!(
-        "Range decomposition: 0..{} = {}",
-        range.upper_bound(),
-        range
-    );
+    println!("Range decomposition: 0..{} = {range}", range.upper_bound());
 
     let mut rng = thread_rng();
     let receiver = Keypair::<Ristretto>::generate(&mut rng);
@@ -22,7 +18,7 @@ fn main() {
 
     for _ in 0..5 {
         let secret_value: u64 = rng.gen_range(0..UPPER_BOUND);
-        println!("\nEncrypting value: {}", secret_value);
+        println!("\nEncrypting value: {secret_value}");
         let (ciphertext, proof) = receiver
             .public()
             .encrypt_range(&range, secret_value, &mut rng);

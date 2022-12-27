@@ -1,6 +1,6 @@
 # ElGamal Encryption and Related Zero-Knowledge Proofs
 
-[![Build Status](https://github.com/slowli/elastic-elgamal/workflows/Rust/badge.svg?branch=main)](https://github.com/slowli/elastic-elgamal/actions)
+[![Build Status](https://github.com/slowli/elastic-elgamal/workflows/CI/badge.svg?branch=main)](https://github.com/slowli/elastic-elgamal/actions)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue)](https://github.com/slowli/elastic-elgamal#license)
 ![rust 1.61+ required](https://img.shields.io/badge/rust-1.61+-blue.svg?label=Required%20Rust)
 ![no_std supported](https://img.shields.io/badge/no__std-tested-green.svg)

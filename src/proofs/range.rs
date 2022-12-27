@@ -208,7 +208,7 @@ impl RangeDecomposition {
             secret_value -= value_index * ring_spec.step;
         }
 
-        debug_assert_eq!(secret_value, 0, "unused secret value for {:?}", self);
+        debug_assert_eq!(secret_value, 0, "unused secret value for {self:?}");
     }
 
     /// We decompose our range `0..n` as `0..t + k * 0..T`, where `t >= 2`, `T >= 2`,
@@ -681,8 +681,7 @@ mod tests {
                 .fold(0, |acc, (&idx, spec)| acc + idx as u64 * spec.step);
             assert_eq!(
                 restored, secret_value,
-                "Cannot restore secret value {}; decomposed as {:?}",
-                secret_value, value_indexes
+                "Cannot restore secret value {secret_value}; decomposed as {value_indexes:?}"
             );
         }
     }
@@ -808,10 +807,7 @@ mod tests {
             let int_estimate = RangeDecomposition::int_lower_len_estimate(sample);
             assert!(
                 floating_point_estimate >= int_estimate,
-                "Unexpected estimates for {}: floating-point = {}, int = {}",
-                sample,
-                floating_point_estimate,
-                int_estimate
+                "Unexpected estimates for {sample}: floating-point = {floating_point_estimate}, int = {int_estimate}"
             );
         }
     }

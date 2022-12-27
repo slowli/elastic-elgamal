@@ -105,8 +105,7 @@ impl<G: Group> QuadraticVotingParams<G> {
     pub fn set_max_votes(&mut self, max_votes: u64) {
         assert!(
             max_votes * max_votes <= self.credits(),
-            "Vote bound {} is too large; its square is greater than credit bound {}",
-            max_votes,
+            "Vote bound {max_votes} is too large; its square is greater than credit bound {}",
             self.credits()
         );
         self.vote_count_range = RangeDecomposition::optimal(max_votes + 1).into();
@@ -362,26 +361,19 @@ impl fmt::Display for QuadraticVotingError {
             Self::Variant { index, error } => {
                 write!(
                     formatter,
-                    "error verifying range proof for option #{}: {}",
-                    *index + 1,
-                    error
+                    "error verifying range proof for option #{}: {error}",
+                    *index + 1
                 )
             }
-            Self::CreditRange(err) => write!(
-                formatter,
-                "error verifying range proof for credits: {}",
-                err
-            ),
-            Self::CreditEquivalence(err) => write!(
-                formatter,
-                "error verifying credit equivalence proof: {}",
-                err
-            ),
+            Self::CreditRange(err) => {
+                write!(formatter, "error verifying range proof for credits: {err}")
+            }
+            Self::CreditEquivalence(err) => {
+                write!(formatter, "error verifying credit equivalence proof: {err}")
+            }
             Self::OptionsLenMismatch { expected, actual } => write!(
                 formatter,
-                "number of options in the ballot ({act}) differs from expected ({exp})",
-                act = actual,
-                exp = expected
+                "number of options in the ballot ({actual}) differs from expected ({expected})"
             ),
         }
     }
@@ -420,14 +412,12 @@ mod tests {
         ]);
         for sample in samples {
             let sqrt = isqrt(sample);
-            assert!(sqrt * sqrt <= sample, "sqrt({}) ?= {}", sample, sqrt);
+            assert!(sqrt * sqrt <= sample, "sqrt({sample}) ?= {sqrt}");
 
             let next_square = (sqrt + 1).checked_mul(sqrt + 1);
             assert!(
                 next_square.map_or(true, |sq| sq > sample),
-                "sqrt({}) ?= {}",
-                sample,
-                sqrt
+                "sqrt({sample}) ?= {sqrt}"
             );
         }
     }

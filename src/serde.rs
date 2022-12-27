@@ -301,7 +301,7 @@ impl<'de, T: Helper, const MIN: usize> Visitor<'de> for VecHelper<T, MIN> {
     type Value = Vec<T::Target>;
 
     fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(formatter, "at least {} {}", MIN, T::PLURAL_DESCRIPTION)
+        write!(formatter, "at least {MIN} {}", T::PLURAL_DESCRIPTION)
     }
 
     fn visit_seq<S>(self, mut access: S) -> Result<Self::Value, S::Error>
@@ -339,17 +339,17 @@ mod tests {
     fn key_roundtrip() {
         let keypair = Keypair::<Ristretto>::generate(&mut thread_rng());
         let json = serde_json::to_value(&keypair).unwrap();
-        assert!(json.is_string(), "{:?}", json);
+        assert!(json.is_string(), "{json:?}");
         let keypair_copy: Keypair<Ristretto> = serde_json::from_value(json).unwrap();
         assert_eq!(keypair_copy.public(), keypair.public());
 
         let json = serde_json::to_value(keypair.public()).unwrap();
-        assert!(json.is_string(), "{:?}", json);
+        assert!(json.is_string(), "{json:?}");
         let public_key: PublicKey<Ristretto> = serde_json::from_value(json).unwrap();
         assert_eq!(public_key, *keypair.public());
 
         let json = serde_json::to_value(keypair.secret()).unwrap();
-        assert!(json.is_string(), "{:?}", json);
+        assert!(json.is_string(), "{json:?}");
         let secret_key: SecretKey<Ristretto> = serde_json::from_value(json).unwrap();
         assert_eq!(secret_key.expose_scalar(), keypair.secret().expose_scalar());
     }
@@ -360,8 +360,7 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("invalid size of the byte buffer"),
-            "{}",
-            err_string
+            "{err_string}"
         );
     }
 
@@ -374,8 +373,7 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("does not represent a group element"),
-            "{}",
-            err_string
+            "{err_string}"
         );
     }
 
@@ -385,8 +383,7 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("bytes do not represent a group scalar"),
-            "{}",
-            err_string
+            "{err_string}"
         );
     }
 
@@ -401,8 +398,7 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("bytes do not represent a group scalar"),
-            "{}",
-            err_string
+            "{err_string}"
         );
     }
 
@@ -438,7 +434,7 @@ mod tests {
     #[test]
     fn scalar_helper_invalid_scalar() {
         let object = TestObject::sample();
-        let mut json = serde_json::to_value(&object).unwrap();
+        let mut json = serde_json::to_value(object).unwrap();
         json.as_object_mut()
             .unwrap()
             .insert("scalar".into(), "dGVzdA".into());
@@ -447,8 +443,7 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("invalid length 4, expected 32"),
-            "{}",
-            err
+            "{err_string}"
         );
 
         json.as_object_mut().unwrap().insert(
@@ -459,15 +454,14 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("bytes do not represent a group scalar"),
-            "{}",
-            err_string
+            "{err_string}"
         );
     }
 
     #[test]
     fn element_helper_invalid_element() {
         let object = TestObject::sample();
-        let mut json = serde_json::to_value(&object).unwrap();
+        let mut json = serde_json::to_value(object).unwrap();
         json.as_object_mut()
             .unwrap()
             .insert("element".into(), "dGVzdA".into());
@@ -476,8 +470,7 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("invalid length 4, expected 32"),
-            "{}",
-            err
+            "{err_string}"
         );
 
         json.as_object_mut().unwrap().insert(
@@ -488,15 +481,14 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("bytes do not represent a group element"),
-            "{}",
-            err_string
+            "{err_string}"
         );
     }
 
     #[test]
     fn vec_helper_invalid_length() {
         let object = TestObject::sample();
-        let mut json = serde_json::to_value(&object).unwrap();
+        let mut json = serde_json::to_value(object).unwrap();
         let more_scalars = &mut json.as_object_mut().unwrap()["more_scalars"];
         more_scalars.as_array_mut().unwrap().pop();
 
@@ -504,8 +496,7 @@ mod tests {
         let err_string = err.to_string();
         assert!(
             err_string.contains("invalid length 1, expected at least 2 group scalars"),
-            "{}",
-            err_string
+            "{err_string}"
         );
     }
 }

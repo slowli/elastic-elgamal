@@ -259,8 +259,7 @@ impl fmt::Display for Error {
                 write!(
                     formatter,
                     "proof of possession supplied with the dealer's public polynomial \
-                     is invalid: {}",
-                    err
+                     is invalid: {err}"
                 )
             }
             Self::InvalidSecret => formatter.write_str(

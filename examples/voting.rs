@@ -82,7 +82,7 @@ impl Args {
     }
 
     fn run(self) {
-        println!("Running with args {:?}", self);
+        println!("Running with args {self:?}");
         match self.group {
             GroupName::Ristretto => {
                 if self.quadratic_voting {
@@ -169,7 +169,7 @@ impl Args {
             let option_tally = combined_decryption
                 .decrypt(option_totals, &lookup_table)
                 .unwrap();
-            println!("Variant #{} decrypted tally: {}", i + 1, option_tally);
+            println!("Variant #{} decrypted tally: {option_tally}", i + 1);
             assert_eq!(option_tally, expected);
             println!("The decrypted number is as expected!");
         }
@@ -241,7 +241,7 @@ impl Args {
                 }
             }
 
-            println!("\nVoter #{} casting votes {:?}", i + 1, votes);
+            println!("\nVoter #{} casting votes {votes:?}", i + 1);
             for (exp_total, &vote) in expected_totals.iter_mut().zip(&votes) {
                 *exp_total += vote;
             }
