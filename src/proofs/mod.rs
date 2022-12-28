@@ -111,10 +111,7 @@ impl fmt::Display for VerificationError {
                 actual,
             } => write!(
                 formatter,
-                "number of {collection} ({act}) differs from expected ({exp})",
-                collection = collection,
-                act = actual,
-                exp = expected
+                "number of {collection} ({actual}) differs from expected ({expected})",
             ),
         }
     }

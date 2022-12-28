@@ -430,9 +430,7 @@ impl fmt::Display for ChoiceVerificationError {
         match self {
             Self::OptionsLenMismatch { expected, actual } => write!(
                 formatter,
-                "number of options in the ballot ({act}) differs from expected ({exp})",
-                act = actual,
-                exp = expected
+                "number of options in the ballot ({actual}) differs from expected ({expected})",
             ),
             Self::Sum(err) => write!(formatter, "cannot verify sum proof: {err}"),
             Self::Range(err) => write!(formatter, "cannot verify range proofs: {err}"),
