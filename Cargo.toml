@@ -1,6 +1,6 @@
 [package]
 name = "elastic-elgamal"
-version = "0.2.2"
+version = "0.2.1"
 authors = [
   "Alex Ostrovski <ostrovski.alex@gmail.com>",
   "Jiří Gavenda <jirigavenda98@gmail.com>",
@@ -27,7 +27,7 @@ rustdoc-args = ["--cfg", "docsrs"]
 elliptic-curve = { version = "0.12.0", features = ["sec1"] }
 rand_core = { version = "0.6.2", default-features = false }
 zeroize = { version = "1.3.0", default-features = false, features = ["alloc"] }
-sha2 = "0.10.6"
+sha2 = { version = "0.10.6", default-features = false }
 
 # Enables `Serialize` / `Deserialize` implementation for most types in the crate.
 serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }

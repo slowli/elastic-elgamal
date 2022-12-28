@@ -127,7 +127,7 @@ mod participant;
 
 pub use self::{
     key_set::PublicKeySet,
-    participant::{ActiveParticipant, Dealer, DkgParticipant},
+    participant::{ActiveParticipant, Dealer},
 };
 
 /// Computes multipliers for the Lagrange polynomial interpolation based on the function value
@@ -173,8 +173,9 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
     (denominators, scale)
 }
 
+/// Structure representing public polynomial consisting of group elements.
 #[derive(Debug, Clone)]
-struct PublicPolynomial<G: Group>(Vec<G::Element>);
+pub struct PublicPolynomial<G: Group>(pub Vec<G::Element>);
 
 impl<G: Group> PublicPolynomial<G> {
     fn value_at_zero(&self) -> G::Element {
@@ -182,7 +183,7 @@ impl<G: Group> PublicPolynomial<G> {
     }
 
     /// Computes value of this public polynomial at the specified point in variable time.
-    fn value_at(&self, x: G::Scalar) -> G::Element {
+    pub fn value_at(&self, x: G::Scalar) -> G::Element {
         let mut val = G::Scalar::from(1_u64);
         let scalars: Vec<_> = (0..self.0.len())
             .map(|_| {
@@ -245,8 +246,6 @@ pub enum Error {
     ParticipantCountMismatch,
     /// Participants' public keys do not correspond to a single shared key.
     MalformedParticipantKeys,
-    /// Provided commitment does not correspond to the party's public key share.
-    InvalidCommitment,
 }
 
 impl fmt::Display for Error {
@@ -272,11 +271,6 @@ impl fmt::Display for Error {
             ),
             Self::MalformedParticipantKeys => formatter
                 .write_str("participants' public keys do not correspond to a single shared key"),
-
-            Self::InvalidCommitment => formatter.write_str(
-                "public polynomial received from one of the parties does not correspond \
-                to their commitment",
-            ),
         }
     }
 }

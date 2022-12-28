@@ -142,6 +142,7 @@
 
 pub mod app;
 mod decryption;
+pub mod dkg;
 mod encryption;
 pub mod group;
 mod keys;
