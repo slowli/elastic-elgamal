@@ -11,6 +11,7 @@ use core::{fmt, marker::PhantomData};
 
 use crate::{
     alloc::{vec, ToString, Vec},
+    dkg::Decommitment,
     group::Group,
     Keypair, PublicKey, SecretKey,
 };
@@ -75,6 +76,27 @@ where
         deserializer.deserialize_str(Base64Visitor)
     } else {
         deserializer.deserialize_byte_buf(BytesVisitor)
+    }
+}
+
+impl Serialize for Decommitment {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serialize_bytes(self.0.as_slice(), serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Decommitment {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let bytes = deserialize_bytes(deserializer)?;
+        Ok(Decommitment(Zeroizing::new(bytes.try_into().map_err(
+            |_| D::Error::custom("provided number of bytes is {bytes.len()}, but expected is 32"),
+        )?)))
     }
 }
 
@@ -334,6 +356,15 @@ mod tests {
 
     use super::*;
     use crate::group::Ristretto;
+
+    #[test]
+    fn decommitment_roundtrip() {
+        let decommitment = Decommitment(Zeroizing::new([6; 32]));
+        let json = serde_json::to_value(&decommitment).unwrap();
+        assert!(json.is_string(), "{json:?}");
+        let decommitment_copy: Decommitment = serde_json::from_value(json).unwrap();
+        assert_eq!(decommitment_copy.0, decommitment.0);
+    }
 
     #[test]
     fn key_roundtrip() {

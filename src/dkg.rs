@@ -18,17 +18,18 @@ use serde::{Deserialize, Serialize};
 
 use core::fmt;
 use sha2::{Digest, Sha256};
+use zeroize::Zeroizing;
 
 use crate::{
     alloc::{vec, Vec},
     group::Group,
     proofs::ProofOfPossession,
-    sharing::Dealer,
     sharing::{self, Params, PublicKeySet, PublicPolynomial},
+    sharing::{ActiveParticipant, Dealer},
     PublicKey, SecretKey,
 };
 
-/// Errors that can occur during the secret sharing protocol.
+/// Errors that can occur during the distributed key generation.
 #[derive(Debug)]
 #[non_exhaustive]
 pub enum Error {
@@ -80,20 +81,32 @@ impl fmt::Display for Error {
     }
 }
 
+fn create_commitment<G: Group>(element: &G::Element, decommitment: &[u8]) -> [u8; 32] {
+    let mut hasher = Sha256::new();
+    let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
+    G::serialize_element(element, &mut bytes);
+    hasher.update(&bytes);
+    hasher.update(decommitment);
+    hasher.finalize().into()
+}
+
+#[derive(Debug, Clone)]
+pub(crate) struct Decommitment(pub(crate) Zeroizing<[u8; 32]>);
+
 /// Structure for collecting commitments of public share in committed Pedersen's
 /// distributed key generation.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]
-pub struct DkgCommitmentsCollector<G: Group> {
+pub struct ParticipantCollectingCommitments<G: Group> {
     params: Params,
     index: usize,
     dealer: Dealer<G>,
     commitments: Vec<Option<[u8; 32]>>,
-    decommitment: [u8; 32],
+    decommitment: Decommitment,
 }
 
-impl<G: Group> DkgCommitmentsCollector<G> {
+impl<G: Group> ParticipantCollectingCommitments<G> {
     /// Instantiates a distributed key generation participant.
     ///
     /// # Panics
@@ -101,93 +114,93 @@ impl<G: Group> DkgCommitmentsCollector<G> {
     /// Panics if `index` is greater or equal to number of shares.
     pub fn new<R: CryptoRng + RngCore>(params: Params, index: usize, rng: &mut R) -> Self {
         assert!(index < params.shares);
-        let mut decommitment = [0u8; 32];
-        rng.fill_bytes(&mut decommitment);
+
+        let dealer = Dealer::new(params, rng);
+
+        let mut decommitment = Zeroizing::new([0u8; 32]);
+        rng.fill_bytes(decommitment.as_mut_slice());
+
+        let mut commitments = vec![None; params.shares];
+        let (public_poly, _) = dealer.public_info();
+        commitments[index] = Some(create_commitment::<G>(
+            &public_poly[0],
+            decommitment.as_slice(),
+        ));
         Self {
             params,
             index,
-            dealer: Dealer::new(params, rng),
-            commitments: vec![None; params.shares],
-            decommitment,
+            dealer,
+            commitments,
+            decommitment: Decommitment(decommitment),
         }
     }
 
-    /// Generates commitment of participant's share of a public key.
+    /// Returns commitment of participant's share of a public key.
+    ///
+    /// # Panics
+    ///
+    /// Panics if the commitment is missing which can happen only if
+    /// the `ParticipantCollectingCommitments` got corrupted.
     pub fn commitment(&mut self) -> [u8; 32] {
-        if let Some(c) = self.commitments[self.index] {
-            c
-        } else {
-            let (public_poly, _) = self.dealer.public_info();
-            let mut hasher = Sha256::new();
-            let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
-            G::serialize_element(&public_poly[0], &mut bytes);
-            hasher.update(&bytes);
-            hasher.update(self.decommitment);
-            let c = hasher.finalize().into();
-            self.commitments[self.index] = Some(c);
-            c
-        }
+        self.commitments[self.index].unwrap()
     }
 
     /// Inserts commitment from other participant with index `participant_index`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if commitment for given participant was already provided or
+    /// `participant_index` is out of bounds.
     pub fn insert_commitment(&mut self, participant_index: usize, commitment: [u8; 32]) {
+        assert!(self.commitments[participant_index].is_none());
         self.commitments[participant_index] = Some(commitment);
     }
 
     /// Returns indices of parties whose commitments were not provided.
-    pub fn missing_commitments(&self) -> Vec<usize> {
+    pub fn missing_commitments(&self) -> impl Iterator<Item = usize> + '_ {
         self.commitments
             .iter()
             .enumerate()
             .filter_map(|(i, x)| if x.is_none() { Some(i) } else { None })
-            .collect()
     }
 
-    /// If all commiements were received returns DkgShareCollector
-    /// otherwise returns None.
-    pub fn finish_commitment_phase(&self) -> Option<DkgSharesCollector<G>> {
-        if !self.missing_commitments().is_empty() {
-            return None;
-        }
+    /// If all commitments were received returns `ParticipantCollectingPolynomials`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if some commitments are missing.
+    pub fn finish_commitment_phase(&self) -> ParticipantCollectingPolynomials<G> {
+        assert!(self.missing_commitments().next().is_none());
 
-        let mut shares_received = vec![false; self.params.shares];
-        shares_received[self.index] = true;
         let (public_polynomial, _) = self.dealer.public_info();
-        Some(DkgSharesCollector {
+        let mut public_polynomials = vec![None; self.params.shares];
+        public_polynomials[self.index] = Some(PublicPolynomial::<G>(public_polynomial));
+        ParticipantCollectingPolynomials {
             params: self.params,
             index: self.index,
             dealer: self.dealer.clone(),
-            decommitment: self.decommitment,
+            decommitment: *self.decommitment.0,
             commitments: self.commitments.iter().filter_map(|x| *x).collect(),
-            cumulated_share: self.dealer.secret_share_for_participant(self.index),
-            cumulated_public_poly: PublicPolynomial::<G>(public_polynomial),
-            shares_received,
-        })
+            public_polynomials,
+        }
     }
 }
 
-/// Structure for collecting secret shares in committed Pedersen's distributed
+/// Structure for collecting public polynomials in committed Pedersen's distributed
 /// key generation.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]
-pub struct DkgSharesCollector<G: Group> {
+pub struct ParticipantCollectingPolynomials<G: Group> {
     params: Params,
     index: usize,
     dealer: Dealer<G>,
     decommitment: [u8; 32],
     commitments: Vec<[u8; 32]>,
-    cumulated_share: SecretKey<G>,
-    cumulated_public_poly: PublicPolynomial<G>,
-    shares_received: Vec<bool>,
+    public_polynomials: Vec<Option<PublicPolynomial<G>>>,
 }
 
-impl<G: Group> DkgSharesCollector<G> {
-    /// Returns a secret share for a participant with the specified `participant_index`.
-    pub fn secret_share_for_participant(&self, participant_index: usize) -> SecretKey<G> {
-        self.dealer.secret_share_for_participant(participant_index)
-    }
-
+impl<G: Group> ParticipantCollectingPolynomials<G> {
     /// Returns public participant information: participant's public polynomial,
     /// proof of possession for the corresponding secret polynomial and decommitment.
     pub fn public_info(&self) -> (Vec<G::Element>, ProofOfPossession<G>, [u8; 32]) {
@@ -197,6 +210,99 @@ impl<G: Group> DkgSharesCollector<G> {
             proof_of_possession.clone(),
             self.decommitment,
         )
+    }
+
+    /// Returns indices of parties whose public polynomials were not provided.
+    pub fn missing_public_polynomials(&self) -> impl Iterator<Item = usize> + '_ {
+        self.public_polynomials
+            .iter()
+            .enumerate()
+            .filter_map(|(i, x)| if x.is_none() { Some(i) } else { None })
+    }
+
+    /// Inserts public polynomial from participant with index `participant_index`
+    /// their proof of possession of the public polynomial and decommitment of
+    /// their previously provided commitment.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if provided polynomial doesn't correspond to the previous
+    /// commitment or the proof of possession is not valid.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `participant_index` is out of bounds or `self.index` is greater
+    /// or equal to number of participants, which should never happen, unless
+    /// `ParticipantCollectingPolynomials` got corrupted.
+    pub fn insert_public_polynomial(
+        &mut self,
+        participant_index: usize,
+        public_polynomial: &[G::Element],
+        proof_of_possession: &ProofOfPossession<G>,
+        decommitment: &[u8; 32],
+    ) -> Result<(), Error> {
+        let c = create_commitment::<G>(&public_polynomial[0], decommitment);
+        if self.commitments[participant_index] != c {
+            // provided commitment doesn't match the given public key share
+            return Err(Error::InvalidCommitment);
+        }
+
+        // verifies proof of possession of secret polynomial
+        PublicKeySet::new(self.params, public_polynomial.to_vec(), proof_of_possession)
+            .map_err(Error::MalformedParticipantProof)?;
+
+        self.public_polynomials[participant_index] =
+            Some(PublicPolynomial::<G>(public_polynomial.to_vec()));
+        Ok(())
+    }
+
+    /// If all polynomials were received returns `ParticipantExchangingSecrets`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if some public polynomials are missing.
+    pub fn finish_polynomials_phase(&self) -> ParticipantExchangingSecrets<G> {
+        assert!(self.missing_public_polynomials().next().is_none());
+
+        let mut shares_received = vec![false; self.params.shares];
+        shares_received[self.index] = true;
+        let (public_polynomial, _) = self.dealer.public_info();
+
+        ParticipantExchangingSecrets {
+            params: self.params,
+            index: self.index,
+            dealer: self.dealer.clone(),
+            public_polynomials: self
+                .public_polynomials
+                .iter()
+                .filter_map(std::clone::Clone::clone)
+                .collect(),
+            cumulated_share: self.dealer.secret_share_for_participant(self.index),
+            cumulated_public_poly: PublicPolynomial::<G>(public_polynomial),
+            shares_received,
+        }
+    }
+}
+
+/// Structure for collecting secret shares in committed Pedersen's distributed
+/// key generation.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(bound = ""))]
+pub struct ParticipantExchangingSecrets<G: Group> {
+    params: Params,
+    index: usize,
+    dealer: Dealer<G>,
+    public_polynomials: Vec<PublicPolynomial<G>>,
+    cumulated_share: SecretKey<G>,
+    cumulated_public_poly: PublicPolynomial<G>,
+    shares_received: Vec<bool>,
+}
+
+impl<G: Group> ParticipantExchangingSecrets<G> {
+    /// Returns a secret share for a participant with the specified `participant_index`.
+    pub fn secret_share_for_participant(&self, participant_index: usize) -> SecretKey<G> {
+        self.dealer.secret_share_for_participant(participant_index)
     }
 
     /// Returns indices of parties whose shares were not provided.
@@ -214,51 +320,31 @@ impl<G: Group> DkgSharesCollector<G> {
     /// # Errors
     ///
     /// Returns an error if provided secret share doesn't lie on given public
-    /// polynomial or the polynomial doesn't correspond to the previous commitment.
+    /// polynomial.
     ///
     /// # Panics
     ///
-    /// Panics if `self.index` is greater or equal to number of participants,
-    /// which should never happen, unless DkgSharesCollector got corrupted.
+    /// Panics if `participant_index` is out of bounds.
     pub fn insert_secret_share(
         &mut self,
         participant_index: usize,
         secret_share: SecretKey<G>,
-        public_polynomial: &[G::Element],
-        proof_of_possession: &ProofOfPossession<G>,
-        decommitment: &[u8; 32],
     ) -> Result<(), Error> {
         if self.shares_received[participant_index] {
             return Err(Error::DuplicitShare);
         }
 
-        // verifies proof of possession of secret polynomial
-        let keyset =
-            match PublicKeySet::new(self.params, public_polynomial.to_vec(), proof_of_possession) {
-                Ok(keyset) => keyset,
-                Err(error) => return Err(Error::MalformedParticipantProof(error)),
-            };
+        let public_share = PublicKey::<G>::from_element(
+            self.public_polynomials[participant_index].value_at((self.index as u64 + 1).into()),
+        );
 
-        let public_share = keyset.participant_key(self.index).unwrap();
         if public_share.as_element() != G::mul_generator(secret_share.expose_scalar()) {
             // point corresponding to the received secret share doesn't lie
             // on the public polynomial
             return Err(Error::InvalidSecret);
         }
 
-        let mut hasher = Sha256::new();
-        let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
-        G::serialize_element(&public_polynomial[0], &mut bytes);
-        hasher.update(&bytes);
-        hasher.update(decommitment);
-        let c: [u8; 32] = hasher.finalize().into();
-
-        if self.commitments[participant_index] != c {
-            // provided commitment doesn't match the given public key share
-            return Err(Error::InvalidCommitment);
-        }
-
-        self.cumulated_public_poly += &PublicPolynomial::<G>(public_polynomial.to_vec());
+        self.cumulated_public_poly += &self.public_polynomials[participant_index];
         self.cumulated_share += secret_share;
         self.shares_received[participant_index] = true;
         Ok(())
@@ -271,7 +357,7 @@ impl<G: Group> DkgSharesCollector<G> {
     ///
     /// Returns error if secret shares from some parties were not provided, or
     /// PublicKeySet can not be created.
-    pub fn keys(&self) -> Result<(SecretKey<G>, PublicKeySet<G>), Error> {
+    pub fn complete(self) -> Result<ActiveParticipant<G>, Error> {
         if !self.shares_received.iter().all(|x| *x) {
             return Err(Error::MissingShares);
         }
@@ -283,11 +369,12 @@ impl<G: Group> DkgSharesCollector<G> {
                 )
             })
             .collect();
-        let keyset = match PublicKeySet::from_participants(self.params, participant_keys) {
-            Ok(keyset) => keyset,
-            Err(error) => return Err(Error::InconsistentPublicShares(error)),
-        };
-        Ok((self.cumulated_share.clone(), keyset))
+        let keyset = PublicKeySet::from_participants(self.params, participant_keys)
+            .map_err(Error::InconsistentPublicShares)?;
+
+        let active_participant = ActiveParticipant::new(keyset, self.index, self.cumulated_share)
+            .map_err(Error::InconsistentPublicShares)?;
+        Ok(active_participant)
     }
 }
 
@@ -296,23 +383,30 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{
-        curve25519::scalar::Scalar as Scalar25519, group::Ristretto, sharing::ActiveParticipant,
-    };
+    use crate::{curve25519::scalar::Scalar as Scalar25519, group::Ristretto};
+
     #[test]
     fn dkg_shared_2_of_3_key() {
         let mut rng = thread_rng();
         let params = Params::new(3, 2);
 
-        let mut commitments_alice = DkgCommitmentsCollector::<Ristretto>::new(params, 0, &mut rng);
-        let mut commitments_bob = DkgCommitmentsCollector::<Ristretto>::new(params, 1, &mut rng);
-        let mut commitments_carol = DkgCommitmentsCollector::<Ristretto>::new(params, 2, &mut rng);
+        let mut commitments_alice =
+            ParticipantCollectingCommitments::<Ristretto>::new(params, 0, &mut rng);
+        let mut commitments_bob =
+            ParticipantCollectingCommitments::<Ristretto>::new(params, 1, &mut rng);
+        let mut commitments_carol =
+            ParticipantCollectingCommitments::<Ristretto>::new(params, 2, &mut rng);
 
         let comm_a = commitments_alice.commitment();
         let comm_b = commitments_bob.commitment();
         let comm_c = commitments_carol.commitment();
 
-        assert!(commitments_alice.missing_commitments() == vec![1, 2]);
+        assert!(
+            commitments_alice
+                .missing_commitments()
+                .collect::<Vec<usize>>()
+                == vec![1, 2]
+        );
         commitments_alice.insert_commitment(1, comm_b);
         commitments_alice.insert_commitment(2, comm_c);
         commitments_bob.insert_commitment(0, comm_a);
@@ -320,79 +414,71 @@ mod tests {
         commitments_carol.insert_commitment(0, comm_a);
         commitments_carol.insert_commitment(1, comm_b);
 
-        let mut dkg_alice = commitments_alice.finish_commitment_phase().unwrap();
-        let mut dkg_bob = commitments_bob.finish_commitment_phase().unwrap();
-        let mut dkg_carol = commitments_carol.finish_commitment_phase().unwrap();
+        let mut polynomials_alice = commitments_alice.finish_commitment_phase();
+        let mut polynomials_bob = commitments_bob.finish_commitment_phase();
+        let mut polynomials_carol = commitments_carol.finish_commitment_phase();
 
-        let (public_poly_a, public_proof_a, decomm_a) = dkg_alice.public_info();
-        let (public_poly_b, public_proof_b, decomm_b) = dkg_bob.public_info();
-        let (public_poly_c, public_proof_c, decomm_c) = dkg_carol.public_info();
+        let (public_poly_a, public_proof_a, decomm_a) = polynomials_alice.public_info();
+        let (public_poly_b, public_proof_b, decomm_b) = polynomials_bob.public_info();
+        let (public_poly_c, public_proof_c, decomm_c) = polynomials_carol.public_info();
 
-        assert!(dkg_alice.missing_shares() == vec![1, 2]);
+        assert!(
+            polynomials_alice
+                .missing_public_polynomials()
+                .collect::<Vec<usize>>()
+                == vec![1, 2]
+        );
+
+        polynomials_alice
+            .insert_public_polynomial(1, &public_poly_b, &public_proof_b, &decomm_b)
+            .unwrap();
+        polynomials_alice
+            .insert_public_polynomial(2, &public_poly_c, &public_proof_c, &decomm_c)
+            .unwrap();
+
+        polynomials_bob
+            .insert_public_polynomial(0, &public_poly_a, &public_proof_a, &decomm_a)
+            .unwrap();
+        polynomials_bob
+            .insert_public_polynomial(2, &public_poly_c, &public_proof_c, &decomm_c)
+            .unwrap();
+
+        polynomials_carol
+            .insert_public_polynomial(0, &public_poly_a, &public_proof_a, &decomm_a)
+            .unwrap();
+        polynomials_carol
+            .insert_public_polynomial(1, &public_poly_b, &public_proof_b, &decomm_b)
+            .unwrap();
+
+        let mut dkg_alice = polynomials_alice.finish_polynomials_phase();
+        let mut dkg_bob = polynomials_bob.finish_polynomials_phase();
+        let mut dkg_carol = polynomials_carol.finish_polynomials_phase();
+
         dkg_alice
-            .insert_secret_share(
-                1,
-                dkg_bob.secret_share_for_participant(0),
-                &public_poly_b,
-                &public_proof_b,
-                &decomm_b,
-            )
+            .insert_secret_share(1, dkg_bob.secret_share_for_participant(0))
             .unwrap();
         dkg_alice
-            .insert_secret_share(
-                2,
-                dkg_carol.secret_share_for_participant(0),
-                &public_poly_c,
-                &public_proof_c,
-                &decomm_c,
-            )
+            .insert_secret_share(2, dkg_carol.secret_share_for_participant(0))
+            .unwrap();
+
+        dkg_bob
+            .insert_secret_share(0, dkg_alice.secret_share_for_participant(1))
             .unwrap();
         dkg_bob
-            .insert_secret_share(
-                0,
-                dkg_alice.secret_share_for_participant(1),
-                &public_poly_a,
-                &public_proof_a,
-                &decomm_a,
-            )
+            .insert_secret_share(2, dkg_carol.secret_share_for_participant(1))
             .unwrap();
-        dkg_bob
-            .insert_secret_share(
-                2,
-                dkg_carol.secret_share_for_participant(1),
-                &public_poly_c,
-                &public_proof_c,
-                &decomm_c,
-            )
+
+        dkg_carol
+            .insert_secret_share(0, dkg_alice.secret_share_for_participant(2))
             .unwrap();
         dkg_carol
-            .insert_secret_share(
-                0,
-                dkg_alice.secret_share_for_participant(2),
-                &public_poly_a,
-                &public_proof_a,
-                &decomm_a,
-            )
-            .unwrap();
-        dkg_carol
-            .insert_secret_share(
-                1,
-                dkg_bob.secret_share_for_participant(2),
-                &public_poly_b,
-                &public_proof_b,
-                &decomm_b,
-            )
+            .insert_secret_share(1, dkg_bob.secret_share_for_participant(2))
             .unwrap();
 
-        let (alice_share, _) = dkg_alice.keys().unwrap();
-
-        let (bob_share, _) = dkg_bob.keys().unwrap();
-
-        let (carol_share, key_set) = dkg_carol.keys().unwrap();
-
-        let alice = ActiveParticipant::new(key_set.clone(), 0, alice_share).unwrap();
-        let bob = ActiveParticipant::new(key_set.clone(), 1, bob_share).unwrap();
-        let _carol = ActiveParticipant::new(key_set.clone(), 2, carol_share).unwrap();
+        let alice = dkg_alice.complete().unwrap();
+        let bob = dkg_bob.complete().unwrap();
+        let _carol = dkg_carol.complete().unwrap();
+        let key_set = alice.key_set();
 
         let ciphertext = key_set.shared_key().encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);

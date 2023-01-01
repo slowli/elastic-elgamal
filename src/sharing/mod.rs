@@ -175,7 +175,7 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
 
 /// Structure representing public polynomial consisting of group elements.
 #[derive(Debug, Clone)]
-pub struct PublicPolynomial<G: Group>(pub Vec<G::Element>);
+pub(crate) struct PublicPolynomial<G: Group>(pub(crate) Vec<G::Element>);
 
 impl<G: Group> PublicPolynomial<G> {
     fn value_at_zero(&self) -> G::Element {
@@ -183,7 +183,7 @@ impl<G: Group> PublicPolynomial<G> {
     }
 
     /// Computes value of this public polynomial at the specified point in variable time.
-    pub fn value_at(&self, x: G::Scalar) -> G::Element {
+    pub(crate) fn value_at(&self, x: G::Scalar) -> G::Element {
         let mut val = G::Scalar::from(1_u64);
         let scalars: Vec<_> = (0..self.0.len())
             .map(|_| {
