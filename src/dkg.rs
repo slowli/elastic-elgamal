@@ -272,11 +272,7 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
             params: self.params,
             index: self.index,
             dealer: self.dealer.clone(),
-            public_polynomials: self
-                .public_polynomials
-                .iter()
-                .filter_map(std::clone::Clone::clone)
-                .collect(),
+            public_polynomials: self.public_polynomials.iter().flatten().cloned().collect(),
             cumulated_share: self.dealer.secret_share_for_participant(self.index),
             cumulated_public_poly: PublicPolynomial::<G>(public_polynomial),
             shares_received,
