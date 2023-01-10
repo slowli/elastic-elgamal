@@ -94,9 +94,11 @@ impl<'de> Deserialize<'de> for Decommitment {
         D: Deserializer<'de>,
     {
         let bytes = deserialize_bytes(deserializer)?;
-        Ok(Decommitment(Zeroizing::new(bytes.try_into().map_err(
-            |_| D::Error::custom("provided number of bytes is {bytes.len()}, but expected is 32"),
-        )?)))
+        let bytes_len = bytes.len();
+        let message = format!("provided number of bytes is {bytes_len}, but expected is 32");
+        Ok(Decommitment(Zeroizing::new(
+            bytes.try_into().map_err(|_| D::Error::custom(message))?,
+        )))
     }
 }
 

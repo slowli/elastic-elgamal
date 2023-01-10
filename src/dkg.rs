@@ -44,7 +44,7 @@ pub enum Error {
     MissingShares,
     /// Provided proof of possession or public polynomial is malformed.
     MalformedParticipantProof(sharing::Error),
-    /// Public shares obtained from cumulated public polynomial are inconsistent
+    /// Public shares obtained from accumulated public polynomial are inconsistent
     InconsistentPublicShares(sharing::Error),
 }
 
@@ -74,7 +74,7 @@ impl fmt::Display for Error {
             Self::InconsistentPublicShares(err) => {
                 write!(
                     formatter,
-                    "public shares obtained from cumulated public polynomial are inconsistent: {err}"
+                    "public shares obtained from accumulated public polynomial are inconsistent: {err}"
                 )
             }
         }
@@ -273,8 +273,8 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
             index: self.index,
             dealer: self.dealer.clone(),
             public_polynomials: self.public_polynomials.iter().flatten().cloned().collect(),
-            cumulated_share: self.dealer.secret_share_for_participant(self.index),
-            cumulated_public_poly: PublicPolynomial::<G>(public_polynomial),
+            accumulated_share: self.dealer.secret_share_for_participant(self.index),
+            accumulated_public_poly: PublicPolynomial::<G>(public_polynomial),
             shares_received,
         }
     }
@@ -290,8 +290,8 @@ pub struct ParticipantExchangingSecrets<G: Group> {
     index: usize,
     dealer: Dealer<G>,
     public_polynomials: Vec<PublicPolynomial<G>>,
-    cumulated_share: SecretKey<G>,
-    cumulated_public_poly: PublicPolynomial<G>,
+    accumulated_share: SecretKey<G>,
+    accumulated_public_poly: PublicPolynomial<G>,
     shares_received: Vec<bool>,
 }
 
@@ -302,12 +302,11 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
     }
 
     /// Returns indices of parties whose shares were not provided.
-    pub fn missing_shares(&self) -> Vec<usize> {
+    pub fn missing_shares(&self) -> impl Iterator<Item = usize> + '_ {
         self.shares_received
             .iter()
             .enumerate()
             .filter_map(|(i, x)| if *x { None } else { Some(i) })
-            .collect()
     }
 
     /// Inserts secret share from participant with index `participant_index` and
@@ -340,8 +339,8 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
             return Err(Error::InvalidSecret);
         }
 
-        self.cumulated_public_poly += &self.public_polynomials[participant_index];
-        self.cumulated_share += secret_share;
+        self.accumulated_public_poly += &self.public_polynomials[participant_index];
+        self.accumulated_share += secret_share;
         self.shares_received[participant_index] = true;
         Ok(())
     }
@@ -361,14 +360,15 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
         let participant_keys = (0..self.params.shares)
             .map(|idx| {
                 PublicKey::from_element(
-                    self.cumulated_public_poly.value_at((idx as u64 + 1).into()),
+                    self.accumulated_public_poly
+                        .value_at((idx as u64 + 1).into()),
                 )
             })
             .collect();
         let keyset = PublicKeySet::from_participants(self.params, participant_keys)
             .map_err(Error::InconsistentPublicShares)?;
 
-        let active_participant = ActiveParticipant::new(keyset, self.index, self.cumulated_share)
+        let active_participant = ActiveParticipant::new(keyset, self.index, self.accumulated_share)
             .map_err(Error::InconsistentPublicShares)?;
         Ok(active_participant)
     }

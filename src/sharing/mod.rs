@@ -113,7 +113,7 @@
 //! ```
 
 #[cfg(feature = "serde")]
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};
@@ -175,7 +175,12 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
 
 /// Structure representing public polynomial consisting of group elements.
 #[derive(Debug, Clone)]
-pub(crate) struct PublicPolynomial<G: Group>(pub(crate) Vec<G::Element>);
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent, bound = ""))]
+pub(crate) struct PublicPolynomial<G: Group>(
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ElementHelper<G>, 1>"))]
+    pub(crate)  Vec<G::Element>,
+);
 
 impl<G: Group> PublicPolynomial<G> {
     fn value_at_zero(&self) -> G::Element {
@@ -207,26 +212,6 @@ impl<G: Group> ops::AddAssign<&Self> for PublicPolynomial<G> {
         for (val, &rhs_val) in self.0.iter_mut().zip(&rhs.0) {
             *val = *val + rhs_val;
         }
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<G: Group> Serialize for PublicPolynomial<G> {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        VecHelper::<ElementHelper<G>, 1>::serialize(&self.0, serializer)
-    }
-}
-
-#[cfg(feature = "serde")]
-impl<'de, G: Group> Deserialize<'de> for PublicPolynomial<G> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        VecHelper::<ElementHelper<G>, 1>::deserialize(deserializer).map(Self)
     }
 }
 
