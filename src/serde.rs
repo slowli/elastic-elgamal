@@ -10,7 +10,7 @@ use zeroize::Zeroizing;
 use core::{fmt, marker::PhantomData};
 
 use crate::{
-    alloc::{vec, ToString, Vec},
+    alloc::{format, vec, ToString, Vec},
     dkg::Decommitment,
     group::Group,
     Keypair, PublicKey, SecretKey,
