@@ -81,17 +81,17 @@ impl fmt::Display for Error {
     }
 }
 
-fn create_commitment<G: Group>(element: &G::Element, decommitment: &[u8]) -> [u8; 32] {
+fn create_commitment<G: Group>(element: &G::Element, opening: &[u8]) -> [u8; 32] {
     let mut hasher = Sha256::new();
     let mut bytes = vec![0_u8; G::ELEMENT_SIZE];
     G::serialize_element(element, &mut bytes);
     hasher.update(&bytes);
-    hasher.update(decommitment);
+    hasher.update(opening);
     hasher.finalize().into()
 }
 
 #[derive(Debug, Clone)]
-pub(crate) struct Decommitment(pub(crate) Zeroizing<[u8; 32]>);
+pub(crate) struct Opening(pub(crate) Zeroizing<[u8; 32]>);
 
 /// Structure for collecting commitments of public share in committed Pedersen's
 /// distributed key generation.
@@ -103,7 +103,7 @@ pub struct ParticipantCollectingCommitments<G: Group> {
     index: usize,
     dealer: Dealer<G>,
     commitments: Vec<Option<[u8; 32]>>,
-    decommitment: Decommitment,
+    opening: Opening,
 }
 
 impl<G: Group> ParticipantCollectingCommitments<G> {
@@ -117,21 +117,18 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
 
         let dealer = Dealer::new(params, rng);
 
-        let mut decommitment = Zeroizing::new([0u8; 32]);
-        rng.fill_bytes(decommitment.as_mut_slice());
+        let mut opening = Zeroizing::new([0u8; 32]);
+        rng.fill_bytes(opening.as_mut_slice());
 
         let mut commitments = vec![None; params.shares];
         let (public_poly, _) = dealer.public_info();
-        commitments[index] = Some(create_commitment::<G>(
-            &public_poly[0],
-            decommitment.as_slice(),
-        ));
+        commitments[index] = Some(create_commitment::<G>(&public_poly[0], opening.as_slice()));
         Self {
             params,
             index,
             dealer,
             commitments,
-            decommitment: Decommitment(decommitment),
+            opening: Opening(opening),
         }
     }
 
@@ -179,7 +176,7 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
             params: self.params,
             index: self.index,
             dealer: self.dealer.clone(),
-            decommitment: *self.decommitment.0,
+            opening: *self.opening.0,
             commitments: self.commitments.iter().filter_map(|x| *x).collect(),
             public_polynomials,
         }
@@ -195,21 +192,17 @@ pub struct ParticipantCollectingPolynomials<G: Group> {
     params: Params,
     index: usize,
     dealer: Dealer<G>,
-    decommitment: [u8; 32],
+    opening: [u8; 32],
     commitments: Vec<[u8; 32]>,
     public_polynomials: Vec<Option<PublicPolynomial<G>>>,
 }
 
 impl<G: Group> ParticipantCollectingPolynomials<G> {
     /// Returns public participant information: participant's public polynomial,
-    /// proof of possession for the corresponding secret polynomial and decommitment.
+    /// proof of possession for the corresponding secret polynomial and opening.
     pub fn public_info(&self) -> (Vec<G::Element>, ProofOfPossession<G>, [u8; 32]) {
         let (public_polynomial, proof_of_possession) = self.dealer.public_info();
-        (
-            public_polynomial,
-            proof_of_possession.clone(),
-            self.decommitment,
-        )
+        (public_polynomial, proof_of_possession.clone(), self.opening)
     }
 
     /// Returns indices of parties whose public polynomials were not provided.
@@ -221,7 +214,7 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
     }
 
     /// Inserts public polynomial from participant with index `participant_index`
-    /// their proof of possession of the public polynomial and decommitment of
+    /// their proof of possession of the public polynomial and opening of
     /// their previously provided commitment.
     ///
     /// # Errors
@@ -239,9 +232,9 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
         participant_index: usize,
         public_polynomial: &[G::Element],
         proof_of_possession: &ProofOfPossession<G>,
-        decommitment: &[u8; 32],
+        opening: &[u8; 32],
     ) -> Result<(), Error> {
-        let c = create_commitment::<G>(&public_polynomial[0], decommitment);
+        let c = create_commitment::<G>(&public_polynomial[0], opening);
         if self.commitments[participant_index] != c {
             // provided commitment doesn't match the given public key share
             return Err(Error::InvalidCommitment);
@@ -379,7 +372,7 @@ mod tests {
     use rand::thread_rng;
 
     use super::*;
-    use crate::{curve25519::scalar::Scalar as Scalar25519, group::Ristretto};
+    use crate::{encryption::DiscreteLogTable, group::Ristretto, sharing::Params};
 
     #[test]
     fn dkg_shared_2_of_3_key() {
@@ -414,9 +407,9 @@ mod tests {
         let mut polynomials_bob = commitments_bob.finish_commitment_phase();
         let mut polynomials_carol = commitments_carol.finish_commitment_phase();
 
-        let (public_poly_a, public_proof_a, decomm_a) = polynomials_alice.public_info();
-        let (public_poly_b, public_proof_b, decomm_b) = polynomials_bob.public_info();
-        let (public_poly_c, public_proof_c, decomm_c) = polynomials_carol.public_info();
+        let (public_poly_a, public_proof_a, opening_a) = polynomials_alice.public_info();
+        let (public_poly_b, public_proof_b, opening_b) = polynomials_bob.public_info();
+        let (public_poly_c, public_proof_c, opening_c) = polynomials_carol.public_info();
 
         assert!(
             polynomials_alice
@@ -426,24 +419,24 @@ mod tests {
         );
 
         polynomials_alice
-            .insert_public_polynomial(1, &public_poly_b, &public_proof_b, &decomm_b)
+            .insert_public_polynomial(1, &public_poly_b, &public_proof_b, &opening_b)
             .unwrap();
         polynomials_alice
-            .insert_public_polynomial(2, &public_poly_c, &public_proof_c, &decomm_c)
+            .insert_public_polynomial(2, &public_poly_c, &public_proof_c, &opening_c)
             .unwrap();
 
         polynomials_bob
-            .insert_public_polynomial(0, &public_poly_a, &public_proof_a, &decomm_a)
+            .insert_public_polynomial(0, &public_poly_a, &public_proof_a, &opening_a)
             .unwrap();
         polynomials_bob
-            .insert_public_polynomial(2, &public_poly_c, &public_proof_c, &decomm_c)
+            .insert_public_polynomial(2, &public_poly_c, &public_proof_c, &opening_c)
             .unwrap();
 
         polynomials_carol
-            .insert_public_polynomial(0, &public_poly_a, &public_proof_a, &decomm_a)
+            .insert_public_polynomial(0, &public_poly_a, &public_proof_a, &opening_a)
             .unwrap();
         polynomials_carol
-            .insert_public_polynomial(1, &public_poly_b, &public_proof_b, &decomm_b)
+            .insert_public_polynomial(1, &public_poly_b, &public_proof_b, &opening_b)
             .unwrap();
 
         let mut dkg_alice = polynomials_alice.finish_polynomials_phase();
@@ -487,9 +480,11 @@ mod tests {
             .verify_share(bob_share.into(), ciphertext, 1, &proof)
             .unwrap();
 
-        let composite_dh_element =
-            *alice_share.as_element() * Scalar25519::from(2_u64) - *bob_share.as_element();
-        let message = Ristretto::mul_generator(&Scalar25519::from(15_u64));
-        assert_eq!(composite_dh_element, ciphertext.blinded_element - message);
+        let combined = params
+            .combine_shares([(0, alice_share), (1, bob_share)])
+            .unwrap();
+        let lookup_table = DiscreteLogTable::<Ristretto>::new(0..20);
+
+        assert_eq!(combined.decrypt(ciphertext, &lookup_table), Some(15));
     }
 }

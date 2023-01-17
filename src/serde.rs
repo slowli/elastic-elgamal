@@ -11,7 +11,7 @@ use core::{fmt, marker::PhantomData};
 
 use crate::{
     alloc::{format, vec, ToString, Vec},
-    dkg::Decommitment,
+    dkg::Opening,
     group::Group,
     Keypair, PublicKey, SecretKey,
 };
@@ -79,7 +79,7 @@ where
     }
 }
 
-impl Serialize for Decommitment {
+impl Serialize for Opening {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: Serializer,
@@ -88,7 +88,7 @@ impl Serialize for Decommitment {
     }
 }
 
-impl<'de> Deserialize<'de> for Decommitment {
+impl<'de> Deserialize<'de> for Opening {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
         D: Deserializer<'de>,
@@ -96,7 +96,7 @@ impl<'de> Deserialize<'de> for Decommitment {
         let bytes = deserialize_bytes(deserializer)?;
         let bytes_len = bytes.len();
         let message = format!("provided number of bytes is {bytes_len}, but expected is 32");
-        Ok(Decommitment(Zeroizing::new(
+        Ok(Opening(Zeroizing::new(
             bytes.try_into().map_err(|_| D::Error::custom(message))?,
         )))
     }
@@ -360,12 +360,12 @@ mod tests {
     use crate::group::Ristretto;
 
     #[test]
-    fn decommitment_roundtrip() {
-        let decommitment = Decommitment(Zeroizing::new([6; 32]));
-        let json = serde_json::to_value(&decommitment).unwrap();
+    fn opening_roundtrip() {
+        let opening = Opening(Zeroizing::new([6; 32]));
+        let json = serde_json::to_value(&opening).unwrap();
         assert!(json.is_string(), "{json:?}");
-        let decommitment_copy: Decommitment = serde_json::from_value(json).unwrap();
-        assert_eq!(decommitment_copy.0, decommitment.0);
+        let opening_copy: Opening = serde_json::from_value(json).unwrap();
+        assert_eq!(opening_copy.0, opening.0);
     }
 
     #[test]
