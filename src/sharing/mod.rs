@@ -115,7 +115,10 @@
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use core::{cmp::Ordering, fmt};
+#[cfg(feature = "serde")]
+use crate::serde::{ElementHelper, VecHelper};
+
+use core::{cmp::Ordering, fmt, ops};
 
 use crate::{alloc::Vec, group::Group, proofs::VerificationError, VerifiableDecryption};
 
@@ -168,6 +171,48 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
         .map(|&index| G::Scalar::from(index as u64 + 1))
         .fold(G::Scalar::from(1), |acc, value| acc * value);
     (denominators, scale)
+}
+
+/// Structure representing public polynomial consisting of group elements.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "serde", serde(transparent, bound = ""))]
+pub(crate) struct PublicPolynomial<G: Group>(
+    #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ElementHelper<G>, 1>"))]
+    pub(crate)  Vec<G::Element>,
+);
+
+impl<G: Group> PublicPolynomial<G> {
+    fn value_at_zero(&self) -> G::Element {
+        self.0[0]
+    }
+
+    /// Computes value of this public polynomial at the specified point in variable time.
+    pub(crate) fn value_at(&self, x: G::Scalar) -> G::Element {
+        let mut val = G::Scalar::from(1_u64);
+        let scalars: Vec<_> = (0..self.0.len())
+            .map(|_| {
+                let output = val;
+                val = val * x;
+                output
+            })
+            .collect();
+
+        G::vartime_multi_mul(&scalars, self.0.iter().copied())
+    }
+}
+
+impl<G: Group> ops::AddAssign<&Self> for PublicPolynomial<G> {
+    fn add_assign(&mut self, rhs: &Self) {
+        debug_assert_eq!(
+            self.0.len(),
+            rhs.0.len(),
+            "cannot add polynomials of different degrees"
+        );
+        for (val, &rhs_val) in self.0.iter_mut().zip(&rhs.0) {
+            *val = *val + rhs_val;
+        }
+    }
 }
 
 /// Errors that can occur during the secret sharing protocol.

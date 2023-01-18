@@ -142,6 +142,7 @@
 
 pub mod app;
 mod decryption;
+pub mod dkg;
 mod encryption;
 pub mod group;
 mod keys;
@@ -156,9 +157,9 @@ mod alloc {
     extern crate alloc;
 
     #[cfg(not(feature = "std"))]
-    pub use alloc::{string::ToString, vec, vec::Vec};
+    pub use alloc::{format, string::ToString, vec, vec::Vec};
     #[cfg(feature = "std")]
-    pub use std::{string::ToString, vec, vec::Vec};
+    pub use std::{format, string::ToString, vec, vec::Vec};
 
     #[cfg(all(not(feature = "std"), not(feature = "hashbrown")))]
     compile_error!(
