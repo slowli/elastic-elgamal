@@ -20,7 +20,7 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 ### Changed
 
 - Update `hashbrown` dependency.
-- Bump minimum supported Rust version to 1.61.
+- Bump minimum supported Rust version to 1.62.
 
 ## 0.2.1 - 2022-07-04
 
