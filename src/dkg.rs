@@ -11,6 +11,90 @@
 //!
 //! [Pedersen's DKG]: https://link.springer.com/content/pdf/10.1007/3-540-46416-6_47.pdf
 //! [Gennaro et al.]: https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf
+//!
+//! # Examples
+//!
+//! Decentralized key generation for 2-of-3 threshold encryption.
+//!
+//! ```
+//! # use elastic_elgamal::{
+//! #     group::Ristretto, dkg::*, sharing::Params,
+//! # };
+//! # use rand::thread_rng;
+//! # use std::error::Error as StdError;
+//! # fn main() -> Result<(), Box<dyn StdError>> {
+//! let mut rng = thread_rng();
+//! let params = Params::new(3, 2);
+//!
+//! // Initialize participants.
+//! let participants = (0..3).map(|i| {
+//!     ParticipantCollectingCommitments::<Ristretto>::new(params, i, &mut rng)
+//! });
+//! let mut participants: Vec<_> = participants.collect();
+//!
+//! // Publish commitments from all participants...
+//! let commitments: Vec<_> = participants
+//!     .iter()
+//!     .map(|participant| participant.commitment())
+//!     .collect();
+//! // ...and consume them from each participant's perspective.
+//! for (i, participant) in participants.iter_mut().enumerate() {
+//!     for (j, &commitment) in commitments.iter().enumerate() {
+//!         if i != j {
+//!             participant.insert_commitment(j, commitment);
+//!         }
+//!     }
+//! }
+//!
+//! // Transition all participants to the next stage: exchanging polynomials.
+//! let mut participants: Vec<_> = participants
+//!     .into_iter()
+//!     .map(|participant| participant.finish_commitment_phase())
+//!     .collect();
+//! // Publish each participant's polynomial...
+//! let infos: Vec<_> = participants
+//!     .iter()
+//!     .map(|participant| participant.public_info().into_owned())
+//!     .collect();
+//! // ...and consume them from each participant's perspective.
+//! for (i, participant) in participants.iter_mut().enumerate() {
+//!     for (j, info) in infos.iter().enumerate() {
+//!         if i != j {
+//!             participant.insert_public_polynomial(j, info.clone())?;
+//!         }
+//!     }
+//! }
+//!
+//! // Transition all participants to the final phase: exchanging secrets.
+//! let mut participants: Vec<_> = participants
+//!     .into_iter()
+//!     .map(|participant| participant.finish_polynomials_phase())
+//!     .collect();
+//! // Exchange shares (this should happen over secure peer-to-peer channels).
+//! for i in 0..3 {
+//!     for j in 0..3 {
+//!         if i == j { continue; }
+//!         let share = participants[i].secret_share_for_participant(j);
+//!         participants[j].insert_secret_share(i, share)?;
+//!     }
+//! }
+//!
+//! // Finalize all participants.
+//! let participants = participants
+//!     .into_iter()
+//!     .map(|participant| participant.complete())
+//!     .collect::<Result<Vec<_>, _>>()?;
+//! // Check that the shared key is the same for all participants.
+//! let expected_key = participants[0].key_set().shared_key();
+//! for participant in &participants {
+//!     assert_eq!(participant.key_set().shared_key(), expected_key);
+//! }
+//!
+//! // Participants can then jointly decrypt messages as showcased
+//! // in the example for the `sharing` module.
+//! # Ok(())
+//! # }
+//! ```
 
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
@@ -79,6 +163,16 @@ impl fmt::Display for Error {
                      are inconsistent: {err}"
                 )
             }
+        }
+    }
+}
+
+#[cfg(feature = "std")]
+impl std::error::Error for Error {
+    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+        match self {
+            Self::InconsistentPublicShares(err) | Self::MalformedParticipantProof(err) => Some(err),
+            _ => None,
         }
     }
 }

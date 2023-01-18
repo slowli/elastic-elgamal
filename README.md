@@ -24,6 +24,10 @@ The following protocols and high-level applications are included:
   proof of correctness
 - Threshold ElGamal encryption via [Feldman's verifiable secret sharing][feldman-vss],
   including verifiable distributed decryption.
+- As an alternative method to generate a shared key for threshold encryption, 
+  there is [Pedersen's distributed key generation][pedersen-dkg]
+  with prior key commitments by participants. (Beware that this method can theoretically
+  lead to skewed public key distribution as shown by [Gennaro et al.])
 
 ## ⚠ Warnings
 
@@ -140,6 +144,8 @@ shall be dual licensed as above, without any additional terms or conditions.</sm
 [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
 [quadratic voting]: https://en.wikipedia.org/wiki/Quadratic_voting
 [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
+[pedersen-dkg]: https://link.springer.com/content/pdf/10.1007/3-540-46416-6_47.pdf
+[Gennaro et al.]: https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf
 [DDH]: https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption
 [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm
