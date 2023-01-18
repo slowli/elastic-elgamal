@@ -125,8 +125,6 @@ pub enum Error {
     InvalidCommitment,
     /// Secret share for this participant was already provided.
     DuplicateShare,
-    /// Secret shares from some parties are missing.
-    MissingShares,
     /// Provided proof of possession or public polynomial is malformed.
     MalformedParticipantProof(sharing::Error),
     /// Public shares obtained from accumulated public polynomial are inconsistent
@@ -146,9 +144,6 @@ impl fmt::Display for Error {
             ),
             Self::DuplicateShare => {
                 formatter.write_str("secret share for this participant was already provided")
-            }
-            Self::MissingShares => {
-                formatter.write_str("secret shares from some parties are missing")
             }
             Self::MalformedParticipantProof(err) => {
                 write!(
@@ -210,7 +205,7 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
     ///
     /// # Panics
     ///
-    /// Panics if `index` is greater or equal to number of shares.
+    /// Panics if `index` is greater or equal to the number of shares.
     pub fn new<R: CryptoRng + RngCore>(params: Params, index: usize, rng: &mut R) -> Self {
         assert!(index < params.shares);
 
@@ -230,11 +225,11 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
         }
     }
 
-    /// Returns the commitment of participant's share of a public key.
+    /// Returns the commitment of participant's share of the joint public key.
     ///
     /// # Panics
     ///
-    /// Panics if the commitment is missing which can happen only if this struct got corrupted
+    /// Panics if the commitment is missing which can only happen if this struct got corrupted
     /// (e.g., after deserialization).
     pub fn commitment(&self) -> [u8; 32] {
         self.commitments[self.index].unwrap()
@@ -267,7 +262,8 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
     ///
     /// # Panics
     ///
-    /// Panics if some commitments are missing.
+    /// Panics if any commitments are missing. If this is not known statically, check
+    /// with [`Self::missing_commitments()`] before calling this method.
     pub fn finish_commitment_phase(self) -> ParticipantCollectingPolynomials<G> {
         if let Some(missing_idx) = self.missing_commitments().next() {
             panic!("Missing commitment for participant {missing_idx}");
@@ -275,7 +271,7 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
 
         let (public_polynomial, _) = self.dealer.public_info();
         let mut public_polynomials = vec![None; self.params.shares];
-        public_polynomials[self.index] = Some(PublicPolynomial::<G>(public_polynomial));
+        public_polynomials[self.index] = Some(PublicPolynomial::new(public_polynomial));
         ParticipantCollectingPolynomials {
             params: self.params,
             index: self.index,
@@ -297,7 +293,7 @@ pub struct PublicInfo<'a, G: Group> {
     /// Participant's public polynomial.
     #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ElementHelper<G>, 1>"))]
     pub polynomial: Vec<G::Element>,
-    /// Proof of possession for the secret polynomial that corresponds to [`Self.polynomial`].
+    /// Proof of possession for the secret polynomial that corresponds to `polynomial`.
     pub proof_of_possession: Cow<'a, ProofOfPossession<G>>,
     /// Opening for the participant's key commitment.
     pub opening: Opening,
@@ -333,7 +329,8 @@ pub struct ParticipantCollectingPolynomials<G: Group> {
 
 impl<G: Group> ParticipantCollectingPolynomials<G> {
     /// Returns public participant information: participant's public polynomial,
-    /// proof of possession for the corresponding secret polynomial and opening.
+    /// proof of possession for the corresponding secret polynomial and the opening of
+    /// the participant's public key share commitment.
     pub fn public_info(&self) -> PublicInfo<'_, G> {
         let (polynomial, proof) = self.dealer.public_info();
         PublicInfo {
@@ -362,9 +359,7 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
     ///
     /// # Panics
     ///
-    /// Panics if `participant_index` is out of bounds or `self.index` is greater
-    /// or equal to number of participants, which should never happen, unless
-    /// `ParticipantCollectingPolynomials` got corrupted.
+    /// Panics if `participant_index` is out of bounds.
     pub fn insert_public_polynomial(
         &mut self,
         participant_index: usize,
@@ -377,10 +372,9 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
             return Err(Error::InvalidCommitment);
         }
 
-        // verifies proof of possession of secret polynomial
         PublicKeySet::validate(self.params, &info.polynomial, &info.proof_of_possession)
             .map_err(Error::MalformedParticipantProof)?;
-        self.public_polynomials[participant_index] = Some(PublicPolynomial::<G>(info.polynomial));
+        self.public_polynomials[participant_index] = Some(PublicPolynomial::new(info.polynomial));
         Ok(())
     }
 
@@ -389,7 +383,8 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
     ///
     /// # Panics
     ///
-    /// Panics if some public polynomials are missing.
+    /// Panics if any public polynomials are missing. If this is not known statically, check
+    /// with [`Self::missing_public_polynomials()`] before calling this method.
     pub fn finish_polynomials_phase(&self) -> ParticipantExchangingSecrets<G> {
         if let Some(missing_idx) = self.missing_public_polynomials().next() {
             panic!("Missing public polynomial for participant {missing_idx}");
@@ -413,7 +408,7 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
 ///
 /// During this stage, participants exchange secret shares corresponding to the polynomials
 /// exchanged on the previous stage. The exchange happens using secure peer-to-peer channels
-/// established between participant pairs.
+/// established between pairs of participants.
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "serde", serde(bound = ""))]
@@ -427,17 +422,17 @@ pub struct ParticipantExchangingSecrets<G: Group> {
 }
 
 impl<G: Group> ParticipantExchangingSecrets<G> {
-    /// Returns a secret share for a participant with the specified `participant_index`.
+    /// Returns the secret share for a participant with the specified `participant_index`.
     pub fn secret_share_for_participant(&self, participant_index: usize) -> SecretKey<G> {
         self.dealer.secret_share_for_participant(participant_index)
     }
 
-    /// Returns indices of parties whose shares were not provided.
+    /// Returns indices of parties whose secret shares were not provided.
     pub fn missing_shares(&self) -> impl Iterator<Item = usize> + '_ {
         self.shares_received
             .iter()
             .enumerate()
-            .filter_map(|(i, &is_received)| is_received.then_some(i))
+            .filter_map(|(i, &is_received)| (!is_received).then_some(i))
     }
 
     /// Inserts a secret share from participant with index `participant_index` and
@@ -481,10 +476,14 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
     ///
     /// Returns error if secret shares from some parties were not provided,
     /// or if the [`PublicKeySet`] cannot be created from participants' keys.
-    #[allow(clippy::missing_panics_doc)] // false positive
+    ///
+    /// # Panics
+    ///
+    /// Panics if shares from any participants are missing. If this is not known statically, check
+    /// with [`Self::missing_shares()`] before calling this method.
     pub fn complete(self) -> Result<ActiveParticipant<G>, Error> {
-        if !self.shares_received.iter().all(|&is_received| is_received) {
-            return Err(Error::MissingShares);
+        if let Some(missing_idx) = self.missing_shares().next() {
+            panic!("Missing secret share from participant {missing_idx}");
         }
 
         let accumulated_polynomial = self

@@ -179,10 +179,14 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
 #[cfg_attr(feature = "serde", serde(transparent, bound = ""))]
 pub(crate) struct PublicPolynomial<G: Group>(
     #[cfg_attr(feature = "serde", serde(with = "VecHelper::<ElementHelper<G>, 1>"))]
-    pub(crate)  Vec<G::Element>,
+    Vec<G::Element>,
 );
 
 impl<G: Group> PublicPolynomial<G> {
+    pub(crate) fn new(values: Vec<G::Element>) -> Self {
+        Self(values)
+    }
+
     fn value_at_zero(&self) -> G::Element {
         self.0[0]
     }

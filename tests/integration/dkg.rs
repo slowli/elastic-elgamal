@@ -60,9 +60,14 @@ fn complete_dkg<G: Group, R: RngCore + CryptoRng>(params: Params, rng: &mut R) {
         .map(|participant| participant.complete().unwrap())
         .collect();
     // Check that the shared key is the same for all participants.
-    let expected_key = participants[0].key_set().shared_key();
-    for participant in &participants {
+    let key_set = participants[0].key_set();
+    let expected_key = key_set.shared_key();
+    for (i, participant) in participants.iter().enumerate() {
         assert_eq!(participant.key_set().shared_key(), expected_key);
+        assert_eq!(
+            participant.public_key_share(),
+            key_set.participant_key(i).unwrap()
+        );
     }
 }
 
