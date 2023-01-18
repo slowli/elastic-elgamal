@@ -10,7 +10,7 @@ use zeroize::Zeroizing;
 use core::{fmt, marker::PhantomData};
 
 use crate::{
-    alloc::{format, vec, ToString, Vec},
+    alloc::{vec, ToString, Vec},
     dkg::Opening,
     group::Group,
     Keypair, PublicKey, SecretKey,
@@ -93,12 +93,14 @@ impl<'de> Deserialize<'de> for Opening {
     where
         D: Deserializer<'de>,
     {
-        let bytes = deserialize_bytes(deserializer)?;
-        let bytes_len = bytes.len();
-        let message = format!("provided number of bytes is {bytes_len}, but expected is 32");
-        Ok(Opening(Zeroizing::new(
-            bytes.try_into().map_err(|_| D::Error::custom(message))?,
-        )))
+        let bytes = Zeroizing::new(deserialize_bytes(deserializer)?);
+        let mut opening = Opening(Zeroizing::new([0_u8; 32]));
+        if bytes.len() == 32 {
+            opening.0.copy_from_slice(&bytes);
+            Ok(opening)
+        } else {
+            Err(D::Error::invalid_length(bytes.len(), &"32"))
+        }
     }
 }
 

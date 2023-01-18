@@ -154,12 +154,9 @@ pub mod sharing;
 // Polyfill for `alloc` types.
 mod alloc {
     #[cfg(not(feature = "std"))]
-    extern crate alloc;
+    extern crate alloc as std;
 
-    #[cfg(not(feature = "std"))]
-    pub use alloc::{format, string::ToString, vec, vec::Vec};
-    #[cfg(feature = "std")]
-    pub use std::{format, string::ToString, vec, vec::Vec};
+    pub use std::{borrow::Cow, string::ToString, vec, vec::Vec};
 
     #[cfg(all(not(feature = "std"), not(feature = "hashbrown")))]
     compile_error!(

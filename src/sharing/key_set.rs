@@ -27,6 +27,30 @@ pub struct PublicKeySet<G: Group> {
 }
 
 impl<G: Group> PublicKeySet<G> {
+    pub(crate) fn validate(
+        params: Params,
+        public_polynomial: &[G::Element],
+        proof_of_possession: &ProofOfPossession<G>,
+    ) -> Result<(), Error> {
+        if public_polynomial.len() != params.threshold {
+            return Err(Error::MalformedDealerPolynomial);
+        }
+
+        let mut transcript = Transcript::new(b"elgamal_share_poly");
+        transcript.append_u64(b"n", params.shares as u64);
+        transcript.append_u64(b"t", params.threshold as u64);
+
+        let public_poly_keys: Vec<_> = public_polynomial
+            .iter()
+            .copied()
+            .map(PublicKey::from_element)
+            .collect();
+        proof_of_possession
+            .verify(public_poly_keys.iter(), &mut transcript)
+            .map_err(Error::InvalidDealerProof)?;
+        Ok(())
+    }
+
     /// Creates an instance based on information provided by the [`Dealer`].
     ///
     /// # Errors
@@ -36,27 +60,12 @@ impl<G: Group> PublicKeySet<G> {
     /// [`Dealer`]: crate::sharing::Dealer
     pub fn new(
         params: Params,
-        public_poly: Vec<G::Element>,
-        public_poly_proof: &ProofOfPossession<G>,
+        public_polynomial: Vec<G::Element>,
+        proof_of_possession: &ProofOfPossession<G>,
     ) -> Result<Self, Error> {
-        if public_poly.len() != params.threshold {
-            return Err(Error::MalformedDealerPolynomial);
-        }
+        Self::validate(params, &public_polynomial, proof_of_possession)?;
 
-        let mut transcript = Transcript::new(b"elgamal_share_poly");
-        transcript.append_u64(b"n", params.shares as u64);
-        transcript.append_u64(b"t", params.threshold as u64);
-
-        let public_poly_keys: Vec<_> = public_poly
-            .iter()
-            .copied()
-            .map(PublicKey::from_element)
-            .collect();
-        public_poly_proof
-            .verify(public_poly_keys.iter(), &mut transcript)
-            .map_err(Error::InvalidDealerProof)?;
-
-        let public_poly = PublicPolynomial::<G>(public_poly);
+        let public_poly = PublicPolynomial::<G>(public_polynomial);
         let shared_key = PublicKey::from_element(public_poly.value_at_zero());
         let participant_keys = (0..params.shares)
             .map(|idx| PublicKey::from_element(public_poly.value_at((idx as u64 + 1).into())))

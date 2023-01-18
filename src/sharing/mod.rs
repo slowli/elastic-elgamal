@@ -209,6 +209,7 @@ impl<G: Group> ops::AddAssign<&Self> for PublicPolynomial<G> {
             rhs.0.len(),
             "cannot add polynomials of different degrees"
         );
+
         for (val, &rhs_val) in self.0.iter_mut().zip(&rhs.0) {
             *val = *val + rhs_val;
         }
