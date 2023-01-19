@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/slowli/elastic-elgamal/workflows/CI/badge.svg?branch=main)](https://github.com/slowli/elastic-elgamal/actions)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue)](https://github.com/slowli/elastic-elgamal#license)
-![rust 1.61+ required](https://img.shields.io/badge/rust-1.61+-blue.svg?label=Required%20Rust)
+![rust 1.62+ required](https://img.shields.io/badge/rust-1.62+-blue.svg?label=Required%20Rust)
 ![no_std supported](https://img.shields.io/badge/no__std-tested-green.svg)
 
 **Documentation:** [![Docs.rs](https://docs.rs/elastic-elgamal/badge.svg)](https://docs.rs/elastic-elgamal/)
@@ -24,6 +24,10 @@ The following protocols and high-level applications are included:
   proof of correctness
 - Threshold ElGamal encryption via [Feldman's verifiable secret sharing][feldman-vss],
   including verifiable distributed decryption.
+- As an alternative method to generate a shared key for threshold encryption, 
+  there is [Pedersen's distributed key generation][pedersen-dkg]
+  with prior key commitments by participants. (Beware that this method can theoretically
+  lead to skewed public key distribution as shown by [Gennaro et al.])
 
 ## ⚠ Warnings
 
@@ -140,6 +144,8 @@ shall be dual licensed as above, without any additional terms or conditions.</sm
 [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
 [quadratic voting]: https://en.wikipedia.org/wiki/Quadratic_voting
 [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
+[pedersen-dkg]: https://link.springer.com/content/pdf/10.1007/3-540-46416-6_47.pdf
+[Gennaro et al.]: https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf
 [DDH]: https://en.wikipedia.org/wiki/Decisional_Diffie%E2%80%93Hellman_assumption
 [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm

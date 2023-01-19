@@ -6,7 +6,7 @@ authors = [
   "Jiří Gavenda <jirigavenda98@gmail.com>",
 ]
 edition = "2021"
-rust-version = "1.61"
+rust-version = "1.62"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/slowli/elastic-elgamal"
