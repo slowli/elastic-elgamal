@@ -85,7 +85,6 @@ struct RingSpec {
 ///   more efficient despite using 2 proofs. If we take `N = 2^(2^P)`
 ///   and the "vanilla" Bulletproof length `2 * P + 9`, this threshold is around `n = 2000`.
 ///
-/// [`RingProof`]: crate::RingProof
 /// [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 ///
 /// # Examples
@@ -807,7 +806,8 @@ mod tests {
             let int_estimate = RangeDecomposition::int_lower_len_estimate(sample);
             assert!(
                 floating_point_estimate >= int_estimate,
-                "Unexpected estimates for {sample}: floating-point = {floating_point_estimate}, int = {int_estimate}"
+                "Unexpected estimates for {sample}: floating-point = {floating_point_estimate}, \
+                 int = {int_estimate}"
             );
         }
     }

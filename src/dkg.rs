@@ -1,7 +1,8 @@
 //! Committed Pedersen's distributed key generation (DKG).
 //!
 //! DKG allows to securely generate shared secret without a need for a trusted
-//! dealer.
+//! dealer. Compare with Feldman's verifiable secret sharing implemented in the [`sharing`] module
+//! which requires a trusted dealer.
 //!
 //! This implementation is based on [Pedersen's DKG], which was shown by [Gennaro et al.]
 //! to contain a flaw allowing an adversary to bias distribution of the shared public key.
@@ -127,7 +128,7 @@ pub enum Error {
     DuplicateShare,
     /// Provided proof of possession or public polynomial is malformed.
     MalformedParticipantProof(sharing::Error),
-    /// Public shares obtained from accumulated public polynomial are inconsistent
+    /// Public shares obtained from accumulated public polynomial are inconsistent.
     InconsistentPublicShares(sharing::Error),
 }
 
@@ -181,7 +182,7 @@ fn create_commitment<G: Group>(element: &G::Element, opening: &[u8]) -> [u8; 32]
     hasher.finalize().into()
 }
 
-/// Opening for a hash commitment.
+/// Opening for a hash commitment used in Pedersen's distributed key generation.
 #[derive(Debug, Clone)]
 pub struct Opening(pub(crate) Zeroizing<[u8; 32]>);
 
@@ -385,7 +386,7 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
     ///
     /// Panics if any public polynomials are missing. If this is not known statically, check
     /// with [`Self::missing_public_polynomials()`] before calling this method.
-    pub fn finish_polynomials_phase(&self) -> ParticipantExchangingSecrets<G> {
+    pub fn finish_polynomials_phase(self) -> ParticipantExchangingSecrets<G> {
         if let Some(missing_idx) = self.missing_public_polynomials().next() {
             panic!("Missing public polynomial for participant {missing_idx}");
         }
@@ -395,9 +396,9 @@ impl<G: Group> ParticipantCollectingPolynomials<G> {
         ParticipantExchangingSecrets {
             params: self.params,
             index: self.index,
-            dealer: self.dealer.clone(),
-            public_polynomials: self.public_polynomials.iter().flatten().cloned().collect(),
+            public_polynomials: self.public_polynomials.into_iter().flatten().collect(),
             accumulated_share: self.dealer.secret_share_for_participant(self.index),
+            dealer: self.dealer,
             shares_received,
         }
     }
@@ -501,11 +502,12 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
                 PublicKey::from_element(accumulated_polynomial.value_at(idx))
             })
             .collect();
-        let keyset = PublicKeySet::from_participants(self.params, participant_keys)
+        let key_set = PublicKeySet::from_participants(self.params, participant_keys)
             .map_err(Error::InconsistentPublicShares)?;
 
-        let active_participant = ActiveParticipant::new(keyset, self.index, self.accumulated_share)
-            .map_err(Error::InconsistentPublicShares)?;
+        let active_participant =
+            ActiveParticipant::new(key_set, self.index, self.accumulated_share)
+                .map_err(Error::InconsistentPublicShares)?;
         Ok(active_participant)
     }
 }
