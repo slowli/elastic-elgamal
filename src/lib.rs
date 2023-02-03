@@ -23,16 +23,18 @@
 //!   and a high-level [`PublicKey` method](PublicKey::encrypt_range()).
 //! - Proof of equivalence between an ElGamal ciphertext and a Pedersen commitment
 //!   is available as [`CommitmentEquivalenceProof`].
-//! - [`sharing`](crate::sharing) module exposes a threshold encryption scheme based
+//! - [`sharing`] module exposes a threshold encryption scheme based
 //!   on [Feldman's verifiable secret sharing][feldman-vss], including verifiable distributed
 //!   decryption.
-//! - [`app`](crate::app) module provides higher-level protocols utilizing zero-knowledge proofs
+//! - [`dkg`] module implements distributed key generation using [Pedersen's scheme][pedersen-dkg]
+//!   with hash commitments.
+//! - [`app`] module provides higher-level protocols utilizing zero-knowledge proofs
 //!   and ElGamal encryption, such as provable encryption of m-of-n choice and a simple version
 //!   of [quadratic voting].
 //!
 //! # Backends
 //!
-//! [`group`](crate::group) module exposes a generic framework for plugging a [`Group`]
+//! [`group`] module exposes a generic framework for plugging a [`Group`]
 //! implementation into crypto primitives. It also provides several implementations:
 //!
 //! - [`Ristretto`] and [`Curve25519Subgroup`] implementations based on Curve25519.
@@ -114,13 +116,14 @@
 //! [ElGamal encryption]: https://en.wikipedia.org/wiki/ElGamal_encryption
 //! [CCA]: https://en.wikipedia.org/wiki/Chosen-ciphertext_attack
 //! [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
-//! [`Group`]: crate::group::Group
-//! [`Ristretto`]: crate::group::Ristretto
-//! [`Curve25519Subgroup`]: crate::group::Curve25519Subgroup
+//! [pedersen-dkg]: https://link.springer.com/content/pdf/10.1007/3-540-46416-6_47.pdf
+//! [`Group`]: group::Group
+//! [`Ristretto`]: group::Ristretto
+//! [`Curve25519Subgroup`]: group::Curve25519Subgroup
 //! [`curve25519-dalek`]: https://docs.rs/curve25519-dalek/
 //! [`curve25519-dalek-ng`]: https://docs.rs/curve25519-dalek-ng/
 //! [`bulletproofs`]: https://docs.rs/bulletproofs/
-//! [`Generic`]: crate::group::Generic
+//! [`Generic`]: group::Generic
 //! [`elliptic-curve`]: https://docs.rs/elliptic-curve/
 //! [`k256`]: https://docs.rs/k256/
 //! [`hashbrown`]: https://docs.rs/hashbrown/

@@ -46,13 +46,15 @@
 //! polynomial together with the proof; participants should broadcast proof of knowledge of
 //! a secret share once they receive the share from the dealer.
 //!
-//! # On distributed key generation
+//! # Distributed key generation
 //!
-//! While DKG allows for a fully decentralized setup unlike VSS, it is difficult to get right.
-//! For example, [Gennaro et al.] show that DKG via parallel Feldman's VSS instances where
-//! each participant is a dealer in one of the instances is not secure; the adversary
-//! can bias distribution of the shared public key. Hence, DKG is not (yet?) implemented
-//! in this crate.
+//! Distributed key generation (DKG) differs from the approach implemented in this module
+//! in that there is no centralized dealer trusted by all participants. Instead, the participants
+//! essentially run parallel secret sharing protocol instances where  each participant
+//! is a dealer in one of the instances. This approach is implemented
+//! in the [`dkg`](crate::dkg) module of this crate. Beware that it may not protect
+//! from participants biasing the distribution of the shared public key, e.g. by aborting
+//! the protocol; see [Gennaro et al.] for more details.
 //!
 //! [sss]: https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing
 //! [feldman-vss]: https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf
