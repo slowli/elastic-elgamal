@@ -2,7 +2,7 @@ use elliptic_curve::{
     ff::PrimeField,
     generic_array::{typenum::Unsigned, GenericArray},
     sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
-    Field, FieldSize, Group as _, ProjectiveArithmetic, ProjectivePoint, Scalar,
+    CurveArithmetic, Field, FieldBytesSize, Group as _, ProjectivePoint, Scalar,
 };
 use rand_core::{CryptoRng, RngCore};
 use zeroize::Zeroize;
@@ -33,12 +33,12 @@ impl<C> Copy for Generic<C> {}
 
 impl<C> ScalarOps for Generic<C>
 where
-    C: ProjectiveArithmetic,
+    C: CurveArithmetic,
     Scalar<C>: Zeroize,
 {
     type Scalar = Scalar<C>;
 
-    const SCALAR_SIZE: usize = <FieldSize<C> as Unsigned>::USIZE;
+    const SCALAR_SIZE: usize = <FieldBytesSize<C> as Unsigned>::USIZE;
 
     fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar {
         Scalar::<C>::random(rng)
@@ -60,14 +60,14 @@ where
 
 impl<C> ElementOps for Generic<C>
 where
-    C: ProjectiveArithmetic,
+    C: CurveArithmetic,
     Scalar<C>: Zeroize,
-    FieldSize<C>: ModulusSize,
+    FieldBytesSize<C>: ModulusSize,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
 {
     type Element = ProjectivePoint<C>;
 
-    const ELEMENT_SIZE: usize = <FieldSize<C> as Unsigned>::USIZE + 1;
+    const ELEMENT_SIZE: usize = <FieldBytesSize<C> as Unsigned>::USIZE + 1;
 
     #[inline]
     fn identity() -> Self::Element {
@@ -97,9 +97,9 @@ where
 
 impl<C> Group for Generic<C>
 where
-    C: ProjectiveArithmetic + 'static,
+    C: CurveArithmetic + 'static,
     Scalar<C>: Zeroize,
-    FieldSize<C>: ModulusSize,
+    FieldBytesSize<C>: ModulusSize,
     ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
 {
     // Default implementations are fine.
