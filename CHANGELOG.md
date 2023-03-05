@@ -5,6 +5,10 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- Update `elliptic-curve` dependency.
+
 ## 0.3.0-beta.1 - 2023-02-03
 
 ### Added
