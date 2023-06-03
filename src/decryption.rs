@@ -207,7 +207,7 @@ impl<G: Group> CandidateDecryption<G> {
 
     /// Converts this candidate decryption into a [`VerifiableDecryption`]
     /// **without** verifying it.
-    /// This only semantically correct if the data was verified in some other way.
+    /// This is only semantically correct if the data was verified in some other way.
     pub fn into_unchecked(self) -> VerifiableDecryption<G> {
         self.inner
     }

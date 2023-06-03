@@ -246,13 +246,11 @@ impl fmt::Display for Error {
             Self::MalformedDealerPolynomial => {
                 formatter.write_str("public polynomial received from the dealer is malformed")
             }
-            Self::InvalidDealerProof(err) => {
-                write!(
-                    formatter,
-                    "proof of possession supplied with the dealer's public polynomial \
-                     is invalid: {err}"
-                )
-            }
+            Self::InvalidDealerProof(err) => write!(
+                formatter,
+                "proof of possession supplied with the dealer's public polynomial \
+                 is invalid: {err}"
+            ),
             Self::InvalidSecret => formatter.write_str(
                 "secret received from the dealer does not correspond to their commitment via \
                  public polynomial",

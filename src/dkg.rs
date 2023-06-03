@@ -146,19 +146,15 @@ impl fmt::Display for Error {
             Self::DuplicateShare => {
                 formatter.write_str("secret share for this participant was already provided")
             }
-            Self::MalformedParticipantProof(err) => {
-                write!(
-                    formatter,
-                    "provided proof of possession or public polynomial is malformed: {err}"
-                )
-            }
-            Self::InconsistentPublicShares(err) => {
-                write!(
-                    formatter,
-                    "public shares obtained from accumulated public polynomial \
-                     are inconsistent: {err}"
-                )
-            }
+            Self::MalformedParticipantProof(err) => write!(
+                formatter,
+                "provided proof of possession or public polynomial is malformed: {err}"
+            ),
+            Self::InconsistentPublicShares(err) => write!(
+                formatter,
+                "public shares obtained from accumulated public polynomial \
+                 are inconsistent: {err}"
+            ),
         }
     }
 }
