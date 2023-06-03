@@ -226,6 +226,16 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
         }
     }
 
+    /// Returns params of this threshold ElGamal encryption scheme.
+    pub fn params(&self) -> &Params {
+        &self.params
+    }
+
+    /// Returns 0-based index of this participant.
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     /// Returns the commitment of participant's share of the joint public key.
     ///
     /// # Panics
@@ -329,6 +339,16 @@ pub struct ParticipantCollectingPolynomials<G: Group> {
 }
 
 impl<G: Group> ParticipantCollectingPolynomials<G> {
+    /// Returns params of this threshold ElGamal encryption scheme.
+    pub fn params(&self) -> &Params {
+        &self.params
+    }
+
+    /// Returns 0-based index of this participant.
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     /// Returns public participant information: participant's public polynomial,
     /// proof of possession for the corresponding secret polynomial and the opening of
     /// the participant's public key share commitment.
@@ -423,6 +443,16 @@ pub struct ParticipantExchangingSecrets<G: Group> {
 }
 
 impl<G: Group> ParticipantExchangingSecrets<G> {
+    /// Returns params of this threshold ElGamal encryption scheme.
+    pub fn params(&self) -> &Params {
+        &self.params
+    }
+
+    /// Returns 0-based index of this participant.
+    pub fn index(&self) -> usize {
+        self.index
+    }
+
     /// Returns the secret share for a participant with the specified `participant_index`.
     pub fn secret_share_for_participant(&self, participant_index: usize) -> SecretKey<G> {
         self.dealer.secret_share_for_participant(participant_index)
@@ -525,65 +555,45 @@ mod tests {
         let params = Params::new(3, 2);
 
         let mut alice = ParticipantCollectingCommitments::<Ristretto>::new(params, 0, &mut rng);
+        assert_eq!(alice.params().shares, params.shares);
+        assert_eq!(alice.params().threshold, params.threshold);
+        assert_eq!(alice.index(), 0);
         let mut bob = ParticipantCollectingCommitments::<Ristretto>::new(params, 1, &mut rng);
+        assert_eq!(bob.index(), 1);
         let mut carol = ParticipantCollectingCommitments::<Ristretto>::new(params, 2, &mut rng);
+        assert_eq!(carol.index(), 2);
 
-        let alice_commitment = alice.commitment();
-        let bob_commitment = bob.commitment();
-        let carol_commitment = carol.commitment();
-
-        assert_eq!(alice.missing_commitments().collect::<Vec<_>>(), [1, 2]);
-        alice.insert_commitment(1, bob_commitment);
-        alice.insert_commitment(2, carol_commitment);
-        bob.insert_commitment(0, alice_commitment);
-        bob.insert_commitment(2, carol_commitment);
-        carol.insert_commitment(0, alice_commitment);
-        carol.insert_commitment(1, bob_commitment);
+        assert_eq!(
+            alice.missing_commitments().collect::<Vec<_>>(),
+            [bob.index(), carol.index()]
+        );
+        exchange_commitments(&mut alice, &mut bob, &mut carol);
 
         let mut alice = alice.finish_commitment_phase();
+        assert_eq!(alice.params().shares, params.shares);
+        assert_eq!(alice.params().threshold, params.threshold);
+        assert_eq!(alice.index(), 0);
         let mut bob = bob.finish_commitment_phase();
+        assert_eq!(bob.index(), 1);
         let mut carol = carol.finish_commitment_phase();
-
-        let alice_info = alice.public_info().into_owned();
-        let bob_info = bob.public_info().into_owned();
-        let carol_info = carol.public_info().into_owned();
+        assert_eq!(carol.index(), 2);
 
         assert_eq!(
             alice.missing_public_polynomials().collect::<Vec<_>>(),
-            [1, 2]
+            [bob.index(), carol.index()]
         );
-
-        alice.insert_public_polynomial(1, bob_info.clone()).unwrap();
-        alice
-            .insert_public_polynomial(2, carol_info.clone())
-            .unwrap();
-        bob.insert_public_polynomial(0, alice_info.clone()).unwrap();
-        bob.insert_public_polynomial(2, carol_info).unwrap();
-        carol.insert_public_polynomial(0, alice_info).unwrap();
-        carol.insert_public_polynomial(1, bob_info).unwrap();
+        exchange_polynomials(&mut alice, &mut bob, &mut carol).unwrap();
 
         let mut alice = alice.finish_polynomials_phase();
+        assert_eq!(alice.params().shares, params.shares);
+        assert_eq!(alice.params().threshold, params.threshold);
+        assert_eq!(alice.index(), 0);
         let mut bob = bob.finish_polynomials_phase();
+        assert_eq!(bob.index(), 1);
         let mut carol = carol.finish_polynomials_phase();
+        assert_eq!(carol.index(), 2);
 
-        alice
-            .insert_secret_share(1, bob.secret_share_for_participant(0))
-            .unwrap();
-        alice
-            .insert_secret_share(2, carol.secret_share_for_participant(0))
-            .unwrap();
-
-        bob.insert_secret_share(0, alice.secret_share_for_participant(1))
-            .unwrap();
-        bob.insert_secret_share(2, carol.secret_share_for_participant(1))
-            .unwrap();
-
-        carol
-            .insert_secret_share(0, alice.secret_share_for_participant(2))
-            .unwrap();
-        carol
-            .insert_secret_share(1, bob.secret_share_for_participant(2))
-            .unwrap();
+        exchange_secret_shares(&mut alice, &mut bob, &mut carol).unwrap();
 
         let alice = alice.complete().unwrap();
         let bob = bob.complete().unwrap();
@@ -593,19 +603,82 @@ mod tests {
         let ciphertext = key_set.shared_key().encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);
         key_set
-            .verify_share(alice_share.into(), ciphertext, 0, &proof)
+            .verify_share(alice_share.into(), ciphertext, alice.index(), &proof)
             .unwrap();
 
         let (bob_share, proof) = bob.decrypt_share(ciphertext, &mut rng);
         key_set
-            .verify_share(bob_share.into(), ciphertext, 1, &proof)
+            .verify_share(bob_share.into(), ciphertext, bob.index(), &proof)
             .unwrap();
 
         let combined = params
-            .combine_shares([(0, alice_share), (1, bob_share)])
+            .combine_shares([(alice.index(), alice_share), (bob.index(), bob_share)])
             .unwrap();
         let lookup_table = DiscreteLogTable::<Ristretto>::new(0..20);
 
         assert_eq!(combined.decrypt(ciphertext, &lookup_table), Some(15));
+    }
+
+    fn exchange_commitments(
+        alice: &mut ParticipantCollectingCommitments<Ristretto>,
+        bob: &mut ParticipantCollectingCommitments<Ristretto>,
+        carol: &mut ParticipantCollectingCommitments<Ristretto>,
+    ) {
+        let alice_commitment = alice.commitment();
+        let bob_commitment = bob.commitment();
+        let carol_commitment = carol.commitment();
+
+        alice.insert_commitment(bob.index(), bob_commitment);
+        alice.insert_commitment(carol.index(), carol_commitment);
+        bob.insert_commitment(alice.index(), alice_commitment);
+        bob.insert_commitment(carol.index(), carol_commitment);
+        carol.insert_commitment(alice.index(), alice_commitment);
+        carol.insert_commitment(bob.index(), bob_commitment);
+    }
+
+    fn exchange_polynomials(
+        alice: &mut ParticipantCollectingPolynomials<Ristretto>,
+        bob: &mut ParticipantCollectingPolynomials<Ristretto>,
+        carol: &mut ParticipantCollectingPolynomials<Ristretto>,
+    ) -> Result<(), Error> {
+        let alice_info = alice.public_info().into_owned();
+        let bob_info = bob.public_info().into_owned();
+        let carol_info = carol.public_info().into_owned();
+
+        alice.insert_public_polynomial(bob.index(), bob_info.clone())?;
+        alice.insert_public_polynomial(carol.index(), carol_info.clone())?;
+        bob.insert_public_polynomial(alice.index(), alice_info.clone())?;
+        bob.insert_public_polynomial(carol.index(), carol_info)?;
+        carol.insert_public_polynomial(alice.index(), alice_info)?;
+        carol.insert_public_polynomial(bob.index(), bob_info)?;
+        Ok(())
+    }
+
+    fn exchange_secret_shares(
+        alice: &mut ParticipantExchangingSecrets<Ristretto>,
+        bob: &mut ParticipantExchangingSecrets<Ristretto>,
+        carol: &mut ParticipantExchangingSecrets<Ristretto>,
+    ) -> Result<(), Error> {
+        alice.insert_secret_share(bob.index(), bob.secret_share_for_participant(alice.index()))?;
+        alice.insert_secret_share(
+            carol.index(),
+            carol.secret_share_for_participant(alice.index()),
+        )?;
+
+        bob.insert_secret_share(
+            alice.index(),
+            alice.secret_share_for_participant(bob.index()),
+        )?;
+        bob.insert_secret_share(
+            carol.index(),
+            carol.secret_share_for_participant(bob.index()),
+        )?;
+
+        carol.insert_secret_share(
+            alice.index(),
+            alice.secret_share_for_participant(carol.index()),
+        )?;
+        carol.insert_secret_share(bob.index(), bob.secret_share_for_participant(carol.index()))?;
+        Ok(())
     }
 }
