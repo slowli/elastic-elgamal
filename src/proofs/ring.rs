@@ -509,6 +509,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
+    use test_casing::test_casing;
 
     use core::iter;
 
@@ -631,10 +632,8 @@ mod tests {
         }
     }
 
-    #[test]
-    fn multiple_rings_with_boolean_flags_work() {
-        const RING_COUNT: usize = 5;
-
+    #[test_casing(5, 3..=7)]
+    fn multiple_rings_with_boolean_flags_work(ring_count: usize) {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let log_base = keypair.public().as_element();
@@ -644,7 +643,7 @@ mod tests {
             let mut transcript = Transcript::new(b"test_ring_encryption");
             RingProof::initialize_transcript(&mut transcript, keypair.public());
 
-            let mut ring_responses = vec![Scalar25519::default(); RING_COUNT * 2];
+            let mut ring_responses = vec![Scalar25519::default(); ring_count * 2];
 
             let (ciphertexts, rings): (Vec<_>, Vec<_>) = ring_responses
                 .chunks_mut(2)
@@ -676,7 +675,7 @@ mod tests {
             RingProof::new(common_challenge, ring_responses)
                 .verify(
                     keypair.public(),
-                    iter::repeat(&admissible_values as &[_]).take(RING_COUNT),
+                    iter::repeat(&admissible_values as &[_]).take(ring_count),
                     ciphertexts.into_iter(),
                     &mut Transcript::new(b"test_ring_encryption"),
                 )
@@ -757,31 +756,31 @@ mod tests {
         }
     }
 
-    #[test]
+    #[test_casing(5, 3..=7)]
     #[allow(clippy::needless_collect)]
     // ^-- false positive; `builder` is captured by the iterator and moved by creating a `proof`
-    fn proof_builder_works() {
+    fn proof_builder_works(ring_count: usize) {
         let mut rng = thread_rng();
         let keypair = Keypair::generate(&mut rng);
         let mut transcript = Transcript::new(b"test_ring_encryption");
         let admissible_values = [RistrettoPoint::identity(), Ristretto::generator()];
-        let mut ring_responses = vec![Scalar25519::default(); 10];
+        let mut ring_responses = vec![Scalar25519::default(); ring_count * 2];
 
         let mut builder = RingProofBuilder::new(
             keypair.public(),
-            5,
+            ring_count,
             &mut ring_responses,
             &mut transcript,
             &mut rng,
         );
-        let ciphertexts: Vec<_> = (0..5)
+        let ciphertexts: Vec<_> = (0..ring_count)
             .map(|i| builder.add_value(&admissible_values, i & 1).inner)
             .collect();
 
         RingProof::new(builder.build(), ring_responses)
             .verify(
                 keypair.public(),
-                iter::repeat(&admissible_values as &[_]).take(5),
+                iter::repeat(&admissible_values as &[_]).take(ring_count),
                 ciphertexts.into_iter(),
                 &mut Transcript::new(b"test_ring_encryption"),
             )

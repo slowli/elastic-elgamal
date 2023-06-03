@@ -144,7 +144,7 @@ fn test_bool_proof_serialization<G: Group>() {
     }
 }
 
-const OPTIONS_COUNTS: &[usize] = &[2, 3, 5, 10, 15];
+const OPTIONS_COUNTS: [usize; 5] = [2, 3, 5, 10, 15];
 
 fn test_encrypted_choice<G: Group>(options_count: usize) {
     let mut rng = thread_rng();
@@ -301,6 +301,8 @@ fn test_verifiable_decryption<G: Group>() {
 }
 
 mod curve25519 {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Curve25519Subgroup;
 
@@ -329,28 +331,19 @@ mod curve25519 {
         test_bool_proof_serialization::<Curve25519Subgroup>();
     }
 
-    #[test]
-    fn encrypted_choice() {
-        for &options_count in OPTIONS_COUNTS {
-            println!("testing single choice with {options_count} options");
-            test_encrypted_choice::<Curve25519Subgroup>(options_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn encrypted_choice(options_count: usize) {
+        test_encrypted_choice::<Curve25519Subgroup>(options_count);
     }
 
-    #[test]
-    fn encrypted_multi_choice() {
-        for &options_count in OPTIONS_COUNTS {
-            println!("testing multi choice with {options_count} options");
-            test_encrypted_multi_choice::<Curve25519Subgroup>(options_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn encrypted_multi_choice(options_count: usize) {
+        test_encrypted_multi_choice::<Curve25519Subgroup>(options_count);
     }
 
-    #[test]
-    fn sum_of_squares_proof() {
-        for &squares_count in OPTIONS_COUNTS {
-            println!("testing sum of squares proof with {squares_count} squares");
-            test_sum_of_squares_proof::<Curve25519Subgroup>(squares_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn sum_of_squares_proof(squares_count: usize) {
+        test_sum_of_squares_proof::<Curve25519Subgroup>(squares_count);
     }
 
     #[test]
@@ -360,6 +353,8 @@ mod curve25519 {
 }
 
 mod ristretto {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Ristretto;
 
@@ -388,28 +383,19 @@ mod ristretto {
         test_bool_proof_serialization::<Ristretto>();
     }
 
-    #[test]
-    fn encrypted_choice() {
-        for &options_count in OPTIONS_COUNTS {
-            println!("testing single choice with {options_count} options");
-            test_encrypted_choice::<Ristretto>(options_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn encrypted_choice(options_count: usize) {
+        test_encrypted_choice::<Ristretto>(options_count);
     }
 
-    #[test]
-    fn encrypted_multi_choice() {
-        for &options_count in OPTIONS_COUNTS {
-            println!("testing multi choice with {options_count} options");
-            test_encrypted_multi_choice::<Ristretto>(options_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn encrypted_multi_choice(options_count: usize) {
+        test_encrypted_multi_choice::<Ristretto>(options_count);
     }
 
-    #[test]
-    fn sum_of_squares_proof() {
-        for &squares_count in OPTIONS_COUNTS {
-            println!("testing sum of squares proof with {squares_count} squares");
-            test_sum_of_squares_proof::<Ristretto>(squares_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn sum_of_squares_proof(squares_count: usize) {
+        test_sum_of_squares_proof::<Ristretto>(squares_count);
     }
 
     #[test]
@@ -419,6 +405,8 @@ mod ristretto {
 }
 
 mod k256 {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Generic;
 
@@ -449,28 +437,19 @@ mod k256 {
         test_bool_proof_serialization::<K256>();
     }
 
-    #[test]
-    fn encrypted_choice() {
-        for &options_count in OPTIONS_COUNTS {
-            println!("testing single choice with {options_count} options");
-            test_encrypted_choice::<K256>(options_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn encrypted_choice(options_count: usize) {
+        test_encrypted_choice::<K256>(options_count);
     }
 
-    #[test]
-    fn encrypted_multi_choice() {
-        for &options_count in OPTIONS_COUNTS {
-            println!("testing multi choice with {options_count} options");
-            test_encrypted_multi_choice::<K256>(options_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn encrypted_multi_choice(options_count: usize) {
+        test_encrypted_multi_choice::<K256>(options_count);
     }
 
-    #[test]
-    fn sum_of_squares_proof() {
-        for &squares_count in OPTIONS_COUNTS {
-            println!("testing sum of squares proof with {squares_count} squares");
-            test_sum_of_squares_proof::<K256>(squares_count);
-        }
+    #[test_casing(5, OPTIONS_COUNTS)]
+    fn sum_of_squares_proof(squares_count: usize) {
+        test_sum_of_squares_proof::<K256>(squares_count);
     }
 
     #[test]

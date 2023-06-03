@@ -291,7 +291,7 @@ impl Params {
     /// # Panics
     ///
     /// Panics if `shares` is equal to zero or if `threshold` is not in `1..=shares`.
-    pub fn new(shares: usize, threshold: usize) -> Self {
+    pub const fn new(shares: usize, threshold: usize) -> Self {
         assert!(shares > 0);
         assert!(threshold > 0 && threshold <= shares);
         Self { shares, threshold }

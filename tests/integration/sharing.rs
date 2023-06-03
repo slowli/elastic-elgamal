@@ -176,79 +176,36 @@ fn test_quadratic_voting<G: Group>() {
     rig.assert_votes(&encrypted_totals, &expected_totals, &mut rng);
 }
 
+const PARAMS_CASES: [Params; 13] = [
+    Params::new(5, 3),
+    Params::new(5, 4),
+    Params::new(5, 5),
+    Params::new(10, 6),
+    Params::new(10, 7),
+    Params::new(10, 8),
+    Params::new(10, 9),
+    Params::new(10, 10),
+    Params::new(15, 10),
+    Params::new(15, 12),
+    Params::new(20, 12),
+    Params::new(20, 16),
+    Params::new(20, 18),
+];
+
 mod curve25519 {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Curve25519Subgroup;
 
-    #[test]
-    fn group_info_can_be_restored_from_participants() {
-        test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>(Params::new(10, 7));
-        test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>(Params::new(10, 8));
+    #[test_casing(2, PARAMS_CASES)]
+    fn group_info_can_be_restored_from_participants(params: Params) {
+        test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>(params);
     }
 
-    #[test]
-    fn fuzz_3_of_5() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 3));
-    }
-
-    #[test]
-    fn fuzz_4_of_5() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 4));
-    }
-
-    #[test]
-    fn fuzz_5_of_5() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 5));
-    }
-
-    #[test]
-    fn fuzz_6_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 6));
-    }
-
-    #[test]
-    fn fuzz_7_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 7));
-    }
-
-    #[test]
-    fn fuzz_8_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 8));
-    }
-
-    #[test]
-    fn fuzz_9_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 9));
-    }
-
-    #[test]
-    fn fuzz_10_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 10));
-    }
-
-    #[test]
-    fn fuzz_10_of_15() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(15, 10));
-    }
-
-    #[test]
-    fn fuzz_12_of_15() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(15, 12));
-    }
-
-    #[test]
-    fn fuzz_12_of_20() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(20, 12));
-    }
-
-    #[test]
-    fn fuzz_16_of_20() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(20, 16));
-    }
-
-    #[test]
-    fn fuzz_18_of_20() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(20, 18));
+    #[test_casing(13, PARAMS_CASES)]
+    fn fuzz(params: Params) {
+        tiny_fuzz::<Curve25519Subgroup>(params);
     }
 
     #[test]
@@ -263,78 +220,19 @@ mod curve25519 {
 }
 
 mod ristretto {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Ristretto;
 
-    #[test]
-    fn group_info_can_be_restored_from_participants() {
-        test_group_info_can_be_restored_from_participants::<Ristretto>(Params::new(10, 7));
-        test_group_info_can_be_restored_from_participants::<Ristretto>(Params::new(10, 8));
+    #[test_casing(2, PARAMS_CASES)]
+    fn group_info_can_be_restored_from_participants(params: Params) {
+        test_group_info_can_be_restored_from_participants::<Ristretto>(params);
     }
 
-    #[test]
-    fn fuzz_3_of_5() {
-        tiny_fuzz::<Ristretto>(Params::new(5, 3));
-    }
-
-    #[test]
-    fn fuzz_4_of_5() {
-        tiny_fuzz::<Ristretto>(Params::new(5, 4));
-    }
-
-    #[test]
-    fn fuzz_5_of_5() {
-        tiny_fuzz::<Ristretto>(Params::new(5, 5));
-    }
-
-    #[test]
-    fn fuzz_6_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 6));
-    }
-
-    #[test]
-    fn fuzz_7_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 7));
-    }
-
-    #[test]
-    fn fuzz_8_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 8));
-    }
-
-    #[test]
-    fn fuzz_9_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 9));
-    }
-
-    #[test]
-    fn fuzz_10_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 10));
-    }
-
-    #[test]
-    fn fuzz_10_of_15() {
-        tiny_fuzz::<Ristretto>(Params::new(15, 10));
-    }
-
-    #[test]
-    fn fuzz_12_of_15() {
-        tiny_fuzz::<Ristretto>(Params::new(15, 12));
-    }
-
-    #[test]
-    fn fuzz_12_of_20() {
-        tiny_fuzz::<Ristretto>(Params::new(20, 12));
-    }
-
-    #[test]
-    fn fuzz_16_of_20() {
-        tiny_fuzz::<Ristretto>(Params::new(20, 16));
-    }
-
-    #[test]
-    fn fuzz_18_of_20() {
-        tiny_fuzz::<Ristretto>(Params::new(20, 18));
+    #[test_casing(13, PARAMS_CASES)]
+    fn fuzz(params: Params) {
+        tiny_fuzz::<Ristretto>(params);
     }
 
     #[test]
@@ -349,80 +247,21 @@ mod ristretto {
 }
 
 mod k256 {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 
-    #[test]
-    fn group_info_can_be_restored_from_participants() {
-        test_group_info_can_be_restored_from_participants::<K256>(Params::new(10, 7));
-        test_group_info_can_be_restored_from_participants::<K256>(Params::new(10, 8));
+    #[test_casing(2, PARAMS_CASES)]
+    fn group_info_can_be_restored_from_participants(params: Params) {
+        test_group_info_can_be_restored_from_participants::<K256>(params);
     }
 
-    #[test]
-    fn fuzz_3_of_5() {
-        tiny_fuzz::<K256>(Params::new(5, 3));
-    }
-
-    #[test]
-    fn fuzz_4_of_5() {
-        tiny_fuzz::<K256>(Params::new(5, 4));
-    }
-
-    #[test]
-    fn fuzz_5_of_5() {
-        tiny_fuzz::<K256>(Params::new(5, 5));
-    }
-
-    #[test]
-    fn fuzz_6_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 6));
-    }
-
-    #[test]
-    fn fuzz_7_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 7));
-    }
-
-    #[test]
-    fn fuzz_8_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 8));
-    }
-
-    #[test]
-    fn fuzz_9_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 9));
-    }
-
-    #[test]
-    fn fuzz_10_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 10));
-    }
-
-    #[test]
-    fn fuzz_10_of_15() {
-        tiny_fuzz::<K256>(Params::new(15, 10));
-    }
-
-    #[test]
-    fn fuzz_12_of_15() {
-        tiny_fuzz::<K256>(Params::new(15, 12));
-    }
-
-    #[test]
-    fn fuzz_12_of_20() {
-        tiny_fuzz::<K256>(Params::new(20, 12));
-    }
-
-    #[test]
-    fn fuzz_16_of_20() {
-        tiny_fuzz::<K256>(Params::new(20, 16));
-    }
-
-    #[test]
-    fn fuzz_18_of_20() {
-        tiny_fuzz::<K256>(Params::new(20, 18));
+    #[test_casing(13, PARAMS_CASES)]
+    fn fuzz(params: Params) {
+        tiny_fuzz::<K256>(params);
     }
 
     #[test]

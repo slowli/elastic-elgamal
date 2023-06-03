@@ -78,169 +78,53 @@ fn tiny_fuzz<G: Group>(params: Params) {
     }
 }
 
+const PARAMS_CASES: [Params; 10] = [
+    Params::new(5, 3),
+    Params::new(5, 4),
+    Params::new(5, 5),
+    Params::new(10, 6),
+    Params::new(10, 7),
+    Params::new(10, 8),
+    Params::new(10, 9),
+    Params::new(10, 10),
+    Params::new(15, 10),
+    Params::new(15, 12),
+];
+
 mod curve25519 {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Curve25519Subgroup;
 
-    #[test]
-    fn fuzz_3_of_5() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 3));
-    }
-
-    #[test]
-    fn fuzz_4_of_5() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 4));
-    }
-
-    #[test]
-    fn fuzz_5_of_5() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(5, 5));
-    }
-
-    #[test]
-    fn fuzz_6_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 6));
-    }
-
-    #[test]
-    fn fuzz_7_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 7));
-    }
-
-    #[test]
-    fn fuzz_8_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 8));
-    }
-
-    #[test]
-    fn fuzz_9_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 9));
-    }
-
-    #[test]
-    fn fuzz_10_of_10() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(10, 10));
-    }
-
-    #[test]
-    fn fuzz_10_of_15() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(15, 10));
-    }
-
-    #[test]
-    fn fuzz_12_of_15() {
-        tiny_fuzz::<Curve25519Subgroup>(Params::new(15, 12));
+    #[test_casing(10, PARAMS_CASES)]
+    fn fuzz(params: Params) {
+        tiny_fuzz::<Curve25519Subgroup>(params);
     }
 }
 
 mod ristretto {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Ristretto;
 
-    #[test]
-    fn fuzz_3_of_5() {
-        tiny_fuzz::<Ristretto>(Params::new(5, 3));
-    }
-
-    #[test]
-    fn fuzz_4_of_5() {
-        tiny_fuzz::<Ristretto>(Params::new(5, 4));
-    }
-
-    #[test]
-    fn fuzz_5_of_5() {
-        tiny_fuzz::<Ristretto>(Params::new(5, 5));
-    }
-
-    #[test]
-    fn fuzz_6_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 6));
-    }
-
-    #[test]
-    fn fuzz_7_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 7));
-    }
-
-    #[test]
-    fn fuzz_8_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 8));
-    }
-
-    #[test]
-    fn fuzz_9_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 9));
-    }
-
-    #[test]
-    fn fuzz_10_of_10() {
-        tiny_fuzz::<Ristretto>(Params::new(10, 10));
-    }
-
-    #[test]
-    fn fuzz_10_of_15() {
-        tiny_fuzz::<Ristretto>(Params::new(15, 10));
-    }
-
-    #[test]
-    fn fuzz_12_of_15() {
-        tiny_fuzz::<Ristretto>(Params::new(15, 12));
+    #[test_casing(10, PARAMS_CASES)]
+    fn fuzz(params: Params) {
+        tiny_fuzz::<Ristretto>(params);
     }
 }
 
 mod k256 {
+    use test_casing::test_casing;
+
     use super::*;
     use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 
-    #[test]
-    fn fuzz_3_of_5() {
-        tiny_fuzz::<K256>(Params::new(5, 3));
-    }
-
-    #[test]
-    fn fuzz_4_of_5() {
-        tiny_fuzz::<K256>(Params::new(5, 4));
-    }
-
-    #[test]
-    fn fuzz_5_of_5() {
-        tiny_fuzz::<K256>(Params::new(5, 5));
-    }
-
-    #[test]
-    fn fuzz_6_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 6));
-    }
-
-    #[test]
-    fn fuzz_7_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 7));
-    }
-
-    #[test]
-    fn fuzz_8_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 8));
-    }
-
-    #[test]
-    fn fuzz_9_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 9));
-    }
-
-    #[test]
-    fn fuzz_10_of_10() {
-        tiny_fuzz::<K256>(Params::new(10, 10));
-    }
-
-    #[test]
-    fn fuzz_10_of_15() {
-        tiny_fuzz::<K256>(Params::new(15, 10));
-    }
-
-    #[test]
-    fn fuzz_12_of_15() {
-        tiny_fuzz::<K256>(Params::new(15, 12));
+    #[test_casing(10, PARAMS_CASES)]
+    fn fuzz(params: Params) {
+        tiny_fuzz::<K256>(params);
     }
 }
