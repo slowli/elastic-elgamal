@@ -246,13 +246,11 @@ impl fmt::Display for Error {
             Self::MalformedDealerPolynomial => {
                 formatter.write_str("public polynomial received from the dealer is malformed")
             }
-            Self::InvalidDealerProof(err) => {
-                write!(
-                    formatter,
-                    "proof of possession supplied with the dealer's public polynomial \
-                     is invalid: {err}"
-                )
-            }
+            Self::InvalidDealerProof(err) => write!(
+                formatter,
+                "proof of possession supplied with the dealer's public polynomial \
+                 is invalid: {err}"
+            ),
             Self::InvalidSecret => formatter.write_str(
                 "secret received from the dealer does not correspond to their commitment via \
                  public polynomial",
@@ -293,7 +291,7 @@ impl Params {
     /// # Panics
     ///
     /// Panics if `shares` is equal to zero or if `threshold` is not in `1..=shares`.
-    pub fn new(shares: usize, threshold: usize) -> Self {
+    pub const fn new(shares: usize, threshold: usize) -> Self {
         assert!(shares > 0);
         assert!(threshold > 0 && threshold <= shares);
         Self { shares, threshold }

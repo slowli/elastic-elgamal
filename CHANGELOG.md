@@ -5,6 +5,10 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Added
+
+- Add getters for participant parameters in DKG.
+
 ### Changed
 
 - Update `elliptic-curve` dependency.

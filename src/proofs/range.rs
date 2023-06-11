@@ -582,6 +582,7 @@ impl<G: Group> RangeProof<G> {
 #[cfg(test)]
 mod tests {
     use rand::{thread_rng, Rng};
+    use test_casing::test_casing;
 
     use super::*;
     use crate::{
@@ -662,7 +663,9 @@ mod tests {
         assert_eq!(value.upper_bound(), 12_345_678);
     }
 
-    fn test_range_decomposition(decomposition: &RangeDecomposition, upper_bound: u64) {
+    #[test_casing(4, [1_000, 9_999, 12_345, 54_321])]
+    fn decomposing_for_larger_range(upper_bound: u64) {
+        let decomposition = RangeDecomposition::optimal(upper_bound);
         let mut rng = thread_rng();
 
         let values = (0..1_000)
@@ -702,25 +705,11 @@ mod tests {
         decomposition.decompose(&mut value_indexes, 567);
         assert_eq!(value_indexes, [4, 2, 3, 2]);
         // 2 + 3 * 5 + 2 * 25 + 4 * 125 = 567
-
-        test_range_decomposition(&decomposition, 1_000);
     }
 
-    #[test]
-    fn decomposing_for_larger_range() {
-        let decomposition = RangeDecomposition::optimal(9_999);
-        test_range_decomposition(&decomposition, 9_999);
-
-        let decomposition = RangeDecomposition::optimal(12_345);
-        test_range_decomposition(&decomposition, 12_345);
-
-        let decomposition = RangeDecomposition::optimal(54_321);
-        test_range_decomposition(&decomposition, 54_321);
-    }
-
-    #[test]
-    fn range_proof_basics() {
-        let decomposition = RangeDecomposition::optimal(15).into();
+    #[test_casing(4, [12, 15, 20, 50])]
+    fn range_proof_basics(upper_bound: u64) {
+        let decomposition = RangeDecomposition::optimal(upper_bound).into();
 
         let mut rng = thread_rng();
         let receiver = Keypair::<Ristretto>::generate(&mut rng);

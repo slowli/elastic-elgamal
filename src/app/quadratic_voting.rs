@@ -358,13 +358,11 @@ pub enum QuadraticVotingError {
 impl fmt::Display for QuadraticVotingError {
     fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            Self::Variant { index, error } => {
-                write!(
-                    formatter,
-                    "error verifying range proof for option #{}: {error}",
-                    *index + 1
-                )
-            }
+            Self::Variant { index, error } => write!(
+                formatter,
+                "error verifying range proof for option #{}: {error}",
+                *index + 1
+            ),
             Self::CreditRange(err) => {
                 write!(formatter, "error verifying range proof for credits: {err}")
             }
