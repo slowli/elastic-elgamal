@@ -11,7 +11,7 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ### Changed
 
-- Update `elliptic-curve` dependency.
+- Update `elliptic-curve` and `hashbrown` dependencies.
 
 - Bump the minimum supported Rust version to 1.65.
 
