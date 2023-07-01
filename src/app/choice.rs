@@ -406,7 +406,20 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
     pub fn sum_proof(&self) -> &S::Proof {
         &self.sum_proof
     }
+
+
+    /// Returns a new encrypted choice
+    pub fn new_encrypted_choice(choices: Vec<Ciphertext<G>>, range_proof: RingProof<G>, sum_proof: S::Proof) -> Self {
+        Self {
+            choices,
+            range_proof,
+            sum_proof
+        }
+    }
+
 }
+
+
 
 /// Error verifying an [`EncryptedChoice`].
 #[derive(Debug)]
