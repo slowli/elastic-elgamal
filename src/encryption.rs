@@ -151,6 +151,14 @@ impl<G: Group> Ciphertext<G> {
         G::serialize_element(&self.blinded_element, &mut bytes[G::ELEMENT_SIZE..]);
         bytes
     }
+
+    pub fn new(random_element: G::Element, blinded_element: G::Element) -> Self {
+        Self {
+            random_element,
+            blinded_element
+        }
+    }
+
 }
 
 impl<G: Group> ops::Add for Ciphertext<G> {
