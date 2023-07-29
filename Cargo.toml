@@ -43,9 +43,7 @@ subtle = { version = "2.4.0", default-features = false }
 # Crypto backend to support Curve25519 prime subgroup and Ristretto255 group;
 # a public dependency.
 [dependencies.curve25519-dalek]
-version = "3.1.0"
-default-features = false
-features = ["alloc"]
+version = "4.0.0"
 optional = true
 
 # Crypto backend to support Curve25519 prime subgroup and Ristretto255 group;
@@ -69,7 +67,7 @@ test-casing = "0.1.0"
 version-sync = "0.9.2"
 
 [features]
-default = ["std", "curve25519-dalek/u64_backend"]
+default = ["std", "curve25519-dalek"]
 # Enables support of types from `std`, such as the `Error` trait.
 std = []
 
@@ -110,6 +108,8 @@ name = "snapshots"
 path = "tests/snapshots.rs"
 required-features = ["default", "serde"]
 
-# Speed up `k256` arithmetic.
+# Speed up `k256` and `curve25519-dalek` arithmetic.
 [profile.dev.package.k256]
+opt-level = 2
+[profile.dev.package.curve25519-dalek]
 opt-level = 2

@@ -47,6 +47,13 @@ impl ScalarOps for Ristretto {
         buffer.copy_from_slice(&scalar.to_bytes());
     }
 
+    #[cfg(feature = "curve25519-dalek")]
+    fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
+        let bytes: &[u8; 32] = buffer.try_into().expect("input has incorrect byte size");
+        Scalar::from_canonical_bytes(*bytes).into()
+    }
+
+    #[cfg(feature = "curve25519-dalek-ng")]
     fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
         let bytes: &[u8; 32] = buffer.try_into().expect("input has incorrect byte size");
         Scalar::from_canonical_bytes(*bytes)
@@ -74,22 +81,35 @@ impl ElementOps for Ristretto {
         buffer.copy_from_slice(&element.compress().to_bytes());
     }
 
+    #[cfg(feature = "curve25519-dalek")]
+    fn deserialize_element(buffer: &[u8]) -> Option<Self::Element> {
+        CompressedRistretto::from_slice(buffer).ok()?.decompress()
+    }
+
+    #[cfg(feature = "curve25519-dalek-ng")]
     fn deserialize_element(buffer: &[u8]) -> Option<Self::Element> {
         CompressedRistretto::from_slice(buffer).decompress()
     }
 }
 
 impl Group for Ristretto {
+    #[cfg(feature = "curve25519-dalek")]
+    fn mul_generator(k: &Scalar) -> Self::Element {
+        k * RISTRETTO_BASEPOINT_TABLE
+    }
+
+    #[cfg(feature = "curve25519-dalek-ng")]
     fn mul_generator(k: &Scalar) -> Self::Element {
         k * &RISTRETTO_BASEPOINT_TABLE
     }
 
     fn vartime_mul_generator(k: &Scalar) -> Self::Element {
-        RistrettoPoint::vartime_double_scalar_mul_basepoint(
-            &Scalar::zero(),
-            &RistrettoPoint::identity(),
-            k,
-        )
+        #[cfg(feature = "curve25519-dalek")]
+        let zero = Scalar::ZERO;
+        #[cfg(feature = "curve25519-dalek-ng")]
+        let zero = Scalar::zero();
+
+        RistrettoPoint::vartime_double_scalar_mul_basepoint(&zero, &RistrettoPoint::identity(), k)
     }
 
     fn multi_mul<'a, I, J>(scalars: I, elements: J) -> Self::Element

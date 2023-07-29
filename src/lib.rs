@@ -65,22 +65,6 @@
 //! Implements [`Group`] for two prime groups based on Curve25519 using the [`curve25519-dalek`]
 //! crate: its prime subgroup, and the Ristretto transform of Curve25519 (aka ristretto255).
 //!
-//! By default, `u64_backend` is selected for the `curve25519-dalek` crate. (The crate does not
-//! compile unless *some* backend is selected.) You may opt out of this selection by specifying
-//! dependencies as follows:
-//!
-//! ```toml
-//! [dependencies.elastic-elgamal]
-//! version = "..."
-//! default-features = false
-//! features = ["std", "curve25519-dalek"]
-//!
-//! [dependencies.curve25519-dalek]
-//! version = "3"
-//! default-features = false
-//! features = ["u32_backend"] # or other backend
-//! ```
-//!
 //! ## `curve25519-dalek-ng`
 //!
 //! *(off by default)*
@@ -88,6 +72,20 @@
 //! Same in terms of functionality as `curve25519-dalek`, but uses the [`curve25519-dalek-ng`]
 //! crate instead of [`curve25519-dalek`]. This may be beneficial for applications that use
 //! [`bulletproofs`] or other libraries depending on `curve25519-dalek-ng`.
+//!
+//! The `curve25519-dalek-ng` crate does not compile unless some crypto backend is selected.
+//! You may select the backend by specifying `curve25519-dalek-ng` as a direct dependency as follows:
+//!
+//! ```toml
+//! [dependencies.elastic-elgamal]
+//! version = "..."
+//! default-features = false
+//! features = ["std", "curve25519-dalek-ng"]
+//!
+//! [dependencies.curve25519-dalek-ng]
+//! version = "4"
+//! features = ["u64_backend"] # or other backend
+//! ```
 //!
 //! This feature is mutually exclusive with `curve25519-dalek`.
 //!

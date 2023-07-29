@@ -20,14 +20,11 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.msrv }}
-          override: true
       - name: Generate lockfile
-        uses: actions-rs/cargo@v1
-        with:
-          command: generate-lockfile
+        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -37,15 +34,9 @@ jobs:
           restore-keys: ${{ runner.os }}-msrv-cargo
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --features serde --all-targets
+        run: cargo test --workspace --features serde --all-targets
       - name: Run doc tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --features serde --doc
+        run: cargo test --workspace --features serde --doc
 
   build:
     runs-on: ubuntu-latest
@@ -54,15 +45,12 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: stable
-          override: true
           components: rustfmt, clippy
       - name: Generate lockfile
-        uses: actions-rs/cargo@v1
-        with:
-          command: generate-lockfile
+        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -72,66 +60,29 @@ jobs:
           restore-keys: ${{ runner.os }}-cargo
 
       - name: Format
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
+        run: cargo fmt --all -- --check
       - name: Clippy (non-conflicting features)
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: non-conflicting features"
-          args: --workspace --features serde --all-targets -- -D warnings
+        run: cargo clippy --workspace --features serde --all-targets -- -D warnings
       - name: Clippy (features=hashbrown)
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: features=hashbrown"
-          args: --lib --no-default-features --features hashbrown -- -D warnings
-      - name: Clippy (features=hashbrown,serde,dalek/u32)
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: features=hashbrown,serde,dalek/u32"
-          args: --lib --no-default-features --features hashbrown,serde,curve25519-dalek/u32_backend -- -D warnings
+        run: cargo clippy --lib --no-default-features --features hashbrown -- -D warnings
+      - name: Clippy (features=hashbrown,serde,dalek)
+        run: cargo clippy --lib --no-default-features --features hashbrown,serde,curve25519-dalek -- -D warnings
       - name: Clippy (features=std,serde,dalek-ng)
-        uses: actions-rs/clippy-check@v1
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: features=std,serde,dalek-ng"
-          args: --lib --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend -- -D warnings
+        run: cargo clippy --lib --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend -- -D warnings
 
       - name: Run tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --features serde --all-targets
+        run: cargo test --workspace --features serde --all-targets
       - name: Run doc tests
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
-          args: --workspace --features serde --doc
+        run: cargo test --workspace --features serde --doc
 
       - name: Run voting (ristretto)
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: -p elastic-elgamal --features serde --example voting -- --options 5 --votes 50 --talliers 3/4
+        run: cargo run -p elastic-elgamal --features serde --example voting -- --options 5 --votes 50 --talliers 3/4
       - name: Run voting (quadratic, k256)
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: -p elastic-elgamal --features serde --example voting -- --qv k256
+        run: cargo run -p elastic-elgamal --features serde --example voting -- --qv k256
       - name: Run range
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: -p elastic-elgamal --features serde --example range
+        run: cargo run -p elastic-elgamal --features serde --example range
       - name: Run equivalence
-        uses: actions-rs/cargo@v1
-        with:
-          command: run
-          args: -p elastic-elgamal --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend --example equivalence
+        run: cargo run -p elastic-elgamal --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend --example equivalence
 
   build-nostd:
     runs-on: ubuntu-latest
@@ -140,16 +91,12 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.nightly }}
-          target: thumbv7m-none-eabi
-          override: true
-          profile: minimal
+          targets: thumbv7m-none-eabi
       - name: Generate lockfile
-        uses: actions-rs/cargo@v1
-        with:
-          command: generate-lockfile
+        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -159,10 +106,7 @@ jobs:
           restore-keys: ${{ runner.os }}-nostd-cargo
 
       - name: Build library
-        uses: actions-rs/cargo@v1
-        with:
-          command: build
-          args: --lib --no-default-features --features hashbrown,curve25519-dalek/u32_backend --target thumbv7m-none-eabi -Z avoid-dev-deps
+        run: cargo build --lib --no-default-features --features hashbrown,curve25519-dalek --target thumbv7m-none-eabi -Z avoid-dev-deps
 
   document:
     if: github.event_name == 'push'
@@ -176,15 +120,11 @@ jobs:
       - uses: actions/checkout@v3
 
       - name: Install Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.nightly }}
-          profile: minimal
-          override: true
       - name: Generate lockfile
-        uses: actions-rs/cargo@v1
-        with:
-          command: generate-lockfile
+        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
