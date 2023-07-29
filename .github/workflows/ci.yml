@@ -88,12 +88,12 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           name: "Clippy: features=hashbrown"
           args: --lib --no-default-features --features hashbrown -- -D warnings
-      - name: Clippy (features=hashbrown,serde,dalek/u32)
+      - name: Clippy (features=hashbrown,serde,dalek)
         uses: actions-rs/clippy-check@v1
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          name: "Clippy: features=hashbrown,serde,dalek/u32"
-          args: --lib --no-default-features --features hashbrown,serde,curve25519-dalek/u32_backend -- -D warnings
+          name: "Clippy: features=hashbrown,serde,dalek"
+          args: --lib --no-default-features --features hashbrown,serde,curve25519-dalek -- -D warnings
       - name: Clippy (features=std,serde,dalek-ng)
         uses: actions-rs/clippy-check@v1
         with:
@@ -162,7 +162,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --lib --no-default-features --features hashbrown,curve25519-dalek/u32_backend --target thumbv7m-none-eabi -Z avoid-dev-deps
+          args: --lib --no-default-features --features hashbrown,curve25519-dalek --target thumbv7m-none-eabi -Z avoid-dev-deps
 
   document:
     if: github.event_name == 'push'
