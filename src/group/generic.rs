@@ -25,7 +25,7 @@ pub struct Generic<C>(PhantomData<C>);
 
 impl<C> Clone for Generic<C> {
     fn clone(&self) -> Self {
-        Self(PhantomData)
+        *self
     }
 }
 

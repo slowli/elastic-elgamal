@@ -262,7 +262,7 @@ impl<G: Group> fmt::Debug for Keypair<G> {
         formatter
             .debug_struct("Keypair")
             .field("public", &self.public)
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
