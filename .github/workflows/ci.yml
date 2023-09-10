@@ -10,7 +10,7 @@ env:
   # Minimum supported Rust version.
   msrv: 1.65.0
   # Nightly Rust toolchain for checking no-std support.
-  nightly: nightly-2022-11-24
+  nightly: nightly-2023-09-09
 
 jobs:
   build-msrv:
