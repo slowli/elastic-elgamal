@@ -31,10 +31,10 @@ jobs:
           key: ${{ runner.os }}-msrv-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-msrv-cargo
 
-      - name: Run tests
-        run: cargo test --workspace --features serde --all-targets
-      - name: Run doc tests
-        run: cargo test --workspace --features serde --doc
+      - name: Build library (default, serde)
+        run: cargo build -p elastic-elgamal --lib --features serde
+      - name: Build library (hashbrown, curve25519-dalek-ng)
+        run: cargo build -p elastic-elgamal --lib --no-default-features --features hashbrown,curve25519-dalek-ng/u64_backend
 
   build:
     runs-on: ubuntu-latest
