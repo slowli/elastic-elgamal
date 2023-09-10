@@ -23,8 +23,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.msrv }}
-      - name: Generate lockfile
-        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -49,8 +47,6 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
-      - name: Generate lockfile
-        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -95,8 +91,6 @@ jobs:
         with:
           toolchain: ${{ env.nightly }}
           targets: thumbv7m-none-eabi
-      - name: Generate lockfile
-        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -123,8 +117,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.nightly }}
-      - name: Generate lockfile
-        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
