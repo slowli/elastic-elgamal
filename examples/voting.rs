@@ -6,12 +6,12 @@
 //!
 //! [elections]: https://static.usenix.org/event/evt06/tech/full_papers/benaloh/benaloh.pdf
 
+use clap::{Parser, ValueEnum};
 use rand::{
     seq::{IteratorRandom, SliceRandom},
     thread_rng, Rng,
 };
 use rand_core::{CryptoRng, RngCore};
-use structopt::StructOpt;
 
 use std::{error::Error as StdError, str::FromStr};
 
@@ -24,35 +24,37 @@ use elastic_elgamal::{
 
 type K256 = Generic<k256::Secp256k1>;
 
-#[derive(Debug, StructOpt)]
+/// Simple universally verifiable crypto voting protocol using threshold ElGamal encryption.
+#[derive(Debug, Parser)]
+#[command(version, about, long_about = None)]
 struct Args {
     /// Number of options in the poll.
-    #[structopt(name = "options", long, default_value = "3")]
+    #[arg(name = "options", long, default_value = "3")]
     options_count: usize,
     /// Number of votes to be cast.
-    #[structopt(name = "votes", long, short = "V", default_value = "30")]
+    #[arg(name = "votes", long, default_value = "30")]
     votes_count: usize,
     /// Tallier configuration specified as a `$threshold/$number`.
-    #[structopt(
+    #[arg(
         name = "talliers",
         long,
         short,
         default_value = "3/5",
-        parse(try_from_str = Args::parse_talliers)
+        value_parser = Args::parse_talliers
     )]
     talliers: Params,
     /// Use quadratic voting instead of single-choice polling?
-    #[structopt(name = "qv", long, short = "Q")]
+    #[arg(name = "qv", long, short = 'Q')]
     quadratic_voting: bool,
     /// Amount of credits in quadratic voting.
-    #[structopt(name = "credits", long, short = "C", default_value = "10")]
+    #[arg(name = "credits", long, short = 'C', default_value = "10")]
     credit_amount: u64,
     /// EC group to use.
-    #[structopt(default_value = "ristretto", possible_values = &["ristretto", "k256"])]
+    #[arg(value_enum, default_value = "ristretto")]
     group: GroupName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy, ValueEnum)]
 enum GroupName {
     Ristretto,
     K256,
@@ -71,7 +73,7 @@ impl FromStr for GroupName {
 }
 
 impl Args {
-    fn parse_talliers(s: &str) -> Result<Params, Box<dyn StdError>> {
+    fn parse_talliers(s: &str) -> Result<Params, Box<dyn StdError + Send + Sync>> {
         let (threshold, count) = s
             .split_once('/')
             .ok_or("talliers specification must contain `/` char")?;
@@ -269,6 +271,6 @@ impl Args {
 }
 
 fn main() {
-    let args = Args::from_args();
+    let args = Args::parse();
     args.run();
 }

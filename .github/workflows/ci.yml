@@ -10,7 +10,7 @@ env:
   # Minimum supported Rust version.
   msrv: 1.65.0
   # Nightly Rust toolchain for checking no-std support.
-  nightly: nightly-2022-11-24
+  nightly: nightly-2023-09-09
 
 jobs:
   build-msrv:
@@ -23,8 +23,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.msrv }}
-      - name: Generate lockfile
-        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -33,10 +31,10 @@ jobs:
           key: ${{ runner.os }}-msrv-cargo-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-msrv-cargo
 
-      - name: Run tests
-        run: cargo test --workspace --features serde --all-targets
-      - name: Run doc tests
-        run: cargo test --workspace --features serde --doc
+      - name: Build library (default, serde)
+        run: cargo build -p elastic-elgamal --lib --features serde
+      - name: Build library (hashbrown, curve25519-dalek-ng)
+        run: cargo build -p elastic-elgamal --lib --no-default-features --features hashbrown,curve25519-dalek-ng/u64_backend
 
   build:
     runs-on: ubuntu-latest
@@ -49,8 +47,11 @@ jobs:
         with:
           toolchain: stable
           components: rustfmt, clippy
-      - name: Generate lockfile
-        run: cargo generate-lockfile
+      - name: Install cargo-deny
+        uses: baptiste0928/cargo-install@v2
+        with:
+          crate: cargo-deny
+          version: "^0.14"
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -69,6 +70,8 @@ jobs:
         run: cargo clippy --lib --no-default-features --features hashbrown,serde,curve25519-dalek -- -D warnings
       - name: Clippy (features=std,serde,dalek-ng)
         run: cargo clippy --lib --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend -- -D warnings
+      - name: Check dependencies
+        run: cargo deny --all-features check
 
       - name: Run tests
         run: cargo test --workspace --features serde --all-targets
@@ -95,8 +98,6 @@ jobs:
         with:
           toolchain: ${{ env.nightly }}
           targets: thumbv7m-none-eabi
-      - name: Generate lockfile
-        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
@@ -123,8 +124,6 @@ jobs:
         uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ env.nightly }}
-      - name: Generate lockfile
-        run: cargo generate-lockfile
 
       - name: Cache cargo build
         uses: actions/cache@v3
