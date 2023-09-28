@@ -132,6 +132,11 @@ can be used instead.
   that uses this library to implement universally verifiable voting. (Like this library,
   the website is not audited and should not be used for serious votes.)
 
+## Contributing
+
+All contributions are welcome! See [the contributing guide](CONTRIBUTING.md) to help
+you get involved.
+
 ## License
 
 Licensed under either of [Apache License, Version 2.0](LICENSE-APACHE)
