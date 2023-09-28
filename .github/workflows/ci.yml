@@ -115,6 +115,8 @@ jobs:
       - build
       - build-msrv
       - build-nostd
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
 
     steps:
