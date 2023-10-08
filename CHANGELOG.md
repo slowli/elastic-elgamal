@@ -5,6 +5,10 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## 0.3.0 - 2023-10-08
+
+*(All changes are relative compared to [the 0.3.0-beta.1 release](#030-beta1---2023-02-03))*
+
 ### Added
 
 - Add getters for participant parameters in DKG.

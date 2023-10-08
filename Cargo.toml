@@ -1,6 +1,6 @@
 [package]
 name = "elastic-elgamal"
-version = "0.3.0-beta.1"
+version = "0.3.0"
 authors = [
   "Alex Ostrovski <ostrovski.alex@gmail.com>",
   "Jiří Gavenda <jirigavenda98@gmail.com>",
