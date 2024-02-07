@@ -43,7 +43,7 @@ subtle = { version = "2.4.0", default-features = false }
 # Crypto backend to support Curve25519 prime subgroup and Ristretto255 group;
 # a public dependency.
 [dependencies.curve25519-dalek]
-version = "4.1.1"
+version = "4.1.2"
 optional = true
 
 # Crypto backend to support Curve25519 prime subgroup and Ristretto255 group;
