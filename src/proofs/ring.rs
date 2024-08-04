@@ -241,7 +241,7 @@ impl<'a, G: Group> Ring<'a, G> {
 ///
 /// 1. Select random scalar `x` and compute `R_G(j) = [x]G`, `R_K(j) = [x]K`.
 /// 2. Compute `e_{j+1}`, ... `e_n`, ..., `e_j` ("wrapping" around `e_0 = e_{n+1}`)
-///   as per verification formulas. `s_*` scalars are selected uniformly at random.
+///    as per verification formulas. `s_*` scalars are selected uniformly at random.
 /// 3. Compute `s_j` using the trapdoor information: `s_j = x + e_j * r`.
 ///
 /// ## Multiple rings

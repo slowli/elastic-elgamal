@@ -38,7 +38,7 @@ use crate::{
 /// An interactive version of the proof can be built as a sigma protocol:
 ///
 /// 1. **Commitment.** The prover generates 3 random scalars `e_r`, `e_v` and `e_c` and commits
-///   to them via `E_r = [e_r]G`, `E_b = [e_v]G + [e_r]K`, and `E_c = [e_v]G + [e_c]H`.
+///    to them via `E_r = [e_r]G`, `E_b = [e_v]G + [e_r]K`, and `E_c = [e_v]G + [e_c]H`.
 /// 2. **Challenge.** The verifier sends to the prover random scalar `c`.
 /// 3. **Response.** The prover computes the following scalars and sends them to the verifier.
 ///

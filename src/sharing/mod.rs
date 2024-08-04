@@ -27,14 +27,14 @@
 //! Feldman's VSS proceeds as follows:
 //!
 //! 1. The dealer generates a secret `x` (a scalar in a group with discrete log assumption).
-//!   Along with this scalar, the dealer generates `t` other scalars that are also kept secret.
-//!   These scalars form a secret polynomial of degree `t`: `P(z) = x + x_1 * z + x_2 * z^2 + …`.
+//!    Along with this scalar, the dealer generates `t` other scalars that are also kept secret.
+//!    These scalars form a secret polynomial of degree `t`: `P(z) = x + x_1 * z + x_2 * z^2 + …`.
 //! 2. The dealer publishes coefficients `[x]G`, `[x_1]G`, ..., `[x_t]G` of the *public polynomial*
-//!   corresponding to `P`: `Q(z) = [x]G + [z][x_1]G + [z^2][x_2]G + …`. Here, `[x]G` is the shared
-//!   public key, and values `Q(i)` at `i = 1..=n` are public key shares of participants.
+//!    corresponding to `P`: `Q(z) = [x]G + [z][x_1]G + [z^2][x_2]G + …`. Here, `[x]G` is the shared
+//!    public key, and values `Q(i)` at `i = 1..=n` are public key shares of participants.
 //! 3. The dealer distributes secret key shares `s_i = P(i)` among participants `i = 1..=n`
-//!   via secure P2P channels. Each participant can verify share validity by calculating
-//!   `[s_i]G ?= Q(i)`.
+//!    via secure P2P channels. Each participant can verify share validity by calculating
+//!    `[s_i]G ?= Q(i)`.
 //!
 //! If a participant receives an incorrect secret share, the participant broadcasts a *complaint*
 //! against the dealer. The dealer responds by broadcasting the participant's share. Either the

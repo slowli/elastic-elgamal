@@ -46,8 +46,8 @@ use crate::{
 /// The new problem can be solved using a conventional sigma protocol:
 ///
 /// 1. **Commitment.** The prover generates random scalars `e_r`, `e_x` and `e_z` and commits
-///   to them via `E_r = [e_r]G`, `E_x = [e_x]G + [e_r]K`, `E_rz = [e_x]R_x + [e_z]G` and
-///   `E_z = [e_x]X + [e_z]K`.
+///    to them via `E_r = [e_r]G`, `E_x = [e_x]G + [e_r]K`, `E_rz = [e_x]R_x + [e_z]G` and
+///    `E_z = [e_x]X + [e_z]K`.
 /// 2. **Challenge.** The verifier sends to the prover random scalar `c`.
 /// 3. **Response.** The prover computes the following scalars and sends them to the verifier.
 ///
