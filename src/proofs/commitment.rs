@@ -239,7 +239,7 @@ impl<G: Group> CommitmentEquivalenceProof<G> {
     }
 }
 
-#[cfg(all(test, feature = "curve25519-dalek-ng"))]
+#[cfg(all(test, feature = "curve25519-dalek"))]
 mod tests {
     use super::*;
     use crate::{
