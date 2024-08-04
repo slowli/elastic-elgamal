@@ -55,7 +55,7 @@ features = ["alloc"]
 optional = true
 
 [dev-dependencies]
-bulletproofs = "4.0.0"
+bulletproofs = "5.0.0"
 criterion = "0.5.0"
 doc-comment = "0.3.3"
 insta = { version = "1.39.0", features = ["yaml"] }
@@ -96,7 +96,7 @@ required-features = ["default", "serde"]
 [[example]]
 name = "equivalence"
 path = "examples/equivalence.rs"
-required-features = ["curve25519-dalek-ng/u64_backend", "serde"]
+required-features = ["default", "serde"]
 
 [[test]]
 name = "integration"

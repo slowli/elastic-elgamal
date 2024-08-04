@@ -85,7 +85,7 @@ jobs:
       - name: Run range
         run: cargo run -p elastic-elgamal --features serde --example range
       - name: Run equivalence
-        run: cargo run -p elastic-elgamal --no-default-features --features std,serde,curve25519-dalek-ng/u64_backend --example equivalence
+        run: cargo run -p elastic-elgamal --features serde --example equivalence
 
   build-nostd:
     runs-on: ubuntu-latest
