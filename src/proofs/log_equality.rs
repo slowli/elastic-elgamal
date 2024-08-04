@@ -32,7 +32,7 @@ use crate::{
 /// as follows:
 ///
 /// 1. **Commitment:** The prover generates random scalar `x`. The prover sends to the verifier
-///   `X_G = [x]G` and `X_K = [x]K`.
+///    `X_G = [x]G` and `X_K = [x]K`.
 /// 2. **Challenge:** The verifier sends to the prover random scalar `c`.
 /// 3. **Response:** The prover computes scalar `s = x + cr` and sends it to the verifier.
 ///

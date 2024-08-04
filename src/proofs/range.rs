@@ -383,16 +383,16 @@ impl<G: Group> PreparedRange<G> {
 /// transaction amounts in [Elements]):
 ///
 /// 1. Represent the encrypted value `x` as `x = x_0 + k_0 * x_1 + k_0 * k_1 * x_2 + …`,
-///   where `0 <= x_i < t_i` is the decomposition of `x` as per the [`RangeDecomposition`],
-///   `0..t_0 + k_0 * (0..t_1 + …)`.
-///   As an example, if `n` is a power of 2, one can choose a decomposition as
-///   the base-2 presentation of `x`, i.e., `t_i = k_i = 2` for all `i`.
-///   For brevity, denote a multiplier of `x_i` in `x` decomposition as `K_i`,
-///   `K_i = k_0 * … * k_{i-1}`; `K_0 = 1` by extension.
+///    where `0 <= x_i < t_i` is the decomposition of `x` as per the [`RangeDecomposition`],
+///    `0..t_0 + k_0 * (0..t_1 + …)`.
+///    As an example, if `n` is a power of 2, one can choose a decomposition as
+///    the base-2 presentation of `x`, i.e., `t_i = k_i = 2` for all `i`.
+///    For brevity, denote a multiplier of `x_i` in `x` decomposition as `K_i`,
+///    `K_i = k_0 * … * k_{i-1}`; `K_0 = 1` by extension.
 /// 2. Split the ciphertext: `E = E_0 + E_1 + …`, where `E_i` encrypts `K_i * x_i`.
 /// 3. Produce a [`RingProof`] that for all `i` the encrypted scalar for `E_i`
-///   is among 0, `K_i`, …, `K_i * (t_i - 1)`. The range proof consists of all `E_i` ciphertexts
-///   and this `RingProof`.
+///    is among 0, `K_i`, …, `K_i * (t_i - 1)`. The range proof consists of all `E_i` ciphertexts
+///    and this `RingProof`.
 ///
 /// As with range proofs for Pedersen commitments, this construction is not optimal
 /// in terms of space or proving / verification complexity for large ranges;
