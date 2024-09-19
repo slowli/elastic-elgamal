@@ -32,6 +32,12 @@ impl<G: Group> Clone for SecretKey<G> {
     }
 }
 
+impl<G: Group> Zeroize for SecretKey<G> {
+    fn zeroize(&mut self) {
+        self.0.zeroize();
+    }
+}
+
 impl<G: Group> Drop for SecretKey<G> {
     fn drop(&mut self) {
         self.0.zeroize();
