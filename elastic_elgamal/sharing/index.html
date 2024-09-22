@@ -1,0 +1,98 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Feldman’s verifiable secret sharing (VSS) for ElGamal encryption."><title>elastic_elgamal::sharing - Rust</title><script> if (window.location.protocol !== "file:") document.write(`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2">`)</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="elastic_elgamal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.79.0-nightly (eb45c8444 2024-03-17)" data-channel="nightly" data-search-js="search-42d8da7a6b9792c2.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../elastic_elgamal/index.html">elastic_elgamal</a><span class="version">0.3.0</span></h2></div><h2 class="location"><a href="#">Module sharing</a></h2><div class="sidebar-elems"><section><ul class="block"><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></section><h2><a href="../index.html">In crate elastic_elgamal</a></h2></div></nav><div class="sidebar-resizer"></div>
+    <main><div class="width-limiter"><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../elastic_elgamal/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="main-heading"><h1>Module <a href="../index.html">elastic_elgamal</a>::<wbr><a class="mod" href="#">sharing</a><button id="copy-path" title="Copy item path to clipboard"><img src="../../static.files/clipboard-7571035ce49a181d.svg" width="19" height="18" alt="Copy item path"></button></h1><span class="out-of-band"><a class="src" href="../../src/elastic_elgamal/sharing/mod.rs.html#1-376">source</a> · <button id="toggle-all-docs" title="collapse all docs">[<span>&#x2212;</span>]</button></span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p><a href="https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf">Feldman’s verifiable secret sharing</a> (VSS) for ElGamal encryption.</p>
+<p>Feldman’s VSS is an extension of <a href="https://en.wikipedia.org/wiki/Shamir%27s_Secret_Sharing">Shamir’s secret sharing</a> that provides a degree
+of verifiability for the scheme participants and the public. As with other VSS schemes,
+the goal is to securely distribute a secret among <code>n</code> participants so that the secret can
+be recombined by any <code>t</code> (but not less) of these participants. Unlike distributed key
+generation (DKG), VSS assumes a central authority (a <em>dealer</em>) generating the secret
+and distributing its shares among participants.</p>
+<h2 id="construction"><a class="doc-anchor" href="#construction">§</a>Construction</h2>
+<p><strong>Inputs:</strong></p>
+<ul>
+<li>Total number of participants <code>n</code></li>
+<li>Minimum number of participants necessary to restore secret <code>t</code></li>
+<li>Prime-order group with discrete log assumption with generator <code>G</code></li>
+</ul>
+<p><strong>Assumptions:</strong></p>
+<ul>
+<li>There is a secure broadcast among participants, which acts as a single source of truth
+(e.g., a blockchain). The broadcast is synchronous w.r.t. the protocol steps (in practice,
+this means that protocol steps take sufficiently long amount of time).</li>
+<li>Secure synchronous P2P channels can be established between the dealer and participants.</li>
+<li>The adversary is static (corrupts parties before protocol instantiation) and can corrupt
+less than a half of participants (including the dealer).</li>
+</ul>
+<p>Feldman’s VSS proceeds as follows:</p>
+<ol>
+<li>The dealer generates a secret <code>x</code> (a scalar in a group with discrete log assumption).
+Along with this scalar, the dealer generates <code>t</code> other scalars that are also kept secret.
+These scalars form a secret polynomial of degree <code>t</code>: <code>P(z) = x + x_1 * z + x_2 * z^2 + …</code>.</li>
+<li>The dealer publishes coefficients <code>[x]G</code>, <code>[x_1]G</code>, …, <code>[x_t]G</code> of the <em>public polynomial</em>
+corresponding to <code>P</code>: <code>Q(z) = [x]G + [z][x_1]G + [z^2][x_2]G + …</code>. Here, <code>[x]G</code> is the shared
+public key, and values <code>Q(i)</code> at <code>i = 1..=n</code> are public key shares of participants.</li>
+<li>The dealer distributes secret key shares <code>s_i = P(i)</code> among participants <code>i = 1..=n</code>
+via secure P2P channels. Each participant can verify share validity by calculating
+<code>[s_i]G ?= Q(i)</code>.</li>
+</ol>
+<p>If a participant receives an incorrect secret share, the participant broadcasts a <em>complaint</em>
+against the dealer. The dealer responds by broadcasting the participant’s share. Either the
+share is correct (in which case the complaining participant is at fault), or it is not
+(in which case the dealer is at fault).</p>
+<p>To improve auditability, the implemented version of VSS provides zero-knowledge proofs
+of possession both for the dealer and participants. The dealer must broadcast the public
+polynomial together with the proof; participants should broadcast proof of knowledge of
+a secret share once they receive the share from the dealer.</p>
+<h2 id="distributed-key-generation"><a class="doc-anchor" href="#distributed-key-generation">§</a>Distributed key generation</h2>
+<p>Distributed key generation (DKG) differs from the approach implemented in this module
+in that there is no centralized dealer trusted by all participants. Instead, the participants
+essentially run parallel secret sharing protocol instances where  each participant
+is a dealer in one of the instances. This approach is implemented
+in the <a href="../dkg/index.html" title="mod elastic_elgamal::dkg"><code>dkg</code></a> module of this crate. Beware that it may not protect
+from participants biasing the distribution of the shared public key, e.g. by aborting
+the protocol; see <a href="https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf">Gennaro et al.</a> for more details.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p>Threshold encryption scheme requiring 2 of 3 participants.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span><span class="kw-2">mut </span>rng = thread_rng();
+<span class="kw">let </span>params = Params::new(<span class="number">3</span>, <span class="number">2</span>);
+
+<span class="comment">// Initialize the dealer.
+</span><span class="kw">let </span>dealer = Dealer::&lt;Ristretto&gt;::new(params, <span class="kw-2">&amp;mut </span>rng);
+<span class="kw">let </span>(public_poly, poly_proof) = dealer.public_info();
+<span class="kw">let </span>key_set = PublicKeySet::new(params, public_poly, poly_proof)<span class="question-mark">?</span>;
+
+<span class="comment">// Initialize participants based on secret shares provided by the dealer.
+</span><span class="kw">let </span>participants = (<span class="number">0</span>..<span class="number">3</span>)
+    .map(|i| ActiveParticipant::new(
+        key_set.clone(),
+        i,
+        dealer.secret_share_for_participant(i),
+    ))
+    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+
+<span class="comment">// At last, participants can decrypt messages!
+</span><span class="kw">let </span>encrypted_value = <span class="number">5_u64</span>;
+<span class="kw">let </span>enc = key_set.shared_key().encrypt(encrypted_value, <span class="kw-2">&amp;mut </span>rng);
+<span class="kw">let </span>shares_with_proofs = participants
+    .iter()
+    .map(|p| p.decrypt_share(enc, <span class="kw-2">&amp;mut </span>rng))
+    .take(<span class="number">2</span>); <span class="comment">// emulate the 3rd participant dropping off
+
+// Emulate share transfer via untrusted network.
+</span><span class="kw">let </span>dec_shares = shares_with_proofs
+    .enumerate()
+    .map(|(i, (share, proof))| {
+        <span class="kw">let </span>share = CandidateDecryption::from_bytes(<span class="kw-2">&amp;</span>share.to_bytes()).unwrap();
+        key_set.verify_share(share, enc, i, <span class="kw-2">&amp;</span>proof).unwrap()
+    });
+
+<span class="comment">// Combine decryption shares.
+</span><span class="kw">let </span>combined = params.combine_shares(dec_shares.enumerate()).unwrap();
+<span class="comment">// Use a lookup table to decrypt back to scalar.
+</span><span class="kw">let </span>lookup_table = DiscreteLogTable::&lt;Ristretto&gt;::new(<span class="number">0</span>..<span class="number">10</span>);
+<span class="kw">let </span>dec = combined.decrypt(enc, <span class="kw-2">&amp;</span>lookup_table);
+<span class="macro">assert_eq!</span>(dec, <span class="prelude-val">Some</span>(encrypted_value));</code></pre></div>
+</div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.ActiveParticipant.html" title="struct elastic_elgamal::sharing::ActiveParticipant">ActiveParticipant</a></div><div class="desc docblock-short">Personalized state of a participant of a threshold ElGamal encryption scheme
+once the participant receives the secret share from the <a href="struct.Dealer.html" title="struct elastic_elgamal::sharing::Dealer"><code>Dealer</code></a>.
+At this point, the participant can produce <a href="../struct.VerifiableDecryption.html" title="struct elastic_elgamal::VerifiableDecryption"><code>VerifiableDecryption</code></a>s.</div></li><li><div class="item-name"><a class="struct" href="struct.Dealer.html" title="struct elastic_elgamal::sharing::Dealer">Dealer</a></div><div class="desc docblock-short">Dealer in a <a href="https://www.cs.umd.edu/~gasarch/TOPICS/secretsharing/feldmanVSS.pdf">Feldman verifiable secret sharing</a> scheme.</div></li><li><div class="item-name"><a class="struct" href="struct.Params.html" title="struct elastic_elgamal::sharing::Params">Params</a></div><div class="desc docblock-short">Parameters of a threshold ElGamal encryption scheme.</div></li><li><div class="item-name"><a class="struct" href="struct.PublicKeySet.html" title="struct elastic_elgamal::sharing::PublicKeySet">PublicKeySet</a></div><div class="desc docblock-short">Full public information about the participants of a threshold ElGamal encryption scheme
+after all participants’ commitments are collected.</div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.Error.html" title="enum elastic_elgamal::sharing::Error">Error</a></div><div class="desc docblock-short">Errors that can occur during the secret sharing protocol.</div></li></ul></section></div></main></body></html>
