@@ -5,6 +5,10 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- Update the `hashbrown` dependency.
+
 ## 0.3.0 - 2023-10-08
 
 *(All changes are relative compared to [the 0.3.0-beta.1 release](#030-beta1---2023-02-03))*
