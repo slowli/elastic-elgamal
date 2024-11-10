@@ -5,6 +5,12 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## 0.3.1 - 2024-11-10
+
+### Added
+
+- Implement the `Zeroize` trait for `SecretKey`.
+
 ### Changed
 
 - Update the `hashbrown` dependency.
