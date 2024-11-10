@@ -1,6 +1,6 @@
 [package]
 name = "elastic-elgamal"
-version = "0.3.0"
+version = "0.3.1"
 authors = [
   "Alex Ostrovski <ostrovski.alex@gmail.com>",
   "Jiří Gavenda <jirigavenda98@gmail.com>",
@@ -13,7 +13,7 @@ readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/slowli/elastic-elgamal"
 keywords = ["elgamal", "encryption", "zero-knowledge"]
-categories = ["cryptography"]
+categories = ["cryptography", "no-std"]
 description = """\
 Implementation of ElGamal encryption and related zero-knowledge proofs
 with pluggable crypto backend
