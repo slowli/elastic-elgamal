@@ -112,6 +112,14 @@ impl<G: Group> fmt::Debug for Ciphertext<G> {
 }
 
 impl<G: Group> Ciphertext<G> {
+    /// Creates `Ciphertext` instance from `random_element` and `blinded_element`.
+    pub fn from_elements(random_element: G::Element, blinded_element: G::Element) -> Self {
+        Self {
+            random_element,
+            blinded_element,
+        }
+    }
+
     /// Represents encryption of zero value without the blinding factor.
     pub fn zero() -> Self {
         Self {
