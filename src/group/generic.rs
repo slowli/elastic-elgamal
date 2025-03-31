@@ -1,8 +1,8 @@
 use elliptic_curve::{
-    ff::PrimeField,
-    generic_array::{typenum::Unsigned, GenericArray},
-    sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
     CurveArithmetic, Field, FieldBytesSize, Group as _, ProjectivePoint, Scalar,
+    ff::PrimeField,
+    generic_array::{GenericArray, typenum::Unsigned},
+    sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
 };
 use rand_core::{CryptoRng, RngCore};
 use zeroize::Zeroize;
@@ -41,6 +41,7 @@ where
     const SCALAR_SIZE: usize = <FieldBytesSize<C> as Unsigned>::USIZE;
 
     fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar {
+        // FIXME: bump elliptic_curve rand dependency to ^0.9
         Scalar::<C>::random(rng)
     }
 
@@ -107,7 +108,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
 
@@ -115,7 +116,7 @@ mod tests {
 
     #[test]
     fn scalar_roundtrip() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let mut buffer = [0_u8; K256::SCALAR_SIZE];
         for _ in 0..100 {
             let scalar = K256::generate_scalar(&mut rng);
@@ -126,7 +127,7 @@ mod tests {
 
     #[test]
     fn point_roundtrip() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let mut buffer = [0_u8; K256::ELEMENT_SIZE];
         for _ in 0..100 {
             let point = K256::mul_generator(&K256::generate_scalar(&mut rng));

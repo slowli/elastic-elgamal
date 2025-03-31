@@ -3,16 +3,16 @@
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use zeroize::Zeroizing;
 
 use core::{fmt, iter, ops};
 
 use crate::{
-    alloc::{vec, Vec},
-    group::Group,
     Ciphertext, CiphertextWithValue, LogEqualityProof, PublicKey, RingProof, RingProofBuilder,
     VerificationError,
+    alloc::{Vec, vec},
+    group::Group,
 };
 
 /// Encapsulation of functionality for proving and verifying correctness of the sum of option
@@ -450,16 +450,16 @@ impl std::error::Error for ChoiceVerificationError {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::{
-        group::{Generic, Ristretto},
         Keypair,
+        group::{Generic, Ristretto},
     };
 
     fn test_bogus_encrypted_choice_does_not_work<G: Group>() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
         let params = ChoiceParams::single(receiver.clone(), 5);
 

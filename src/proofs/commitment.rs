@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use crate::serde::ScalarHelper;
 use crate::{
+    Ciphertext, CiphertextWithValue, PublicKey, SecretKey,
     group::Group,
     proofs::{TranscriptForGroup, VerificationError},
-    Ciphertext, CiphertextWithValue, PublicKey, SecretKey,
 };
 
 /// Zero-knowledge proof that an ElGamal ciphertext encrypts the same value as a Pedersen
@@ -243,16 +243,16 @@ impl<G: Group> CommitmentEquivalenceProof<G> {
 mod tests {
     use super::*;
     use crate::{
-        group::{ElementOps, Ristretto},
         Keypair,
+        group::{ElementOps, Ristretto},
     };
 
     use bulletproofs::PedersenGens;
-    use rand::thread_rng;
+    use rand::rng;
 
     #[test]
     fn equivalence_proof_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let value = 1234_u64;
         let ciphertext = CiphertextWithValue::new(value, &receiver, &mut rng).generalize();

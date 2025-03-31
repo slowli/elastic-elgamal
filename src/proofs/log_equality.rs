@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use crate::serde::ScalarHelper;
 use crate::{
-    alloc::{vec, Vec},
+    PublicKey, SecretKey,
+    alloc::{Vec, vec},
     group::Group,
     proofs::{TranscriptForGroup, VerificationError},
-    PublicKey, SecretKey,
 };
 
 /// Zero-knowledge proof of equality of two discrete logarithms in different bases,
@@ -207,7 +207,7 @@ impl<G: Group> LogEqualityProof<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::group::Ristretto;
@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn log_equality_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let log_base = Keypair::generate(&mut rng).public().clone();
 
         for _ in 0..100 {

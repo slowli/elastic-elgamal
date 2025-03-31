@@ -1,8 +1,8 @@
 //! Example for using `RangeProof`s.
 
-use rand::{thread_rng, Rng};
+use rand::{Rng, thread_rng};
 
-use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Keypair, RangeDecomposition};
+use elastic_elgamal::{DiscreteLogTable, Keypair, RangeDecomposition, group::Ristretto};
 
 /// Exclusive upper bound of the plaintext value range.
 const UPPER_BOUND: u64 = 100;
@@ -17,7 +17,7 @@ fn main() {
     let lookup_table = DiscreteLogTable::<Ristretto>::new(0..UPPER_BOUND);
 
     for _ in 0..5 {
-        let secret_value: u64 = rng.gen_range(0..UPPER_BOUND);
+        let secret_value: u64 = rng.random_range(0..UPPER_BOUND);
         println!("\nEncrypting value: {secret_value}");
         let (ciphertext, proof) = receiver
             .public()

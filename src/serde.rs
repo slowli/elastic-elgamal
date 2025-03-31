@@ -2,18 +2,18 @@
 
 use base64ct::{Base64UrlUnpadded, Encoding};
 use serde::{
-    de::{DeserializeOwned, Error as DeError, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
+    de::{DeserializeOwned, Error as DeError, SeqAccess, Unexpected, Visitor},
 };
 use zeroize::Zeroizing;
 
 use core::{fmt, marker::PhantomData};
 
 use crate::{
-    alloc::{vec, ToString, Vec},
+    Keypair, PublicKey, SecretKey,
+    alloc::{ToString, Vec, vec},
     dkg::Opening,
     group::Group,
-    Keypair, PublicKey, SecretKey,
 };
 
 fn serialize_bytes<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>
@@ -356,7 +356,7 @@ impl<'de, T: Helper, const MIN: usize> Visitor<'de> for VecHelper<T, MIN> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::group::Ristretto;
@@ -372,7 +372,7 @@ mod tests {
 
     #[test]
     fn key_roundtrip() {
-        let keypair = Keypair::<Ristretto>::generate(&mut thread_rng());
+        let keypair = Keypair::<Ristretto>::generate(&mut rng());
         let json = serde_json::to_value(&keypair).unwrap();
         assert!(json.is_string(), "{json:?}");
         let keypair_copy: Keypair<Ristretto> = serde_json::from_value(json).unwrap();

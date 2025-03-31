@@ -8,18 +8,18 @@
 
 use clap::{Parser, ValueEnum};
 use rand::{
+    Rng, rng,
     seq::{IteratorRandom, SliceRandom},
-    thread_rng, Rng,
 };
 use rand_core::{CryptoRng, RngCore};
 
 use std::{error::Error as StdError, str::FromStr};
 
 use elastic_elgamal::{
+    CandidateDecryption, Ciphertext, DiscreteLogTable,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
-    CandidateDecryption, Ciphertext, DiscreteLogTable,
 };
 
 type K256 = Generic<k256::Secp256k1>;
@@ -133,7 +133,7 @@ impl Args {
         );
 
         // After polling, talliers submit decryption shares together with a proof of their correctness.
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let lookup_table = DiscreteLogTable::<G>::new(0..=max_votes);
         for (i, (&option_totals, &expected)) in
             encrypted_totals.iter().zip(expected_totals).enumerate()
@@ -178,7 +178,7 @@ impl Args {
     }
 
     fn vote<G: Group>(&self) {
-        let mut rng = thread_rng();
+        let mut rng = rng();
 
         // Before polling is started, talliers agree on the shared encryption key.
         let (key_set, talliers) = self.initialize_talliers::<G, _>(&mut rng);
@@ -188,7 +188,7 @@ impl Args {
         let mut expected_totals = vec![0; self.options_count];
         let mut encrypted_totals = vec![Ciphertext::zero(); self.options_count];
         for i in 0..self.votes_count {
-            let choice = rng.gen_range(0..self.options_count);
+            let choice = rng.random_range(0..self.options_count);
             println!("\nVoter #{} making choice #{}", i + 1, choice + 1);
             expected_totals[choice] += 1;
             let encrypted = EncryptedChoice::single(&choice_params, choice, &mut rng);
@@ -218,7 +218,7 @@ impl Args {
     }
 
     fn quadratic_vote<G: Group>(&self) {
-        let mut rng = thread_rng();
+        let mut rng = rng();
 
         // Before polling is started, talliers agree on the shared encryption key.
         let (key_set, talliers) = self.initialize_talliers::<G, _>(&mut rng);
@@ -233,7 +233,7 @@ impl Args {
         let mut encrypted_totals = vec![Ciphertext::zero(); self.options_count];
         for i in 0..self.votes_count {
             let mut votes = vec![0_u64; self.options_count];
-            while rng.gen_bool(0.8) {
+            while rng.random_bool(0.8) {
                 let mut new_votes = votes.clone();
                 *new_votes.choose_mut(&mut rng).unwrap() += 1;
                 if Self::credit(&new_votes) > self.credit_amount {

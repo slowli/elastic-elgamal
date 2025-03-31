@@ -122,7 +122,7 @@ use crate::serde::{ElementHelper, VecHelper};
 
 use core::{cmp::Ordering, fmt, ops};
 
-use crate::{alloc::Vec, group::Group, proofs::VerificationError, VerifiableDecryption};
+use crate::{VerifiableDecryption, alloc::Vec, group::Group, proofs::VerificationError};
 
 mod key_set;
 mod participant;
@@ -159,11 +159,7 @@ fn lagrange_coefficients<G: Group>(indexes: &[usize]) -> (Vec<G::Scalar>, G::Sca
                     },
                 );
 
-            if sign {
-                -denominator
-            } else {
-                denominator
-            }
+            if sign { -denominator } else { denominator }
         })
         .collect();
     G::invert_scalars(&mut denominators);

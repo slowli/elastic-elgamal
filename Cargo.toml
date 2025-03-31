@@ -7,8 +7,8 @@ authors = [
   "Antonín Dufka <dufkan@gmail.com>",
   "Tiago Cerqueira <tiago.cerqueira7777@gmail.com>",
 ]
-edition = "2021"
-rust-version = "1.65"
+edition = "2024"
+rust-version = "1.85"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/slowli/elastic-elgamal"
@@ -32,7 +32,10 @@ zeroize = { version = "1.8.1", default-features = false, features = ["alloc"] }
 sha2 = { version = "0.10.8", default-features = false }
 
 # Enables `Serialize` / `Deserialize` implementation for most types in the crate.
-serde = { version = "1.0", default-features = false, features = ["derive", "alloc"], optional = true }
+serde = { version = "1.0", default-features = false, features = [
+  "derive",
+  "alloc",
+], optional = true }
 
 # Private dependencies (not exposed via public APIs).
 base64ct = { version = "1.7", default-features = false, features = ["alloc"] }

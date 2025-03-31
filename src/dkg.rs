@@ -108,11 +108,11 @@ use core::fmt;
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};
 use crate::{
-    alloc::{vec, Cow, Vec},
+    PublicKey, SecretKey,
+    alloc::{Cow, Vec, vec},
     group::Group,
     proofs::ProofOfPossession,
     sharing::{self, ActiveParticipant, Dealer, Params, PublicKeySet, PublicPolynomial},
-    PublicKey, SecretKey,
 };
 
 /// Errors that can occur during the distributed key generation.
@@ -540,14 +540,14 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::{encryption::DiscreteLogTable, group::Ristretto, sharing::Params};
 
     #[test]
     fn dkg_shared_2_of_3_key() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let params = Params::new(3, 2);
 
         let mut alice = ParticipantCollectingCommitments::<Ristretto>::new(params, 0, &mut rng);

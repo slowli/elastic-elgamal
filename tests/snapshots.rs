@@ -6,10 +6,10 @@ use rand_chacha::ChaChaRng;
 use rand_core::{RngCore, SeedableRng};
 
 use elastic_elgamal::{
-    app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
-    group::{Generic, Group, Ristretto},
     Ciphertext, CiphertextWithValue, CommitmentEquivalenceProof, Keypair, RangeDecomposition,
     SecretKey, SumOfSquaresProof,
+    app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
+    group::{Generic, Group, Ristretto},
 };
 use merlin::Transcript;
 

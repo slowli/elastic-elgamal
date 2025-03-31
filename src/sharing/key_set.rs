@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 
 use core::iter;
 
-use super::{lagrange_coefficients, Error, Params, PublicPolynomial};
+use super::{Error, Params, PublicPolynomial, lagrange_coefficients};
 
 use crate::{
+    CandidateDecryption, Ciphertext, PublicKey, VerifiableDecryption,
     alloc::Vec,
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup, VerificationError},
-    CandidateDecryption, Ciphertext, PublicKey, VerifiableDecryption,
 };
 
 /// Full public information about the participants of a threshold ElGamal encryption scheme
@@ -231,7 +231,7 @@ impl<G: Group> PublicKeySet<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::{
@@ -241,7 +241,7 @@ mod tests {
 
     #[test]
     fn restoring_key_set_from_participant_keys_errors() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let params = Params::new(10, 7);
 
         let dealer = Dealer::<Ristretto>::new(params, &mut rng);

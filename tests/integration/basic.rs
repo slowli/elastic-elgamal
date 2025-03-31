@@ -1,19 +1,19 @@
 //! Basic tests.
 
 use merlin::Transcript;
-use rand::{thread_rng, Rng};
+use rand::{Rng, rng};
 
 use std::collections::HashMap;
 
 use elastic_elgamal::{
-    app::{ChoiceParams, EncryptedChoice},
-    group::Group,
     CandidateDecryption, Ciphertext, CiphertextWithValue, Keypair, LogEqualityProof, RingProof,
     SumOfSquaresProof, VerifiableDecryption, VerificationError,
+    app::{ChoiceParams, EncryptedChoice},
+    group::Group,
 };
 
 fn test_encryption_roundtrip<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let message = 12_345_u64;
     let ciphertext = keypair.public().encrypt(message, &mut rng);
@@ -23,7 +23,7 @@ fn test_encryption_roundtrip<G: Group>() {
 }
 
 fn test_zero_encryption_works<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let (zero_ciphertext, proof) = keypair.public().encrypt_zero(&mut rng);
     keypair
@@ -39,35 +39,45 @@ fn test_zero_encryption_works<G: Group>() {
 
     // ...or for another receiver key
     let other_keypair = Keypair::generate(&mut rng);
-    assert!(other_keypair
-        .public()
-        .verify_zero(ciphertext, &proof)
-        .is_err());
+    assert!(
+        other_keypair
+            .public()
+            .verify_zero(ciphertext, &proof)
+            .is_err()
+    );
 
     // ...or for another secret scalar used.
     let (other_zero_ciphertext, other_proof) = keypair.public().encrypt_zero(&mut rng);
-    assert!(keypair
-        .public()
-        .verify_zero(other_zero_ciphertext, &proof)
-        .is_err());
-    assert!(keypair
-        .public()
-        .verify_zero(zero_ciphertext, &other_proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_zero(other_zero_ciphertext, &proof)
+            .is_err()
+    );
+    assert!(
+        keypair
+            .public()
+            .verify_zero(zero_ciphertext, &other_proof)
+            .is_err()
+    );
 
     let combined_ciphertext = other_zero_ciphertext + zero_ciphertext;
-    assert!(keypair
-        .public()
-        .verify_zero(combined_ciphertext, &proof)
-        .is_err());
-    assert!(keypair
-        .public()
-        .verify_zero(combined_ciphertext, &other_proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_zero(combined_ciphertext, &proof)
+            .is_err()
+    );
+    assert!(
+        keypair
+            .public()
+            .verify_zero(combined_ciphertext, &other_proof)
+            .is_err()
+    );
 }
 
 fn test_zero_proof_serialization<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let mut ciphertexts = HashMap::new();
 
@@ -84,7 +94,7 @@ fn test_zero_proof_serialization<G: Group>() {
 }
 
 fn test_bool_encryption_works<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let keypair = Keypair::<G>::generate(&mut rng);
 
     let (ciphertext, proof) = keypair.public().encrypt_bool(false, &mut rng);
@@ -105,14 +115,18 @@ fn test_bool_encryption_works<G: Group>() {
         .unwrap();
 
     // The proofs should not verify for another encryption.
-    assert!(keypair
-        .public()
-        .verify_bool(other_ciphertext, &proof)
-        .is_err());
-    assert!(keypair
-        .public()
-        .verify_bool(ciphertext, &other_proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_bool(other_ciphertext, &proof)
+            .is_err()
+    );
+    assert!(
+        keypair
+            .public()
+            .verify_bool(ciphertext, &other_proof)
+            .is_err()
+    );
 
     // ...even if the encryption is obtained from the "correct" value.
     let combined_ciphertext = ciphertext + other_ciphertext;
@@ -120,14 +134,16 @@ fn test_bool_encryption_works<G: Group>() {
         keypair.secret().decrypt_to_element(combined_ciphertext),
         G::generator(),
     );
-    assert!(keypair
-        .public()
-        .verify_bool(combined_ciphertext, &proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_bool(combined_ciphertext, &proof)
+            .is_err()
+    );
 }
 
 fn test_bool_proof_serialization<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let mut ciphertexts = HashMap::new();
 
@@ -147,7 +163,7 @@ fn test_bool_proof_serialization<G: Group>() {
 const OPTIONS_COUNTS: [usize; 5] = [2, 3, 5, 10, 15];
 
 fn test_encrypted_choice<G: Group>(options_count: usize) {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::single(pk, options_count);
 
@@ -166,11 +182,11 @@ fn test_encrypted_choice<G: Group>(options_count: usize) {
 }
 
 fn test_encrypted_multi_choice<G: Group>(options_count: usize) {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::multi(pk, options_count);
 
-    let choices: Vec<_> = (0..options_count).map(|_| rng.gen()).collect();
+    let choices: Vec<_> = (0..options_count).map(|_| rng.random()).collect();
     let encrypted = EncryptedChoice::new(&choice_params, &choices, &mut rng);
     let ciphertexts = encrypted.verify(&choice_params).unwrap();
     assert_eq!(ciphertexts.len(), options_count);
@@ -185,11 +201,11 @@ fn test_encrypted_multi_choice<G: Group>(options_count: usize) {
 }
 
 fn test_sum_of_squares_proof<G: Group>(squares_count: usize) {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let (pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
 
     let numbers: Vec<_> = (0..squares_count)
-        .map(|_| rng.gen_range(0_u64..1_000))
+        .map(|_| rng.random_range(0_u64..1_000))
         .collect();
     let sum_of_squares = numbers.iter().map(|&x| x * x).sum::<u64>();
     let numbers: Vec<_> = numbers
@@ -218,28 +234,32 @@ fn test_sum_of_squares_proof<G: Group>(squares_count: usize) {
         .unwrap();
 
     let (other_pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
-    assert!(proof
-        .verify(
-            numbers.iter(),
-            &sum_of_squares,
-            &other_pk,
-            &mut Transcript::new(b"test_sum_of_squares"),
-        )
-        .is_err());
+    assert!(
+        proof
+            .verify(
+                numbers.iter(),
+                &sum_of_squares,
+                &other_pk,
+                &mut Transcript::new(b"test_sum_of_squares"),
+            )
+            .is_err()
+    );
 
     sum_of_squares += -Ciphertext::non_blinded(1);
-    assert!(proof
-        .verify(
-            numbers.iter(),
-            &sum_of_squares,
-            &pk,
-            &mut Transcript::new(b"test_sum_of_squares"),
-        )
-        .is_err());
+    assert!(
+        proof
+            .verify(
+                numbers.iter(),
+                &sum_of_squares,
+                &pk,
+                &mut Transcript::new(b"test_sum_of_squares"),
+            )
+            .is_err()
+    );
 }
 
 fn test_verifiable_decryption<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rng();
     let (bogus_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
 
     for _ in 0..20 {

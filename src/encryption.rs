@@ -10,9 +10,9 @@ use core::{fmt, marker::PhantomData, ops};
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
-    alloc::{vec, HashMap, Vec},
-    group::{Group, ScalarOps},
     PublicKey, SecretKey,
+    alloc::{HashMap, Vec, vec},
+    group::{Group, ScalarOps},
 };
 
 /// Ciphertext for ElGamal encryption.
@@ -442,15 +442,15 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::{thread_rng, Rng};
+    use rand::{Rng, rng};
 
     use super::*;
-    use crate::{curve25519::scalar::Scalar as Curve25519Scalar, group::Ristretto, Keypair};
+    use crate::{Keypair, curve25519::scalar::Scalar as Curve25519Scalar, group::Ristretto};
 
     #[test]
     fn ciphertext_addition() {
-        let mut rng = thread_rng();
-        let numbers: Vec<_> = (0..10).map(|_| u64::from(rng.gen::<u32>())).collect();
+        let mut rng = rng();
+        let numbers: Vec<_> = (0..10).map(|_| u64::from(rng.random::<u32>())).collect();
         let sum = numbers.iter().copied().sum::<u64>();
 
         let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
@@ -463,11 +463,11 @@ mod tests {
 
     #[test]
     fn ciphertext_mul_by_u64() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         for _ in 0..100 {
-            let x = rng.gen::<u64>();
-            let multiplier = rng.gen::<u64>();
+            let x = rng.random::<u64>();
+            let multiplier = rng.random::<u64>();
             let ciphertext = pk.encrypt(x, &mut rng);
             let decrypted = sk.decrypt_to_element(ciphertext * multiplier);
 
@@ -482,10 +482,10 @@ mod tests {
 
     #[test]
     fn ciphertext_negation() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         for _ in 0..100 {
-            let x = rng.gen::<u64>();
+            let x = rng.random::<u64>();
             let ciphertext = pk.encrypt(x, &mut rng);
             let neg_ciphertext = -ciphertext;
             let decrypted = sk.decrypt_to_element(neg_ciphertext);
@@ -499,10 +499,10 @@ mod tests {
 
     #[test]
     fn non_blinded_ciphertext() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (_, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         for _ in 0..100 {
-            let x = rng.gen::<u64>();
+            let x = rng.random::<u64>();
             let ciphertext = Ciphertext::non_blinded(x);
             let decrypted = sk.decrypt_to_element(ciphertext);
 

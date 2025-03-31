@@ -1,15 +1,15 @@
 use criterion::{
-    criterion_group, criterion_main, measurement::WallTime, BatchSize, Bencher, BenchmarkGroup,
-    BenchmarkId, Criterion, Throughput,
+    BatchSize, Bencher, BenchmarkGroup, BenchmarkId, Criterion, Throughput, criterion_group,
+    criterion_main, measurement::WallTime,
 };
 use merlin::Transcript;
-use rand::{seq::SliceRandom, Rng, SeedableRng};
+use rand::{Rng, SeedableRng, seq::SliceRandom};
 use rand_chacha::ChaChaRng;
 
 use elastic_elgamal::{
+    CiphertextWithValue, Keypair, RingProofBuilder, SumOfSquaresProof,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
-    CiphertextWithValue, Keypair, RingProofBuilder, SumOfSquaresProof,
 };
 
 type K256 = Generic<k256::Secp256k1>;
@@ -51,14 +51,22 @@ fn bench_zero_encryption_verification<G: Group>(b: &mut Bencher<'_>) {
 fn bench_bool_encryption_proof<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
-    b.iter(|| keypair.public().encrypt_bool(rng.gen_bool(0.5), &mut rng));
+    b.iter(|| {
+        keypair
+            .public()
+            .encrypt_bool(rng.random_bool(0.5), &mut rng)
+    });
 }
 
 fn bench_bool_encryption_verification<G: Group>(b: &mut Bencher<'_>) {
     let mut rng = ChaChaRng::from_seed([5; 32]);
     let keypair: Keypair<G> = Keypair::generate(&mut rng);
     b.iter_batched(
-        || keypair.public().encrypt_bool(rng.gen_bool(0.5), &mut rng),
+        || {
+            keypair
+                .public()
+                .encrypt_bool(rng.random_bool(0.5), &mut rng)
+        },
         |(ciphertext, proof)| keypair.public().verify_bool(ciphertext, &proof).unwrap(),
         BatchSize::SmallInput,
     );
@@ -69,7 +77,7 @@ fn bench_choice_creation<G: Group>(b: &mut Bencher<'_>, number_of_options: usize
     let (pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
     let params = ChoiceParams::single(pk, number_of_options);
     b.iter(|| {
-        let choice = rng.gen_range(0..number_of_options);
+        let choice = rng.random_range(0..number_of_options);
         EncryptedChoice::single(&params, choice, &mut rng)
     });
 }
@@ -80,7 +88,7 @@ fn bench_choice_verification<G: Group>(b: &mut Bencher<'_>, number_of_options: u
     let params = ChoiceParams::single(pk, number_of_options);
     b.iter_batched(
         || {
-            let choice = rng.gen_range(0..number_of_options);
+            let choice = rng.random_range(0..number_of_options);
             EncryptedChoice::single(&params, choice, &mut rng)
         },
         |choice| {
@@ -125,7 +133,7 @@ fn bench_ring<G: Group>(b: &mut Bencher<'_>, chosen_values: Option<[usize; 5]>) 
     let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
     let chosen_values = chosen_values.unwrap_or_else(|| {
         let mut values = [0; 5];
-        values.iter_mut().for_each(|v| *v = rng.gen_range(0..4));
+        values.iter_mut().for_each(|v| *v = rng.random_range(0..4));
         values
     });
     assert!(chosen_values.iter().all(|&i| i < 4));
@@ -152,7 +160,7 @@ fn bench_sum_sq_creation<G: Group>(b: &mut Bencher<'_>, len: usize) {
     let mut rng = ChaChaRng::from_seed([121; 32]);
     let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
 
-    let values: Vec<_> = (0..len).map(|_| rng.gen_range(0_u64..10)).collect();
+    let values: Vec<_> = (0..len).map(|_| rng.random_range(0_u64..10)).collect();
     let sum_sq = values.iter().map(|&x| x * x).sum::<u64>();
     let values: Vec<_> = values
         .into_iter()
@@ -170,7 +178,7 @@ fn bench_sum_sq_verification<G: Group>(b: &mut Bencher<'_>, len: usize) {
     let mut rng = ChaChaRng::from_seed([121; 32]);
     let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
 
-    let values: Vec<_> = (0..len).map(|_| rng.gen_range(0_u64..10)).collect();
+    let values: Vec<_> = (0..len).map(|_| rng.random_range(0_u64..10)).collect();
     let sum_sq = values.iter().map(|&x| x * x).sum::<u64>();
     let values: Vec<_> = values
         .into_iter()

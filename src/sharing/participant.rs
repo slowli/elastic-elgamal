@@ -11,11 +11,11 @@ use serde::{Deserialize, Serialize};
 use core::iter;
 
 use crate::{
+    Ciphertext, Keypair, PublicKey, SecretKey, VerifiableDecryption,
     alloc::Vec,
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession},
     sharing::{Error, Params, PublicKeySet},
-    Ciphertext, Keypair, PublicKey, SecretKey, VerifiableDecryption,
 };
 
 /// Dealer in a [Feldman verifiable secret sharing][feldman-vss] scheme.
@@ -187,14 +187,14 @@ impl<G: Group> ActiveParticipant<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::{curve25519::scalar::Scalar as Scalar25519, group::Ristretto};
 
     #[test]
     fn shared_2_of_3_key() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let params = Params::new(3, 2);
 
         let dealer = Dealer::<Ristretto>::new(params, &mut rng);
@@ -217,9 +217,11 @@ mod tests {
         key_set
             .verify_participant(2, &carol.proof_of_possession(&mut rng))
             .unwrap();
-        assert!(key_set
-            .verify_participant(1, &alice.proof_of_possession(&mut rng))
-            .is_err());
+        assert!(
+            key_set
+                .verify_participant(1, &alice.proof_of_possession(&mut rng))
+                .is_err()
+        );
 
         let ciphertext = key_set.shared_key().encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);

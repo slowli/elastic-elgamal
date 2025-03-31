@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
+    Keypair, PublicKey, SecretKey,
     alloc::Vec,
     group::Group,
     proofs::{TranscriptForGroup, VerificationError},
-    Keypair, PublicKey, SecretKey,
 };
 
 /// Zero-knowledge proof of possession of one or more secret scalars.
@@ -166,7 +166,7 @@ impl<G: Group> ProofOfPossession<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::group::Ristretto;
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn proof_of_possession_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let poly: Vec<_> = (0..5).map(|_| Keypair::generate(&mut rng)).collect();
 
         ProofOfPossession::new(&poly, &mut Transcript::new(b"test_multi_PoP"), &mut rng)

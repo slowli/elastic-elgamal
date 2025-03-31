@@ -8,8 +8,8 @@ use serde::{Deserialize, Serialize};
 use core::fmt;
 
 use crate::{
-    alloc::Vec, group::Group, Ciphertext, PreparedRange, PublicKey, RangeDecomposition, RangeProof,
-    SumOfSquaresProof, VerificationError,
+    Ciphertext, PreparedRange, PublicKey, RangeDecomposition, RangeProof, SumOfSquaresProof,
+    VerificationError, alloc::Vec, group::Group,
 };
 
 /// [Quadratic voting] parameters prepared for a certain [`Group`].
@@ -393,11 +393,11 @@ impl std::error::Error for QuadraticVotingError {
 mod tests {
     use super::*;
     use crate::{
-        group::{ElementOps, Ristretto},
         DiscreteLogTable, Keypair,
+        group::{ElementOps, Ristretto},
     };
 
-    use rand::thread_rng;
+    use rand::rng;
 
     #[test]
     fn isqrt_is_correct() {
@@ -422,7 +422,7 @@ mod tests {
 
     #[test]
     fn quadratic_voting() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (pk, sk) = Keypair::generate(&mut rng).into_tuple();
         let params = QuadraticVotingParams::<Ristretto>::new(pk, 5, 25);
         let ballot = QuadraticVotingBallot::new(&params, &[1, 3, 0, 3, 2], &mut rng);

@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
-    alloc::{vec, Vec},
+    Ciphertext, DiscreteLogTable, Keypair, PublicKey, VerificationError,
+    alloc::{Vec, vec},
     group::Group,
     proofs::{LogEqualityProof, TranscriptForGroup},
-    Ciphertext, DiscreteLogTable, Keypair, PublicKey, VerificationError,
 };
 
 /// Verifiable decryption for a certain [`Ciphertext`] in the ElGamal encryption scheme.

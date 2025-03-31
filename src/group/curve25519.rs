@@ -155,19 +155,19 @@ impl Group for Curve25519Subgroup {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
+    use rand::rng;
 
     use super::*;
     use crate::{
-        curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
         PublicKeyConversionError,
+        curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
     };
 
     type PublicKey = crate::PublicKey<Curve25519Subgroup>;
 
     #[test]
     fn mangled_point_is_invalid_public_key() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         for _ in 0..100 {
             let mut point =
                 Curve25519Subgroup::mul_generator(&Curve25519Subgroup::generate_scalar(&mut rng));

@@ -11,8 +11,8 @@ use core::iter;
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
-    alloc::Vec, group::Group, proofs::TranscriptForGroup, Ciphertext, CiphertextWithValue,
-    PublicKey, SecretKey, VerificationError,
+    Ciphertext, CiphertextWithValue, PublicKey, SecretKey, VerificationError, alloc::Vec,
+    group::Group, proofs::TranscriptForGroup,
 };
 
 /// Zero-knowledge proof that an ElGamal-encrypted value is equal to a sum of squares
@@ -302,13 +302,13 @@ impl<I: Iterator> Iterator for OddItems<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{group::Ristretto, Keypair};
+    use crate::{Keypair, group::Ristretto};
 
-    use rand::thread_rng;
+    use rand::rng;
 
     #[test]
     fn sum_of_squares_proof_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng).generalize();
         let sq_ciphertext = CiphertextWithValue::new(9_u64, &receiver, &mut rng).generalize();
@@ -366,7 +366,7 @@ mod tests {
 
     #[test]
     fn sum_of_squares_proof_with_bogus_inputs() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng).generalize();
         let sq_ciphertext = CiphertextWithValue::new(10_u64, &receiver, &mut rng).generalize();
@@ -394,7 +394,7 @@ mod tests {
 
     #[test]
     fn sum_of_squares_proof_with_several_squares() {
-        let mut rng = thread_rng();
+        let mut rng = rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let ciphertexts =
             [3_u64, 1, 4, 1].map(|x| CiphertextWithValue::new(x, &receiver, &mut rng).generalize());
