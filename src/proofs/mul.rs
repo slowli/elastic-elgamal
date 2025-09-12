@@ -2,11 +2,13 @@
 
 use core::iter;
 
+use elliptic_curve::{
+    rand_core::{CryptoRng, RngCore},
+    zeroize::Zeroizing,
+};
 use merlin::Transcript;
-use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use zeroize::Zeroizing;
 
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};

@@ -2,10 +2,12 @@
 
 use core::{fmt, marker::PhantomData, ops};
 
-use rand_core::{CryptoRng, RngCore};
+use elliptic_curve::{
+    rand_core::{CryptoRng, RngCore},
+    zeroize::{Zeroize, Zeroizing},
+};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-use zeroize::{Zeroize, Zeroizing};
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;

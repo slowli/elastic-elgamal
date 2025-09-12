@@ -188,6 +188,8 @@ mod sealed {
     pub trait Sealed {}
 }
 
+pub use elliptic_curve;
+
 pub use crate::{
     decryption::{CandidateDecryption, VerifiableDecryption},
     encryption::{Ciphertext, CiphertextWithValue, DiscreteLogTable},

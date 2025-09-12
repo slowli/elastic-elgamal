@@ -3,8 +3,10 @@
 use core::{fmt, ops};
 
 use base64ct::{Base64UrlUnpadded, Encoding};
-use rand_core::{CryptoRng, RngCore};
-use zeroize::Zeroize;
+use elliptic_curve::{
+    rand_core::{CryptoRng, RngCore},
+    zeroize::Zeroize,
+};
 
 use crate::{
     alloc::{Vec, vec},

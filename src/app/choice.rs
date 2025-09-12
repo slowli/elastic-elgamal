@@ -2,11 +2,13 @@
 
 use core::{fmt, iter, ops};
 
+use elliptic_curve::{
+    rand_core::{CryptoRng, RngCore},
+    zeroize::Zeroizing,
+};
 use merlin::Transcript;
-use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
-use zeroize::Zeroizing;
 
 use crate::{
     Ciphertext, CiphertextWithValue, LogEqualityProof, PublicKey, RingProof, RingProofBuilder,

@@ -1,7 +1,7 @@
 //! Zero-knowledge proof of ElGamal encryption and Pedersen commitment equivalence.
 
+use elliptic_curve::rand_core::{CryptoRng, RngCore};
 use merlin::Transcript;
-use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 

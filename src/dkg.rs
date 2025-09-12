@@ -98,11 +98,13 @@
 
 use core::fmt;
 
-use rand_core::{CryptoRng, RngCore};
+use elliptic_curve::{
+    rand_core::{CryptoRng, RngCore},
+    zeroize::Zeroizing,
+};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use zeroize::Zeroizing;
 
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};

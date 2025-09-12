@@ -14,10 +14,12 @@
 
 use core::{fmt, ops, str};
 
+use elliptic_curve::{
+    rand_core::{CryptoRng, RngCore, SeedableRng},
+    zeroize::Zeroize,
+};
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
-use rand_core::{CryptoRng, RngCore, SeedableRng};
-use zeroize::Zeroize;
 
 #[cfg(any(feature = "curve25519-dalek", feature = "curve25519-dalek-ng"))]
 mod curve25519;

@@ -6,11 +6,11 @@ use elastic_elgamal::{
     group::Group,
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
 };
+use elliptic_curve::rand_core::CryptoRng;
 use rand::{
     Rng,
     seq::{IndexedMutRandom, IteratorRandom},
 };
-use rand_core::CryptoRng;
 
 struct Rig<G: Group> {
     key_set: PublicKeySet<G>,

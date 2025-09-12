@@ -4,10 +4,10 @@ use elliptic_curve::{
     CurveArithmetic, Field, FieldBytesSize, Group as _, ProjectivePoint, Scalar,
     array::{Array, typenum::Unsigned},
     ff::PrimeField,
+    rand_core::{CryptoRng, RngCore},
     sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
+    zeroize::Zeroize,
 };
-use rand_core::{CryptoRng, RngCore};
-use zeroize::Zeroize;
 
 use super::{ElementOps, Group, ScalarOps};
 
