@@ -581,7 +581,7 @@ impl<G: Group> RangeProof<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::{thread_rng, Rng};
+    use rand::Rng;
     use test_casing::test_casing;
 
     use super::*;
@@ -666,10 +666,10 @@ mod tests {
     #[test_casing(4, [1_000, 9_999, 12_345, 54_321])]
     fn decomposing_for_larger_range(upper_bound: u64) {
         let decomposition = RangeDecomposition::optimal(upper_bound);
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
 
         let values = (0..1_000)
-            .map(|_| rng.gen_range(0..upper_bound))
+            .map(|_| rng.random_range(0..upper_bound))
             .chain(0..5)
             .chain((upper_bound - 5)..upper_bound);
 
@@ -711,7 +711,7 @@ mod tests {
     fn range_proof_basics(upper_bound: u64) {
         let decomposition = RangeDecomposition::optimal(upper_bound).into();
 
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let receiver = Keypair::<Ristretto>::generate(&mut rng);
         let (ciphertext, proof) = RangeProof::new(
             receiver.public(),

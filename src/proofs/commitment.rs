@@ -248,11 +248,10 @@ mod tests {
     };
 
     use bulletproofs::PedersenGens;
-    use rand::thread_rng;
 
     #[test]
     fn equivalence_proof_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let value = 1234_u64;
         let ciphertext = CiphertextWithValue::new(value, &receiver, &mut rng).generalize();

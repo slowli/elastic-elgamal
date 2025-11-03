@@ -1,6 +1,5 @@
 //! Tests focused on distributed key generation.
 
-use rand::thread_rng;
 use rand_core::{CryptoRng, RngCore};
 
 use elastic_elgamal::{dkg::ParticipantCollectingCommitments, group::Group, sharing::Params};
@@ -72,7 +71,7 @@ fn complete_dkg<G: Group, R: RngCore + CryptoRng>(params: Params, rng: &mut R) {
 }
 
 fn tiny_fuzz<G: Group>(params: Params) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     for _ in 0..10 {
         complete_dkg::<G, _>(params, &mut rng);
     }

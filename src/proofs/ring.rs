@@ -508,7 +508,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
 
 #[cfg(test)]
 mod tests {
-    use rand::{thread_rng, Rng};
+    use rand::Rng;
     use test_casing::test_casing;
 
     use core::iter;
@@ -523,7 +523,7 @@ mod tests {
 
     #[test]
     fn single_ring_with_2_elements_works() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let keypair = Keypair::generate(&mut rng);
         let log_base = keypair.public().as_element();
         let admissible_values = [RistrettoPoint::identity(), Ristretto::generator()];
@@ -591,7 +591,7 @@ mod tests {
 
     #[test]
     fn single_ring_with_4_elements_works() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let keypair = Keypair::generate(&mut rng);
         let log_base = keypair.public().as_element();
         let admissible_values: Vec<_> = (0_u32..4)
@@ -599,7 +599,7 @@ mod tests {
             .collect();
 
         for _ in 0..100 {
-            let val: u32 = rng.gen_range(0..4);
+            let val: u32 = rng.random_range(0..4);
             let element_val = Ristretto::mul_generator(&Scalar25519::from(val));
             let ext_ciphertext = ExtendedCiphertext::new(element_val, keypair.public(), &mut rng);
             let ciphertext = ext_ciphertext.inner;
@@ -634,7 +634,7 @@ mod tests {
 
     #[test_casing(5, 3..=7)]
     fn multiple_rings_with_boolean_flags_work(ring_count: usize) {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let keypair = Keypair::generate(&mut rng);
         let log_base = keypair.public().as_element();
         let admissible_values = [RistrettoPoint::identity(), Ristretto::generator()];
@@ -649,7 +649,7 @@ mod tests {
                 .chunks_mut(2)
                 .enumerate()
                 .map(|(ring_index, ring_responses)| {
-                    let val: u32 = rng.gen_range(0..=1);
+                    let val: u32 = rng.random_range(0..=1);
                     let element_val = Ristretto::mul_generator(&Scalar25519::from(val));
                     let ext_ciphertext =
                         ExtendedCiphertext::new(element_val, keypair.public(), &mut rng);
@@ -702,12 +702,12 @@ mod tests {
             })
             .collect();
 
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let keypair = Keypair::generate(&mut rng);
         let log_base = keypair.public().as_element();
 
         for _ in 0..20 {
-            let overall_value: u8 = rng.gen();
+            let overall_value: u8 = rng.random();
             let mut transcript = Transcript::new(b"test_ring_encryption");
             RingProof::initialize_transcript(&mut transcript, keypair.public());
 
@@ -760,7 +760,7 @@ mod tests {
     #[allow(clippy::needless_collect)]
     // ^-- false positive; `builder` is captured by the iterator and moved by creating a `proof`
     fn proof_builder_works(ring_count: usize) {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let keypair = Keypair::generate(&mut rng);
         let mut transcript = Transcript::new(b"test_ring_encryption");
         let admissible_values = [RistrettoPoint::identity(), Ristretto::generator()];

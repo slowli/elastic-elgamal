@@ -304,11 +304,9 @@ mod tests {
     use super::*;
     use crate::{group::Ristretto, Keypair};
 
-    use rand::thread_rng;
-
     #[test]
     fn sum_of_squares_proof_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng).generalize();
         let sq_ciphertext = CiphertextWithValue::new(9_u64, &receiver, &mut rng).generalize();
@@ -366,7 +364,7 @@ mod tests {
 
     #[test]
     fn sum_of_squares_proof_with_bogus_inputs() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let ciphertext = CiphertextWithValue::new(3_u64, &receiver, &mut rng).generalize();
         let sq_ciphertext = CiphertextWithValue::new(10_u64, &receiver, &mut rng).generalize();
@@ -394,7 +392,7 @@ mod tests {
 
     #[test]
     fn sum_of_squares_proof_with_several_squares() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let ciphertexts =
             [3_u64, 1, 4, 1].map(|x| CiphertextWithValue::new(x, &receiver, &mut rng).generalize());

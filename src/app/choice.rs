@@ -450,8 +450,6 @@ impl std::error::Error for ChoiceVerificationError {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::{
         group::{Generic, Ristretto},
@@ -459,7 +457,7 @@ mod tests {
     };
 
     fn test_bogus_encrypted_choice_does_not_work<G: Group>() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
         let params = ChoiceParams::single(receiver.clone(), 5);
 

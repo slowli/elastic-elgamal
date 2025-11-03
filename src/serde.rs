@@ -356,8 +356,6 @@ impl<'de, T: Helper, const MIN: usize> Visitor<'de> for VecHelper<T, MIN> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::group::Ristretto;
 
@@ -372,7 +370,7 @@ mod tests {
 
     #[test]
     fn key_roundtrip() {
-        let keypair = Keypair::<Ristretto>::generate(&mut thread_rng());
+        let keypair = Keypair::<Ristretto>::generate(&mut rand::rng());
         let json = serde_json::to_value(&keypair).unwrap();
         assert!(json.is_string(), "{json:?}");
         let keypair_copy: Keypair<Ristretto> = serde_json::from_value(json).unwrap();

@@ -231,8 +231,6 @@ impl<G: Group> PublicKeySet<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::{
         group::{ElementOps, Ristretto},
@@ -241,7 +239,7 @@ mod tests {
 
     #[test]
     fn restoring_key_set_from_participant_keys_errors() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let params = Params::new(10, 7);
 
         let dealer = Dealer::<Ristretto>::new(params, &mut rng);

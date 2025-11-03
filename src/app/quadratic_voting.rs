@@ -397,8 +397,6 @@ mod tests {
         DiscreteLogTable, Keypair,
     };
 
-    use rand::thread_rng;
-
     #[test]
     fn isqrt_is_correct() {
         let samples = (0..1_000).chain((0..1_000).map(|x| x * 1_000)).chain([
@@ -422,7 +420,7 @@ mod tests {
 
     #[test]
     fn quadratic_voting() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (pk, sk) = Keypair::generate(&mut rng).into_tuple();
         let params = QuadraticVotingParams::<Ristretto>::new(pk, 5, 25);
         let ballot = QuadraticVotingBallot::new(&params, &[1, 3, 0, 3, 2], &mut rng);

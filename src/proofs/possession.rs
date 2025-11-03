@@ -166,8 +166,6 @@ impl<G: Group> ProofOfPossession<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::group::Ristretto;
 
@@ -175,7 +173,7 @@ mod tests {
 
     #[test]
     fn proof_of_possession_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let poly: Vec<_> = (0..5).map(|_| Keypair::generate(&mut rng)).collect();
 
         ProofOfPossession::new(&poly, &mut Transcript::new(b"test_multi_PoP"), &mut rng)

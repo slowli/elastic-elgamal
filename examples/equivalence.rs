@@ -8,7 +8,6 @@
 use base64ct::{Base64UrlUnpadded, Encoding};
 use bulletproofs::{BulletproofGens, PedersenGens, RangeProof};
 use merlin::Transcript;
-use rand::thread_rng;
 
 use std::env;
 
@@ -20,7 +19,7 @@ use elastic_elgamal::{
 const BULLETPROOFS_CAPACITY: usize = 64;
 
 fn main() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
     let value = env::args().nth(1).map_or(424_242, |arg| {
         arg.parse().expect("cannot parse value as `u64` integer")

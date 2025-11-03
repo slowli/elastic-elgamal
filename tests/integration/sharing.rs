@@ -1,10 +1,10 @@
 //! Tests focused on sharing.
 
 use rand::{
-    seq::{IteratorRandom, SliceRandom},
-    thread_rng, Rng,
+    seq::{IndexedMutRandom, IteratorRandom},
+    Rng,
 };
-use rand_core::{CryptoRng, RngCore};
+use rand_core::CryptoRng;
 
 use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
@@ -19,7 +19,7 @@ struct Rig<G: Group> {
 }
 
 impl<G: Group> Rig<G> {
-    fn new(params: Params, rng: &mut (impl RngCore + CryptoRng)) -> Self {
+    fn new(params: Params, rng: &mut impl CryptoRng) -> Self {
         let dealer = Dealer::<G>::new(params, rng);
         let (public_poly, public_poly_proof) = dealer.public_info();
         let key_set = PublicKeySet::new(params, public_poly, public_poly_proof).unwrap();
@@ -40,7 +40,7 @@ impl<G: Group> Rig<G> {
     fn decryption_shares(
         &self,
         ciphertext: Ciphertext<G>,
-        rng: &mut (impl RngCore + CryptoRng),
+        rng: &mut impl CryptoRng,
     ) -> Vec<VerifiableDecryption<G>> {
         self.participants
             .iter()
@@ -52,7 +52,7 @@ impl<G: Group> Rig<G> {
         &self,
         encrypted_totals: &[Ciphertext<G>],
         expected_totals: &[u64],
-        rng: &mut (impl RngCore + CryptoRng),
+        rng: &mut impl CryptoRng,
     ) {
         let max_votes = expected_totals.iter().copied().max().unwrap();
         let lookup_table = DiscreteLogTable::<G>::new(0..=max_votes);
@@ -77,7 +77,7 @@ impl<G: Group> Rig<G> {
 }
 
 fn test_group_info_can_be_restored_from_participants<G: Group>(params: Params) {
-    let rig: Rig<G> = Rig::new(params, &mut thread_rng());
+    let rig: Rig<G> = Rig::new(params, &mut rand::rng());
     let expected_shared_key = rig.key_set.shared_key();
     let restored_info =
         PublicKeySet::from_participants(params, rig.key_set.participant_keys().to_vec()).unwrap();
@@ -85,7 +85,7 @@ fn test_group_info_can_be_restored_from_participants<G: Group>(params: Params) {
 }
 
 fn tiny_fuzz<G: Group>(params: Params) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let rig: Rig<G> = Rig::new(params, &mut rng);
     for _ in 0..20 {
         let value = G::generate_scalar(&mut rng);
@@ -110,7 +110,7 @@ const VOTES: usize = 50;
 const CREDIT_AMOUNT: u64 = 20;
 
 fn test_simple_voting<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let params = Params::new(10, 7);
     let rig = Rig::<G>::new(params, &mut rng);
     let shared_key = rig.key_set.shared_key().clone();
@@ -120,7 +120,7 @@ fn test_simple_voting<G: Group>() {
     let mut encrypted_totals = [Ciphertext::zero(); OPTIONS_COUNT];
 
     for _ in 0..VOTES {
-        let choice = rng.gen_range(0..OPTIONS_COUNT);
+        let choice = rng.random_range(0..OPTIONS_COUNT);
         expected_totals[choice] += 1;
         let encrypted = EncryptedChoice::single(&choice_params, choice, &mut rng);
         let choices = encrypted.verify(&choice_params).unwrap();
@@ -138,7 +138,7 @@ fn credit(votes: &[u64]) -> u64 {
 
 fn gen_votes(rng: &mut impl Rng) -> [u64; OPTIONS_COUNT] {
     let mut votes = [0_u64; OPTIONS_COUNT];
-    while rng.gen_bool(0.8) {
+    while rng.random_bool(0.8) {
         let mut new_votes = votes;
         *new_votes.choose_mut(rng).unwrap() += 1;
         if credit(&new_votes) > CREDIT_AMOUNT {
@@ -151,7 +151,7 @@ fn gen_votes(rng: &mut impl Rng) -> [u64; OPTIONS_COUNT] {
 }
 
 fn test_quadratic_voting<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let params = Params::new(10, 7);
     let rig = Rig::<G>::new(params, &mut rng);
     let shared_key = rig.key_set.shared_key().clone();

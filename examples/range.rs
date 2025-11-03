@@ -1,6 +1,6 @@
 //! Example for using `RangeProof`s.
 
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Keypair, RangeDecomposition};
 
@@ -11,13 +11,13 @@ fn main() {
     let range = RangeDecomposition::optimal(UPPER_BOUND);
     println!("Range decomposition: 0..{} = {range}", range.upper_bound());
 
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let receiver = Keypair::<Ristretto>::generate(&mut rng);
     let range = range.into();
     let lookup_table = DiscreteLogTable::<Ristretto>::new(0..UPPER_BOUND);
 
     for _ in 0..5 {
-        let secret_value: u64 = rng.gen_range(0..UPPER_BOUND);
+        let secret_value: u64 = rng.random_range(0..UPPER_BOUND);
         println!("\nEncrypting value: {secret_value}");
         let (ciphertext, proof) = receiver
             .public()
