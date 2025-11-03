@@ -56,7 +56,11 @@ features = ["alloc"]
 optional = true
 
 [dev-dependencies]
+# TODO: remove aux crates when/if `bulletproofs` is updated
 bulletproofs = "5.0.0"
+bulletproofs-curve = { package = "curve25519-dalek", version = "4.1.1" }
+bulletproofs-rand-core = { package = "rand_core", version = "0.6" }
+
 criterion = "0.5.0" # FIXME: update too
 doc-comment = "0.3.3"
 insta = { version = "1.42.2", features = ["yaml"] }
