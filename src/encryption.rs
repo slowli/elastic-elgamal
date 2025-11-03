@@ -40,9 +40,8 @@ use crate::{
 ///
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Ciphertext, Keypair};
-/// # use rand::thread_rng;
 /// // Generate a keypair for the ciphertext receiver.
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create a couple of ciphertexts.
 /// let mut enc = receiver.public().encrypt(2_u64, &mut rng);
@@ -57,10 +56,9 @@ use crate::{
 ///
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Ciphertext, Keypair};
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Generate a keypair for the ciphertext receiver.
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Create and verify a boolean encryption.
 /// let (enc, proof) =
@@ -74,10 +72,9 @@ use crate::{
 ///
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Keypair, RangeDecomposition};
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Generate the ciphertext receiver.
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Find the optimal range decomposition for our range
 /// // and specialize it for the Ristretto group.
@@ -240,8 +237,7 @@ impl<G: Group> ops::Neg for Ciphertext<G> {
 ///
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Ciphertext, Keypair};
-/// # use rand::thread_rng;
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// let ciphertexts = (0_u64..16)
 ///     .map(|i| receiver.public().encrypt(i, &mut rng));

@@ -64,9 +64,8 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Keypair, SecretKey, LogEqualityProof};
 /// # use merlin::Transcript;
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (log_base, _) =
 ///     Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let (power_g, discrete_log) =

@@ -227,9 +227,8 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # use elastic_elgamal::{
 /// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
 /// # };
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let choice_params = ChoiceParams::single(pk, 5);
 ///
@@ -256,9 +255,8 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # use elastic_elgamal::{
 /// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
 /// # };
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let choice_params = ChoiceParams::multi(pk, 5);
 ///

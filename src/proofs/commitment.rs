@@ -70,7 +70,6 @@ use crate::{
 /// #     Keypair, SecretKey, CommitmentEquivalenceProof, CiphertextWithValue,
 /// # };
 /// # use merlin::Transcript;
-/// # use rand::thread_rng;
 /// #
 /// # const BLINDING_BASE: &[u8] = &[
 /// #     140, 146, 64, 180, 86, 169, 230, 220, 101, 195, 119, 161, 4,
@@ -81,7 +80,7 @@ use crate::{
 /// let blinding_base = // Blinding base for Pedersen commitments
 ///                     // (e.g., from Bulletproofs)
 /// #    Ristretto::deserialize_element(BLINDING_BASE).unwrap();
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 ///
 /// // Create an ElGamal ciphertext of `value` for `receiver`.

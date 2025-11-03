@@ -411,10 +411,9 @@ impl<G: Group> PreparedRange<G> {
 /// #     group::Ristretto, DiscreteLogTable, Keypair, RangeDecomposition, RangeProof, Ciphertext,
 /// # };
 /// # use merlin::Transcript;
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
 /// // Generate the ciphertext receiver.
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
 /// // Find the optimal range decomposition for our range
 /// // and specialize it for the Ristretto group.
