@@ -8,7 +8,7 @@ authors = [
   "Tiago Cerqueira <tiago.cerqueira7777@gmail.com>",
 ]
 edition = "2021"
-rust-version = "1.65"
+rust-version = "1.85"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/slowli/elastic-elgamal"

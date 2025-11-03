@@ -675,7 +675,7 @@ mod tests {
             RingProof::new(common_challenge, ring_responses)
                 .verify(
                     keypair.public(),
-                    iter::repeat(&admissible_values as &[_]).take(ring_count),
+                    iter::repeat_n(&admissible_values as &[_], ring_count),
                     ciphertexts.into_iter(),
                     &mut Transcript::new(b"test_ring_encryption"),
                 )
@@ -780,7 +780,7 @@ mod tests {
         RingProof::new(builder.build(), ring_responses)
             .verify(
                 keypair.public(),
-                iter::repeat(&admissible_values as &[_]).take(ring_count),
+                iter::repeat_n(&admissible_values as &[_], ring_count),
                 ciphertexts.into_iter(),
                 &mut Transcript::new(b"test_ring_encryption"),
             )

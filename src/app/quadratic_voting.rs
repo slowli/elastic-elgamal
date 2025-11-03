@@ -410,7 +410,7 @@ mod tests {
 
             let next_square = (sqrt + 1).checked_mul(sqrt + 1);
             assert!(
-                next_square.map_or(true, |sq| sq > sample),
+                next_square.is_none_or(|sq| sq > sample),
                 "sqrt({sample}) ?= {sqrt}"
             );
         }

@@ -5,6 +5,12 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+### Changed
+
+- Update crypto dependencies.
+
+- Bump the minimum supported Rust version to 1.85.
+
 ## 0.3.1 - 2024-11-10
 
 ### Added

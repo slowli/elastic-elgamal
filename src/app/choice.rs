@@ -376,7 +376,7 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
         self.range_proof
             .verify(
                 &params.receiver,
-                iter::repeat(&admissible_values as &[_]).take(self.choices.len()),
+                iter::repeat_n(&admissible_values as &[_], self.choices.len()),
                 self.choices.iter().copied(),
                 &mut Transcript::new(b"encrypted_choice_ranges"),
             )
