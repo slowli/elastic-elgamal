@@ -30,8 +30,7 @@ use crate::{
 ///
 /// ```
 /// # use elastic_elgamal::{app::QuadraticVotingParams, group::Ristretto, Keypair};
-/// # use rand::thread_rng;
-/// let (receiver, _) = Keypair::<Ristretto>::generate(&mut thread_rng())
+/// let (receiver, _) = Keypair::<Ristretto>::generate(&mut rand::rng())
 ///     .into_tuple();
 /// let mut params = QuadraticVotingParams::new(receiver, 5, 20);
 /// // 5 options, 20 credits.
@@ -179,9 +178,8 @@ fn isqrt(mut x: u64) -> u64 {
 /// #     app::{QuadraticVotingParams, QuadraticVotingBallot}, group::Ristretto, Keypair,
 /// #     DiscreteLogTable,
 /// # };
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let params = QuadraticVotingParams::new(pk, 5, 20);
 /// // 5 options, 20 credits (= 4 max votes per option)
@@ -397,8 +395,6 @@ mod tests {
         DiscreteLogTable, Keypair,
     };
 
-    use rand::thread_rng;
-
     #[test]
     fn isqrt_is_correct() {
         let samples = (0..1_000).chain((0..1_000).map(|x| x * 1_000)).chain([
@@ -414,7 +410,7 @@ mod tests {
 
             let next_square = (sqrt + 1).checked_mul(sqrt + 1);
             assert!(
-                next_square.map_or(true, |sq| sq > sample),
+                next_square.is_none_or(|sq| sq > sample),
                 "sqrt({sample}) ?= {sqrt}"
             );
         }
@@ -422,7 +418,7 @@ mod tests {
 
     #[test]
     fn quadratic_voting() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (pk, sk) = Keypair::generate(&mut rng).into_tuple();
         let params = QuadraticVotingParams::<Ristretto>::new(pk, 5, 25);
         let ballot = QuadraticVotingBallot::new(&params, &[1, 3, 0, 3, 2], &mut rng);

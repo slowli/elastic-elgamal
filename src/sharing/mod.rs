@@ -68,10 +68,9 @@
 //! # use elastic_elgamal::{
 //! #     group::Ristretto, sharing::*, CandidateDecryption, Ciphertext, DiscreteLogTable,
 //! # };
-//! # use rand::thread_rng;
 //! # use std::error::Error as StdError;
 //! # fn main() -> Result<(), Box<dyn StdError>> {
-//! let mut rng = thread_rng();
+//! let mut rng = rand::rng();
 //! let params = Params::new(3, 2);
 //!
 //! // Initialize the dealer.

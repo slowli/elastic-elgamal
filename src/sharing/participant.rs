@@ -187,14 +187,12 @@ impl<G: Group> ActiveParticipant<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::{curve25519::scalar::Scalar as Scalar25519, group::Ristretto};
 
     #[test]
     fn shared_2_of_3_key() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let params = Params::new(3, 2);
 
         let dealer = Dealer::<Ristretto>::new(params, &mut rng);

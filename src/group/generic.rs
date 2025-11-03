@@ -1,6 +1,6 @@
 use elliptic_curve::{
+    array::{typenum::Unsigned, Array},
     ff::PrimeField,
-    generic_array::{typenum::Unsigned, GenericArray},
     sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
     CurveArithmetic, Field, FieldBytesSize, Group as _, ProjectivePoint, Scalar,
 };
@@ -54,7 +54,7 @@ where
 
     fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
         // For most curves, cloning will be resolved as a copy.
-        Scalar::<C>::from_repr(GenericArray::from_slice(buffer).clone()).into()
+        Scalar::<C>::from_repr(Array::try_from(buffer).unwrap().clone()).into()
     }
 }
 
@@ -107,15 +107,13 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
 
     type K256 = Generic<k256::Secp256k1>;
 
     #[test]
     fn scalar_roundtrip() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let mut buffer = [0_u8; K256::SCALAR_SIZE];
         for _ in 0..100 {
             let scalar = K256::generate_scalar(&mut rng);
@@ -126,7 +124,7 @@ mod tests {
 
     #[test]
     fn point_roundtrip() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let mut buffer = [0_u8; K256::ELEMENT_SIZE];
         for _ in 0..100 {
             let point = K256::mul_generator(&K256::generate_scalar(&mut rng));

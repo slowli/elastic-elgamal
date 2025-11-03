@@ -8,7 +8,6 @@
 use base64ct::{Base64UrlUnpadded, Encoding};
 use bulletproofs::{BulletproofGens, PedersenGens, RangeProof};
 use merlin::Transcript;
-use rand::thread_rng;
 
 use std::env;
 
@@ -19,8 +18,43 @@ use elastic_elgamal::{
 
 const BULLETPROOFS_CAPACITY: usize = 64;
 
+// The `bulletproofs` crate doesn't (yet?) support `rand` 0.9, hence, these awkward shims.
+
+fn downgrade_scalar(x: curve25519_dalek::Scalar) -> bulletproofs_curve::Scalar {
+    bulletproofs_curve::Scalar::from_bytes_mod_order(x.to_bytes())
+}
+
+fn upgrade_point(x: bulletproofs_curve::RistrettoPoint) -> curve25519_dalek::RistrettoPoint {
+    let compressed = curve25519_dalek::ristretto::CompressedRistretto(x.compress().0);
+    compressed.decompress().unwrap()
+}
+
+#[derive(Debug)]
+struct CompatRng<R>(R);
+
+impl<R: rand_core::RngCore> bulletproofs_rand_core::RngCore for CompatRng<R> {
+    fn next_u32(&mut self) -> u32 {
+        self.0.next_u32()
+    }
+
+    fn next_u64(&mut self) -> u64 {
+        self.0.next_u64()
+    }
+
+    fn fill_bytes(&mut self, dest: &mut [u8]) {
+        self.0.fill_bytes(dest);
+    }
+
+    fn try_fill_bytes(&mut self, dest: &mut [u8]) -> Result<(), bulletproofs_rand_core::Error> {
+        self.0.fill_bytes(dest);
+        Ok(())
+    }
+}
+
+impl<R: rand_core::CryptoRng> bulletproofs_rand_core::CryptoRng for CompatRng<R> {}
+
 fn main() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
     let value = env::args().nth(1).map_or(424_242, |arg| {
         arg.parse().expect("cannot parse value as `u64` integer")
@@ -36,7 +70,7 @@ fn main() {
         &ciphertext,
         &receiver,
         &blinding,
-        commitment_gens.B_blinding,
+        upgrade_point(commitment_gens.B_blinding),
         &mut transcript,
         &mut rng,
     );
@@ -45,14 +79,14 @@ fn main() {
         &commitment_gens,
         &mut transcript,
         value,
-        blinding.expose_scalar(),
+        &downgrade_scalar(*blinding.expose_scalar()),
         BULLETPROOFS_CAPACITY,
-        &mut rng,
+        &mut CompatRng(rng),
     )
     .expect("failed creating proof");
 
     // Commitments returned in both cases are equivalent.
-    assert_eq!(commitment.compress(), same_commitment);
+    assert_eq!(commitment.compress().to_bytes(), same_commitment.to_bytes());
     let ciphertext = Ciphertext::from(ciphertext);
 
     let combined = serde_json::json!({
@@ -73,7 +107,7 @@ fn main() {
             &ciphertext,
             &receiver,
             commitment,
-            commitment_gens.B_blinding,
+            upgrade_point(commitment_gens.B_blinding),
             &mut transcript,
         )
         .unwrap();

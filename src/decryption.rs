@@ -41,9 +41,8 @@ use crate::{
 /// #     group::Ristretto, CandidateDecryption, VerifiableDecryption, Keypair, DiscreteLogTable,
 /// # };
 /// # use merlin::Transcript;
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let keys = Keypair::<Ristretto>::generate(&mut rng);
 /// // Suppose the `keys` holder wants to prove decryption
 /// // of the following ciphertext:

@@ -50,6 +50,12 @@ impl ScalarOps for Curve25519Subgroup {
         scalar.invert()
     }
 
+    #[cfg(feature = "curve25519-dalek")]
+    fn invert_scalars(scalars: &mut [Self::Scalar]) {
+        Scalar::invert_batch_alloc(scalars);
+    }
+
+    #[cfg(feature = "curve25519-dalek-ng")]
     fn invert_scalars(scalars: &mut [Self::Scalar]) {
         Scalar::batch_invert(scalars);
     }
@@ -155,8 +161,6 @@ impl Group for Curve25519Subgroup {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::{
         curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
@@ -167,7 +171,7 @@ mod tests {
 
     #[test]
     fn mangled_point_is_invalid_public_key() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         for _ in 0..100 {
             let mut point =
                 Curve25519Subgroup::mul_generator(&Curve25519Subgroup::generate_scalar(&mut rng));

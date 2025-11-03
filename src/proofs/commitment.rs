@@ -70,7 +70,6 @@ use crate::{
 /// #     Keypair, SecretKey, CommitmentEquivalenceProof, CiphertextWithValue,
 /// # };
 /// # use merlin::Transcript;
-/// # use rand::thread_rng;
 /// #
 /// # const BLINDING_BASE: &[u8] = &[
 /// #     140, 146, 64, 180, 86, 169, 230, 220, 101, 195, 119, 161, 4,
@@ -81,7 +80,7 @@ use crate::{
 /// let blinding_base = // Blinding base for Pedersen commitments
 ///                     // (e.g., from Bulletproofs)
 /// #    Ristretto::deserialize_element(BLINDING_BASE).unwrap();
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 ///
 /// // Create an ElGamal ciphertext of `value` for `receiver`.
@@ -248,30 +247,41 @@ mod tests {
     };
 
     use bulletproofs::PedersenGens;
-    use rand::thread_rng;
+
+    fn downgrade_scalar(x: curve25519_dalek::Scalar) -> bulletproofs_curve::Scalar {
+        bulletproofs_curve::Scalar::from_bytes_mod_order(x.to_bytes())
+    }
+
+    fn upgrade_point(x: bulletproofs_curve::RistrettoPoint) -> curve25519_dalek::RistrettoPoint {
+        let compressed = curve25519_dalek::ristretto::CompressedRistretto(x.compress().0);
+        compressed.decompress().unwrap()
+    }
 
     #[test]
     fn equivalence_proof_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (receiver, _) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
         let value = 1234_u64;
         let ciphertext = CiphertextWithValue::new(value, &receiver, &mut rng).generalize();
 
         let commitment_gens = PedersenGens::default();
-        assert_eq!(commitment_gens.B, Ristretto::generator());
+        assert_eq!(upgrade_point(commitment_gens.B), Ristretto::generator());
         let blinding = SecretKey::generate(&mut rng);
 
         let (proof, commitment) = CommitmentEquivalenceProof::new(
             &ciphertext,
             &receiver,
             &blinding,
-            commitment_gens.B_blinding,
+            upgrade_point(commitment_gens.B_blinding),
             &mut Transcript::new(b"test"),
             &mut rng,
         );
         assert_eq!(
             commitment,
-            commitment_gens.commit(*ciphertext.value(), *blinding.expose_scalar())
+            upgrade_point(commitment_gens.commit(
+                downgrade_scalar(*ciphertext.value()),
+                downgrade_scalar(*blinding.expose_scalar()),
+            ))
         );
 
         let ciphertext = ciphertext.into();
@@ -280,7 +290,7 @@ mod tests {
                 &ciphertext,
                 &receiver,
                 commitment,
-                commitment_gens.B_blinding,
+                upgrade_point(commitment_gens.B_blinding),
                 &mut Transcript::new(b"test"),
             )
             .unwrap();
@@ -291,7 +301,7 @@ mod tests {
                 &other_ciphertext,
                 &receiver,
                 commitment,
-                commitment_gens.B_blinding,
+                upgrade_point(commitment_gens.B_blinding),
                 &mut Transcript::new(b"test"),
             )
             .unwrap_err();
@@ -302,7 +312,7 @@ mod tests {
                 &ciphertext,
                 &receiver,
                 commitment + Ristretto::generator(),
-                commitment_gens.B_blinding,
+                upgrade_point(commitment_gens.B_blinding),
                 &mut Transcript::new(b"test"),
             )
             .unwrap_err();
@@ -313,7 +323,7 @@ mod tests {
                 &ciphertext,
                 &receiver,
                 commitment,
-                commitment_gens.B_blinding,
+                upgrade_point(commitment_gens.B_blinding),
                 &mut Transcript::new(b"other_test"),
             )
             .unwrap_err();

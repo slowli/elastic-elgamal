@@ -1,7 +1,7 @@
 //! Basic tests.
 
 use merlin::Transcript;
-use rand::{thread_rng, Rng};
+use rand::Rng;
 
 use std::collections::HashMap;
 
@@ -13,7 +13,7 @@ use elastic_elgamal::{
 };
 
 fn test_encryption_roundtrip<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let message = 12_345_u64;
     let ciphertext = keypair.public().encrypt(message, &mut rng);
@@ -23,7 +23,7 @@ fn test_encryption_roundtrip<G: Group>() {
 }
 
 fn test_zero_encryption_works<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let (zero_ciphertext, proof) = keypair.public().encrypt_zero(&mut rng);
     keypair
@@ -67,7 +67,7 @@ fn test_zero_encryption_works<G: Group>() {
 }
 
 fn test_zero_proof_serialization<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let mut ciphertexts = HashMap::new();
 
@@ -84,7 +84,7 @@ fn test_zero_proof_serialization<G: Group>() {
 }
 
 fn test_bool_encryption_works<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let keypair = Keypair::<G>::generate(&mut rng);
 
     let (ciphertext, proof) = keypair.public().encrypt_bool(false, &mut rng);
@@ -127,12 +127,14 @@ fn test_bool_encryption_works<G: Group>() {
 }
 
 fn test_bool_proof_serialization<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let keypair = Keypair::<G>::generate(&mut rng);
     let mut ciphertexts = HashMap::new();
 
     for _ in 0..100 {
-        let (bool_ciphertext, proof) = keypair.public().encrypt_bool(rng.gen_bool(0.5), &mut rng);
+        let (bool_ciphertext, proof) = keypair
+            .public()
+            .encrypt_bool(rng.random_bool(0.5), &mut rng);
         let bytes = proof.to_bytes();
         assert_eq!(bytes.len(), 3 * G::SCALAR_SIZE);
         ciphertexts.insert(bytes, bool_ciphertext);
@@ -147,11 +149,11 @@ fn test_bool_proof_serialization<G: Group>() {
 const OPTIONS_COUNTS: [usize; 5] = [2, 3, 5, 10, 15];
 
 fn test_encrypted_choice<G: Group>(options_count: usize) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::single(pk, options_count);
 
-    let choice = rng.gen_range(0..options_count);
+    let choice = rng.random_range(0..options_count);
     let encrypted = EncryptedChoice::single(&choice_params, choice, &mut rng);
     let choices = encrypted.verify(&choice_params).unwrap();
     assert_eq!(choices.len(), options_count);
@@ -166,11 +168,11 @@ fn test_encrypted_choice<G: Group>(options_count: usize) {
 }
 
 fn test_encrypted_multi_choice<G: Group>(options_count: usize) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (pk, sk) = Keypair::<G>::generate(&mut rng).into_tuple();
     let choice_params = ChoiceParams::multi(pk, options_count);
 
-    let choices: Vec<_> = (0..options_count).map(|_| rng.gen()).collect();
+    let choices: Vec<_> = (0..options_count).map(|_| rng.random()).collect();
     let encrypted = EncryptedChoice::new(&choice_params, &choices, &mut rng);
     let ciphertexts = encrypted.verify(&choice_params).unwrap();
     assert_eq!(ciphertexts.len(), options_count);
@@ -185,11 +187,11 @@ fn test_encrypted_multi_choice<G: Group>(options_count: usize) {
 }
 
 fn test_sum_of_squares_proof<G: Group>(squares_count: usize) {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
 
     let numbers: Vec<_> = (0..squares_count)
-        .map(|_| rng.gen_range(0_u64..1_000))
+        .map(|_| rng.random_range(0_u64..1_000))
         .collect();
     let sum_of_squares = numbers.iter().map(|&x| x * x).sum::<u64>();
     let numbers: Vec<_> = numbers
@@ -239,12 +241,12 @@ fn test_sum_of_squares_proof<G: Group>(squares_count: usize) {
 }
 
 fn test_verifiable_decryption<G: Group>() {
-    let mut rng = thread_rng();
+    let mut rng = rand::rng();
     let (bogus_key, _) = Keypair::<G>::generate(&mut rng).into_tuple();
 
     for _ in 0..20 {
         let keypair = Keypair::<G>::generate(&mut rng);
-        let value = rng.gen_range(0_u64..100);
+        let value = rng.random_range(0_u64..100);
         let ciphertext = keypair.public().encrypt(value, &mut rng);
 
         let (decryption, proof) = VerifiableDecryption::new(

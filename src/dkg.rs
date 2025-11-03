@@ -21,10 +21,9 @@
 //! # use elastic_elgamal::{
 //! #     group::Ristretto, dkg::*, sharing::Params,
 //! # };
-//! # use rand::thread_rng;
 //! # use std::error::Error as StdError;
 //! # fn main() -> Result<(), Box<dyn StdError>> {
-//! let mut rng = thread_rng();
+//! let mut rng = rand::rng();
 //! let params = Params::new(3, 2);
 //!
 //! // Initialize participants.
@@ -540,14 +539,12 @@ impl<G: Group> ParticipantExchangingSecrets<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::{encryption::DiscreteLogTable, group::Ristretto, sharing::Params};
 
     #[test]
     fn dkg_shared_2_of_3_key() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let params = Params::new(3, 2);
 
         let mut alice = ParticipantCollectingCommitments::<Ristretto>::new(params, 0, &mut rng);

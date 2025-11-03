@@ -64,9 +64,8 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Keypair, SecretKey, LogEqualityProof};
 /// # use merlin::Transcript;
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (log_base, _) =
 ///     Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let (power_g, discrete_log) =
@@ -207,8 +206,6 @@ impl<G: Group> LogEqualityProof<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::group::Ristretto;
 
@@ -216,7 +213,7 @@ mod tests {
 
     #[test]
     fn log_equality_basics() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let log_base = Keypair::generate(&mut rng).public().clone();
 
         for _ in 0..100 {

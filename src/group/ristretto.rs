@@ -39,6 +39,12 @@ impl ScalarOps for Ristretto {
         scalar.invert()
     }
 
+    #[cfg(feature = "curve25519-dalek")]
+    fn invert_scalars(scalars: &mut [Self::Scalar]) {
+        Scalar::invert_batch_alloc(scalars);
+    }
+
+    #[cfg(feature = "curve25519-dalek-ng")]
     fn invert_scalars(scalars: &mut [Self::Scalar]) {
         Scalar::batch_invert(scalars);
     }
@@ -139,8 +145,6 @@ impl Group for Ristretto {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::{
         app::{ChoiceParams, EncryptedChoice},
@@ -153,7 +157,7 @@ mod tests {
 
     #[test]
     fn encrypt_and_decrypt() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let keypair = Keypair::generate(&mut rng);
         let value = Ristretto::generate_scalar(&mut rng);
         let encrypted = keypair.public().encrypt(value, &mut rng);
@@ -163,7 +167,7 @@ mod tests {
 
     #[test]
     fn encrypt_choice() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (pk, sk) = Keypair::generate(&mut rng).into_tuple();
         let choice_params = ChoiceParams::single(pk, 5);
         let encrypted = EncryptedChoice::single(&choice_params, 3, &mut rng);
@@ -182,7 +186,7 @@ mod tests {
         type SubgroupKeypair = crate::Keypair<Curve25519Subgroup>;
 
         for _ in 0..1_000 {
-            let secret_key = SecretKey::generate(&mut thread_rng());
+            let secret_key = SecretKey::generate(&mut rand::rng());
             let keypair = Keypair::from(secret_key.clone());
             let secret_key = SubgroupSecretKey::new(*secret_key.expose_scalar());
             let ed_keypair = SubgroupKeypair::from(secret_key);

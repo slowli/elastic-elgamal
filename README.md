@@ -2,7 +2,7 @@
 
 [![Build Status](https://github.com/slowli/elastic-elgamal/workflows/CI/badge.svg?branch=main)](https://github.com/slowli/elastic-elgamal/actions)
 [![License: MIT OR Apache-2.0](https://img.shields.io/badge/License-MIT%2FApache--2.0-blue)](https://github.com/slowli/elastic-elgamal#license)
-![rust 1.65+ required](https://img.shields.io/badge/rust-1.65+-blue.svg?label=Required%20Rust)
+![rust 1.85+ required](https://img.shields.io/badge/rust-1.85+-blue.svg?label=Required%20Rust)
 ![no_std supported](https://img.shields.io/badge/no__std-tested-green.svg)
 
 **Documentation:** [![Docs.rs](https://docs.rs/elastic-elgamal/badge.svg)](https://docs.rs/elastic-elgamal/)
@@ -55,9 +55,8 @@ elastic-elgamal = "0.3.1"
 ```rust
 use elastic_elgamal::app::{ChoiceParams, EncryptedChoice};
 use elastic_elgamal::{group::Ristretto, DiscreteLogTable, Keypair};
-use rand::thread_rng;
 
-let mut rng = thread_rng();
+let mut rng = rand::rng();
 // Generate a keypair for encrypting ballots. In more realistic setup,
 // this keypair would be distributed among multiple talliers.
 let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
@@ -85,9 +84,8 @@ for (idx, &v) in choices.iter().enumerate() {
 ```rust
 use elastic_elgamal::app::{QuadraticVotingParams, QuadraticVotingBallot};
 use elastic_elgamal::{group::Ristretto, Keypair, DiscreteLogTable};
-use rand::thread_rng;
 
-let mut rng = thread_rng();
+let mut rng = rand::rng();
 let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 let params = QuadraticVotingParams::new(pk, 5, 20);
 // ^ 5 options, 20 credits (= 4 max votes per option)

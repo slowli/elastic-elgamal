@@ -227,9 +227,8 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # use elastic_elgamal::{
 /// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
 /// # };
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let choice_params = ChoiceParams::single(pk, 5);
 ///
@@ -256,9 +255,8 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # use elastic_elgamal::{
 /// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
 /// # };
-/// # use rand::thread_rng;
 /// # fn main() -> Result<(), Box<dyn std::error::Error>> {
-/// let mut rng = thread_rng();
+/// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let choice_params = ChoiceParams::multi(pk, 5);
 ///
@@ -378,7 +376,7 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
         self.range_proof
             .verify(
                 &params.receiver,
-                iter::repeat(&admissible_values as &[_]).take(self.choices.len()),
+                iter::repeat_n(&admissible_values as &[_], self.choices.len()),
                 self.choices.iter().copied(),
                 &mut Transcript::new(b"encrypted_choice_ranges"),
             )
@@ -450,8 +448,6 @@ impl std::error::Error for ChoiceVerificationError {
 
 #[cfg(test)]
 mod tests {
-    use rand::thread_rng;
-
     use super::*;
     use crate::{
         group::{Generic, Ristretto},
@@ -459,7 +455,7 @@ mod tests {
     };
 
     fn test_bogus_encrypted_choice_does_not_work<G: Group>() {
-        let mut rng = thread_rng();
+        let mut rng = rand::rng();
         let (receiver, _) = Keypair::<G>::generate(&mut rng).into_tuple();
         let params = ChoiceParams::single(receiver.clone(), 5);
 
