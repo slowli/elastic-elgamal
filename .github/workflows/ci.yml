@@ -10,7 +10,7 @@ env:
   # Minimum supported Rust version.
   msrv: 1.65.0
   # Nightly Rust toolchain for checking no-std support.
-  nightly: nightly-2024-11-08
+  nightly: nightly-2025-11-02
 
 jobs:
   build-msrv:
@@ -51,7 +51,7 @@ jobs:
         uses: baptiste0928/cargo-install@v3
         with:
           crate: cargo-deny
-          version: "^0.16"
+          version: "^0.18.5"
 
       - name: Cache cargo build
         uses: actions/cache@v4

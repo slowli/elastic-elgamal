@@ -21,9 +21,9 @@ confidence-threshold = 0.8
 [bans]
 multiple-versions = "deny"
 wildcards = "deny"
-skip = [
-  # Old `digest` version brought by `curve25519-dalek-ng`
-  { name = "digest", version = "^0.9" },
+skip-tree = [
+  # `curve25519-dalek-ng` is not actively maintained
+  { name = "curve25519-dalek-ng", version = "^4" },
 ]
 
 [sources]
