@@ -7,7 +7,7 @@ authors = [
   "Antonín Dufka <dufkan@gmail.com>",
   "Tiago Cerqueira <tiago.cerqueira7777@gmail.com>",
 ]
-edition = "2021"
+edition = "2024"
 rust-version = "1.85"
 readme = "README.md"
 license = "MIT OR Apache-2.0"
