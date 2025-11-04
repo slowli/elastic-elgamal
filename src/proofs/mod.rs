@@ -1,8 +1,8 @@
 //! Zero-knowledge proofs.
 
-use merlin::Transcript;
-
 use core::fmt;
+
+use merlin::Transcript;
 
 use crate::{
     alloc::vec,

@@ -12,12 +12,12 @@
 //! [CDH]: https://en.wikipedia.org/wiki/Diffie%E2%80%93Hellman_problem
 //! [DLP]: https://en.wikipedia.org/wiki/Discrete_logarithm
 
+use core::{fmt, ops, str};
+
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::{CryptoRng, RngCore, SeedableRng};
 use zeroize::Zeroize;
-
-use core::{fmt, ops, str};
 
 #[cfg(any(feature = "curve25519-dalek", feature = "curve25519-dalek-ng"))]
 mod curve25519;

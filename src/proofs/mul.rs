@@ -1,12 +1,12 @@
 //! Proofs related to multiplication.
 
+use core::iter;
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use zeroize::Zeroizing;
-
-use core::iter;
 
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};

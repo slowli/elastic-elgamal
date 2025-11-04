@@ -1,11 +1,11 @@
 //! Quadratic voting application.
 
+use core::fmt;
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use core::fmt;
 
 use crate::{
     Ciphertext, PreparedRange, PublicKey, RangeDecomposition, RangeProof, SumOfSquaresProof,

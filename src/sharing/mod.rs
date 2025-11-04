@@ -113,14 +113,13 @@
 //! # }
 //! ```
 
+use core::{cmp::Ordering, fmt, ops};
+
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};
-
-use core::{cmp::Ordering, fmt, ops};
-
 use crate::{VerifiableDecryption, alloc::Vec, group::Group, proofs::VerificationError};
 
 mod key_set;

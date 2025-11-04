@@ -96,13 +96,13 @@
 //! # }
 //! ```
 
+use core::fmt;
+
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
-
-use core::fmt;
 
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};

@@ -5,16 +5,15 @@
 //!
 //! [Bulletproofs]: https://crypto.stanford.edu/bulletproofs/
 
-use base64ct::{Base64UrlUnpadded, Encoding};
-use bulletproofs::{BulletproofGens, PedersenGens, RangeProof};
-use merlin::Transcript;
-
 use std::env;
 
+use base64ct::{Base64UrlUnpadded, Encoding};
+use bulletproofs::{BulletproofGens, PedersenGens, RangeProof};
 use elastic_elgamal::{
     Ciphertext, CiphertextWithValue, CommitmentEquivalenceProof, Keypair, SecretKey,
     group::Ristretto,
 };
+use merlin::Transcript;
 
 const BULLETPROOFS_CAPACITY: usize = 64;
 

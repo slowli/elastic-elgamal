@@ -240,13 +240,13 @@ impl<G: Group> CommitmentEquivalenceProof<G> {
 
 #[cfg(all(test, feature = "curve25519-dalek"))]
 mod tests {
+    use bulletproofs::PedersenGens;
+
     use super::*;
     use crate::{
         Keypair,
         group::{ElementOps, Ristretto},
     };
-
-    use bulletproofs::PedersenGens;
 
     fn downgrade_scalar(x: curve25519_dalek::Scalar) -> bulletproofs_curve::Scalar {
         bulletproofs_curve::Scalar::from_bytes_mod_order(x.to_bytes())

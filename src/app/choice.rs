@@ -1,12 +1,12 @@
 //! Encrypted choice.
 
+use core::{fmt, iter, ops};
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use zeroize::Zeroizing;
-
-use core::{fmt, iter, ops};
 
 use crate::{
     Ciphertext, CiphertextWithValue, LogEqualityProof, PublicKey, RingProof, RingProofBuilder,

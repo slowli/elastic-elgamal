@@ -1,8 +1,7 @@
 //! Example for using `RangeProof`s.
 
-use rand::Rng;
-
 use elastic_elgamal::{DiscreteLogTable, Keypair, RangeDecomposition, group::Ristretto};
+use rand::Rng;
 
 /// Exclusive upper bound of the plaintext value range.
 const UPPER_BOUND: u64 = 100;

@@ -1,17 +1,16 @@
 //! Tests focused on sharing.
 
-use rand::{
-    Rng,
-    seq::{IndexedMutRandom, IteratorRandom},
-};
-use rand_core::CryptoRng;
-
 use elastic_elgamal::{
     Ciphertext, DiscreteLogTable, VerifiableDecryption,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::Group,
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
 };
+use rand::{
+    Rng,
+    seq::{IndexedMutRandom, IteratorRandom},
+};
+use rand_core::CryptoRng;
 
 struct Rig<G: Group> {
     key_set: PublicKeySet<G>,
@@ -193,10 +192,10 @@ const PARAMS_CASES: [Params; 13] = [
 ];
 
 mod curve25519 {
+    use elastic_elgamal::group::Curve25519Subgroup;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Curve25519Subgroup;
 
     #[test_casing(2, PARAMS_CASES)]
     fn group_info_can_be_restored_from_participants(params: Params) {
@@ -220,10 +219,10 @@ mod curve25519 {
 }
 
 mod ristretto {
+    use elastic_elgamal::group::Ristretto;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Ristretto;
 
     #[test_casing(2, PARAMS_CASES)]
     fn group_info_can_be_restored_from_participants(params: Params) {
@@ -247,10 +246,10 @@ mod ristretto {
 }
 
 mod k256 {
+    use elastic_elgamal::group::Generic;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

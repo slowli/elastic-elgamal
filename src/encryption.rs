@@ -1,11 +1,11 @@
 //! `Ciphertext` and closely related types.
 
+use core::{fmt, marker::PhantomData, ops};
+
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use zeroize::{Zeroize, Zeroizing};
-
-use core::{fmt, marker::PhantomData, ops};
 
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;

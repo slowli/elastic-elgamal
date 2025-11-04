@@ -1,13 +1,13 @@
 //! Range proofs for ElGamal ciphertexts.
 
+use core::{convert::TryFrom, fmt};
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use subtle::{ConditionallySelectable, ConstantTimeGreater};
 use zeroize::Zeroizing;
-
-use core::{convert::TryFrom, fmt};
 
 use crate::{
     Ciphertext, PublicKey, VerificationError,

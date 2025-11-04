@@ -1,13 +1,12 @@
 //! `PublicKeySet` and associated helpers.
 
+use core::iter;
+
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use core::iter;
-
 use super::{Error, Params, PublicPolynomial, lagrange_coefficients};
-
 use crate::{
     CandidateDecryption, Ciphertext, PublicKey, VerifiableDecryption,
     alloc::Vec,

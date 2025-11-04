@@ -1,13 +1,13 @@
 //! (De)serialization utils.
 
+use core::{fmt, marker::PhantomData};
+
 use base64ct::{Base64UrlUnpadded, Encoding};
 use serde::{
     Deserialize, Deserializer, Serialize, Serializer,
     de::{DeserializeOwned, Error as DeError, SeqAccess, Unexpected, Visitor},
 };
 use zeroize::Zeroizing;
-
-use core::{fmt, marker::PhantomData};
 
 use crate::{
     Keypair, PublicKey, SecretKey,

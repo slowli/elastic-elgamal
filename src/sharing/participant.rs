@@ -3,12 +3,12 @@
 // TODO: Use a publicly verifiable scheme, e.g. Schoenmakers?
 // https://www.win.tue.nl/~berry/papers/crypto99.pdf
 
+use core::iter;
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use core::iter;
 
 use crate::{
     Ciphertext, Keypair, PublicKey, SecretKey, VerifiableDecryption,

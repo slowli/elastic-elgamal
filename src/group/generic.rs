@@ -1,3 +1,5 @@
+use core::marker::PhantomData;
+
 use elliptic_curve::{
     CurveArithmetic, Field, FieldBytesSize, Group as _, ProjectivePoint, Scalar,
     array::{Array, typenum::Unsigned},
@@ -6,8 +8,6 @@ use elliptic_curve::{
 };
 use rand_core::{CryptoRng, RngCore};
 use zeroize::Zeroize;
-
-use core::marker::PhantomData;
 
 use super::{ElementOps, Group, ScalarOps};
 

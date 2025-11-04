@@ -1,8 +1,5 @@
 //! Basic tests.
 
-use merlin::Transcript;
-use rand::Rng;
-
 use std::collections::HashMap;
 
 use elastic_elgamal::{
@@ -11,6 +8,8 @@ use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice},
     group::Group,
 };
+use merlin::Transcript;
+use rand::Rng;
 
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = rand::rng();
@@ -323,10 +322,10 @@ fn test_verifiable_decryption<G: Group>() {
 }
 
 mod curve25519 {
+    use elastic_elgamal::group::Curve25519Subgroup;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Curve25519Subgroup;
 
     #[test]
     fn encryption_roundtrip() {
@@ -375,10 +374,10 @@ mod curve25519 {
 }
 
 mod ristretto {
+    use elastic_elgamal::group::Ristretto;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Ristretto;
 
     #[test]
     fn encryption_roundtrip() {
@@ -427,10 +426,10 @@ mod ristretto {
 }
 
 mod k256 {
+    use elastic_elgamal::group::Generic;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

@@ -1,17 +1,16 @@
 //! Snapshot testing to check compatibility of `serde` and binary serializations of types.
 
 use base64ct::{Base64UrlUnpadded, Encoding};
-use insta::{assert_snapshot, assert_yaml_snapshot};
-use rand_chacha::ChaChaRng;
-use rand_core::{RngCore, SeedableRng};
-
 use elastic_elgamal::{
     Ciphertext, CiphertextWithValue, CommitmentEquivalenceProof, Keypair, RangeDecomposition,
     SecretKey, SumOfSquaresProof,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
 };
+use insta::{assert_snapshot, assert_yaml_snapshot};
 use merlin::Transcript;
+use rand_chacha::ChaChaRng;
+use rand_core::{RngCore, SeedableRng};
 
 trait Named {
     const NAME: &'static str;
@@ -190,8 +189,9 @@ fn test_commitment_equivalence_snapshot<G: Group + Named>(blinding_base: G::Elem
 }
 
 mod ristretto {
-    use super::*;
     use elastic_elgamal::group::ElementOps;
+
+    use super::*;
 
     #[test]
     fn ciphertext_snapshot() {
@@ -262,8 +262,9 @@ mod ristretto {
 }
 
 mod k256 {
-    use super::*;
     use elastic_elgamal::group::ElementOps;
+
+    use super::*;
 
     type K256 = Generic<::k256::Secp256k1>;
 

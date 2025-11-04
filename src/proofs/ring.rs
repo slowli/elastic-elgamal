@@ -1,11 +1,11 @@
 //! Ring proofs.
 
+use core::{fmt, mem};
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
-
-use core::{fmt, mem};
 
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
@@ -508,10 +508,10 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
 
 #[cfg(test)]
 mod tests {
+    use core::iter;
+
     use rand::Rng;
     use test_casing::test_casing;
-
-    use core::iter;
 
     use super::*;
     use crate::{

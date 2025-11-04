@@ -1,9 +1,9 @@
 //! Operations on public / secret keys.
 
+use core::iter;
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
-
-use core::iter;
 
 use crate::{
     Ciphertext, DiscreteLogTable, LogEqualityProof, PreparedRange, PublicKey, RangeProof,
