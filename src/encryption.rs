@@ -10,9 +10,9 @@ use core::{fmt, marker::PhantomData, ops};
 #[cfg(feature = "serde")]
 use crate::serde::ElementHelper;
 use crate::{
-    alloc::{vec, HashMap, Vec},
-    group::{Group, ScalarOps},
     PublicKey, SecretKey,
+    alloc::{HashMap, Vec, vec},
+    group::{Group, ScalarOps},
 };
 
 /// Ciphertext for ElGamal encryption.
@@ -441,7 +441,7 @@ mod tests {
     use rand::Rng;
 
     use super::*;
-    use crate::{curve25519::scalar::Scalar as Curve25519Scalar, group::Ristretto, Keypair};
+    use crate::{Keypair, curve25519::scalar::Scalar as Curve25519Scalar, group::Ristretto};
 
     #[test]
     fn ciphertext_addition() {

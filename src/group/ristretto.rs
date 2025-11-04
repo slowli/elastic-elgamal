@@ -147,9 +147,9 @@ impl Group for Ristretto {
 mod tests {
     use super::*;
     use crate::{
+        DiscreteLogTable,
         app::{ChoiceParams, EncryptedChoice},
         group::Curve25519Subgroup,
-        DiscreteLogTable,
     };
 
     type SecretKey = crate::SecretKey<Ristretto>;

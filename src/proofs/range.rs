@@ -10,11 +10,11 @@ use zeroize::Zeroizing;
 use core::{convert::TryFrom, fmt};
 
 use crate::{
-    alloc::{vec, HashMap, ToString, Vec},
+    Ciphertext, PublicKey, VerificationError,
+    alloc::{HashMap, ToString, Vec, vec},
     encryption::{CiphertextWithValue, ExtendedCiphertext},
     group::Group,
     proofs::{RingProof, RingProofBuilder, TranscriptForGroup},
-    Ciphertext, PublicKey, VerificationError,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -585,8 +585,8 @@ mod tests {
 
     use super::*;
     use crate::{
-        group::{ElementOps, Ristretto},
         Keypair,
+        group::{ElementOps, Ristretto},
     };
 
     #[test]
@@ -731,58 +731,68 @@ mod tests {
             .unwrap();
 
         // Should not verify with another transcript context
-        assert!(proof
-            .verify(
-                receiver.public(),
-                &decomposition,
-                ciphertext,
-                &mut Transcript::new(b"other"),
-            )
-            .is_err());
+        assert!(
+            proof
+                .verify(
+                    receiver.public(),
+                    &decomposition,
+                    ciphertext,
+                    &mut Transcript::new(b"other"),
+                )
+                .is_err()
+        );
 
         // ...or with another receiver
         let other_receiver = Keypair::<Ristretto>::generate(&mut rng);
-        assert!(proof
-            .verify(
-                other_receiver.public(),
-                &decomposition,
-                ciphertext,
-                &mut Transcript::new(b"test"),
-            )
-            .is_err());
+        assert!(
+            proof
+                .verify(
+                    other_receiver.public(),
+                    &decomposition,
+                    ciphertext,
+                    &mut Transcript::new(b"test"),
+                )
+                .is_err()
+        );
 
         // ...or with another ciphertext
         let other_ciphertext = receiver.public().encrypt(10_u64, &mut rng);
-        assert!(proof
-            .verify(
-                receiver.public(),
-                &decomposition,
-                other_ciphertext,
-                &mut Transcript::new(b"test"),
-            )
-            .is_err());
+        assert!(
+            proof
+                .verify(
+                    receiver.public(),
+                    &decomposition,
+                    other_ciphertext,
+                    &mut Transcript::new(b"test"),
+                )
+                .is_err()
+        );
 
         let mut mangled_ciphertext = ciphertext;
         mangled_ciphertext.blinded_element += Ristretto::generator();
-        assert!(proof
-            .verify(
-                receiver.public(),
-                &decomposition,
-                mangled_ciphertext,
-                &mut Transcript::new(b"test"),
-            )
-            .is_err());
+        assert!(
+            proof
+                .verify(
+                    receiver.public(),
+                    &decomposition,
+                    mangled_ciphertext,
+                    &mut Transcript::new(b"test"),
+                )
+                .is_err()
+        );
 
         // ...or with another decomposition
         let other_decomposition = RangeDecomposition::just(15).into();
-        assert!(proof
-            .verify(
-                receiver.public(),
-                &other_decomposition,
-                ciphertext,
-                &mut Transcript::new(b"test"),
-            )
-            .is_err());
+        assert!(
+            proof
+                .verify(
+                    receiver.public(),
+                    &other_decomposition,
+                    ciphertext,
+                    &mut Transcript::new(b"test"),
+                )
+                .is_err()
+        );
     }
 
     #[test]

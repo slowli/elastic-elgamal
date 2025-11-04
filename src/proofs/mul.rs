@@ -11,8 +11,8 @@ use core::iter;
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
-    alloc::Vec, group::Group, proofs::TranscriptForGroup, Ciphertext, CiphertextWithValue,
-    PublicKey, SecretKey, VerificationError,
+    Ciphertext, CiphertextWithValue, PublicKey, SecretKey, VerificationError, alloc::Vec,
+    group::Group, proofs::TranscriptForGroup,
 };
 
 /// Zero-knowledge proof that an ElGamal-encrypted value is equal to a sum of squares
@@ -302,7 +302,7 @@ impl<I: Iterator> Iterator for OddItems<I> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{group::Ristretto, Keypair};
+    use crate::{Keypair, group::Ristretto};
 
     #[test]
     fn sum_of_squares_proof_basics() {

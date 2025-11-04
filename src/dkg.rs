@@ -107,11 +107,11 @@ use core::fmt;
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};
 use crate::{
-    alloc::{vec, Cow, Vec},
+    PublicKey, SecretKey,
+    alloc::{Cow, Vec, vec},
     group::Group,
     proofs::ProofOfPossession,
     sharing::{self, ActiveParticipant, Dealer, Params, PublicKeySet, PublicPolynomial},
-    PublicKey, SecretKey,
 };
 
 /// Errors that can occur during the distributed key generation.

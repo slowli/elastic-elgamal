@@ -8,18 +8,18 @@
 
 use clap::{Parser, ValueEnum};
 use rand::{
-    seq::{IndexedMutRandom, IteratorRandom},
     Rng,
+    seq::{IndexedMutRandom, IteratorRandom},
 };
 use rand_core::{CryptoRng, RngCore};
 
 use std::{error::Error as StdError, str::FromStr};
 
 use elastic_elgamal::{
+    CandidateDecryption, Ciphertext, DiscreteLogTable,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
-    CandidateDecryption, Ciphertext, DiscreteLogTable,
 };
 
 type K256 = Generic<k256::Secp256k1>;

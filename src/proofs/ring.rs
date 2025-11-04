@@ -10,11 +10,11 @@ use core::{fmt, mem};
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
-    alloc::{vec, Vec},
+    Ciphertext, PublicKey, SecretKey,
+    alloc::{Vec, vec},
     encryption::ExtendedCiphertext,
     group::Group,
     proofs::{TranscriptForGroup, VerificationError},
-    Ciphertext, PublicKey, SecretKey,
 };
 
 /// An incomplete ring proving that the encrypted value is in the a priori known set of

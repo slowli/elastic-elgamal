@@ -2,18 +2,18 @@
 
 use base64ct::{Base64UrlUnpadded, Encoding};
 use serde::{
-    de::{DeserializeOwned, Error as DeError, SeqAccess, Unexpected, Visitor},
     Deserialize, Deserializer, Serialize, Serializer,
+    de::{DeserializeOwned, Error as DeError, SeqAccess, Unexpected, Visitor},
 };
 use zeroize::Zeroizing;
 
 use core::{fmt, marker::PhantomData};
 
 use crate::{
-    alloc::{vec, ToString, Vec},
+    Keypair, PublicKey, SecretKey,
+    alloc::{ToString, Vec, vec},
     dkg::Opening,
     group::Group,
-    Keypair, PublicKey, SecretKey,
 };
 
 fn serialize_bytes<S>(value: &[u8], serializer: S) -> Result<S::Ok, S::Error>

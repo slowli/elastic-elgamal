@@ -7,7 +7,7 @@ use zeroize::Zeroize;
 use core::{fmt, ops};
 
 use crate::{
-    alloc::{vec, Vec},
+    alloc::{Vec, vec},
     group::Group,
 };
 

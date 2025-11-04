@@ -1,16 +1,16 @@
 //! Tests focused on sharing.
 
 use rand::{
-    seq::{IndexedMutRandom, IteratorRandom},
     Rng,
+    seq::{IndexedMutRandom, IteratorRandom},
 };
 use rand_core::CryptoRng;
 
 use elastic_elgamal::{
+    Ciphertext, DiscreteLogTable, VerifiableDecryption,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::Group,
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
-    Ciphertext, DiscreteLogTable, VerifiableDecryption,
 };
 
 struct Rig<G: Group> {

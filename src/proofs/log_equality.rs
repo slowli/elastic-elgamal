@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use crate::serde::ScalarHelper;
 use crate::{
-    alloc::{vec, Vec},
+    PublicKey, SecretKey,
+    alloc::{Vec, vec},
     group::Group,
     proofs::{TranscriptForGroup, VerificationError},
-    PublicKey, SecretKey,
 };
 
 /// Zero-knowledge proof of equality of two discrete logarithms in different bases,

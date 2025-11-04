@@ -8,10 +8,10 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use crate::serde::{ScalarHelper, VecHelper};
 use crate::{
+    Keypair, PublicKey, SecretKey,
     alloc::Vec,
     group::Group,
     proofs::{TranscriptForGroup, VerificationError},
-    Keypair, PublicKey, SecretKey,
 };
 
 /// Zero-knowledge proof of possession of one or more secret scalars.

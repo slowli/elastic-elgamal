@@ -6,13 +6,13 @@ use serde::{Deserialize, Serialize};
 
 use core::iter;
 
-use super::{lagrange_coefficients, Error, Params, PublicPolynomial};
+use super::{Error, Params, PublicPolynomial, lagrange_coefficients};
 
 use crate::{
+    CandidateDecryption, Ciphertext, PublicKey, VerifiableDecryption,
     alloc::Vec,
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession, TranscriptForGroup, VerificationError},
-    CandidateDecryption, Ciphertext, PublicKey, VerifiableDecryption,
 };
 
 /// Full public information about the participants of a threshold ElGamal encryption scheme

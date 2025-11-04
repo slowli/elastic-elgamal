@@ -12,8 +12,8 @@ use merlin::Transcript;
 use std::env;
 
 use elastic_elgamal::{
-    group::Ristretto, Ciphertext, CiphertextWithValue, CommitmentEquivalenceProof, Keypair,
-    SecretKey,
+    Ciphertext, CiphertextWithValue, CommitmentEquivalenceProof, Keypair, SecretKey,
+    group::Ristretto,
 };
 
 const BULLETPROOFS_CAPACITY: usize = 64;

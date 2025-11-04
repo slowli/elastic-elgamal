@@ -163,8 +163,8 @@ impl Group for Curve25519Subgroup {
 mod tests {
     use super::*;
     use crate::{
-        curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
         PublicKeyConversionError,
+        curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
     };
 
     type PublicKey = crate::PublicKey<Curve25519Subgroup>;
