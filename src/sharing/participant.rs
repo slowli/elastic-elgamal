@@ -3,19 +3,19 @@
 // TODO: Use a publicly verifiable scheme, e.g. Schoenmakers?
 // https://www.win.tue.nl/~berry/papers/crypto99.pdf
 
+use core::iter;
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use core::iter;
-
 use crate::{
+    Ciphertext, Keypair, PublicKey, SecretKey, VerifiableDecryption,
     alloc::Vec,
     group::Group,
     proofs::{LogEqualityProof, ProofOfPossession},
     sharing::{Error, Params, PublicKeySet},
-    Ciphertext, Keypair, PublicKey, SecretKey, VerifiableDecryption,
 };
 
 /// Dealer in a [Feldman verifiable secret sharing][feldman-vss] scheme.
@@ -215,9 +215,11 @@ mod tests {
         key_set
             .verify_participant(2, &carol.proof_of_possession(&mut rng))
             .unwrap();
-        assert!(key_set
-            .verify_participant(1, &alice.proof_of_possession(&mut rng))
-            .is_err());
+        assert!(
+            key_set
+                .verify_participant(1, &alice.proof_of_possession(&mut rng))
+                .is_err()
+        );
 
         let ciphertext = key_set.shared_key().encrypt(15_u64, &mut rng);
         let (alice_share, proof) = alice.decrypt_share(ciphertext, &mut rng);

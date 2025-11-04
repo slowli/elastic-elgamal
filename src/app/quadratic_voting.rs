@@ -1,15 +1,15 @@
 //! Quadratic voting application.
 
+use core::fmt;
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 
-use core::fmt;
-
 use crate::{
-    alloc::Vec, group::Group, Ciphertext, PreparedRange, PublicKey, RangeDecomposition, RangeProof,
-    SumOfSquaresProof, VerificationError,
+    Ciphertext, PreparedRange, PublicKey, RangeDecomposition, RangeProof, SumOfSquaresProof,
+    VerificationError, alloc::Vec, group::Group,
 };
 
 /// [Quadratic voting] parameters prepared for a certain [`Group`].
@@ -391,8 +391,8 @@ impl std::error::Error for QuadraticVotingError {
 mod tests {
     use super::*;
     use crate::{
-        group::{ElementOps, Ristretto},
         DiscreteLogTable, Keypair,
+        group::{ElementOps, Ristretto},
     };
 
     #[test]

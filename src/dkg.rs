@@ -96,22 +96,22 @@
 //! # }
 //! ```
 
+use core::fmt;
+
 use rand_core::{CryptoRng, RngCore};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use zeroize::Zeroizing;
 
-use core::fmt;
-
 #[cfg(feature = "serde")]
 use crate::serde::{ElementHelper, VecHelper};
 use crate::{
-    alloc::{vec, Cow, Vec},
+    PublicKey, SecretKey,
+    alloc::{Cow, Vec, vec},
     group::Group,
     proofs::ProofOfPossession,
     sharing::{self, ActiveParticipant, Dealer, Params, PublicKeySet, PublicPolynomial},
-    PublicKey, SecretKey,
 };
 
 /// Errors that can occur during the distributed key generation.

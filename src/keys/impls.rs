@@ -1,14 +1,14 @@
 //! Operations on public / secret keys.
 
+use core::iter;
+
 use merlin::Transcript;
 use rand_core::{CryptoRng, RngCore};
 
-use core::iter;
-
 use crate::{
-    alloc::vec, encryption::ExtendedCiphertext, group::Group, Ciphertext, DiscreteLogTable,
-    LogEqualityProof, PreparedRange, PublicKey, RangeProof, RingProof, RingProofBuilder, SecretKey,
-    VerificationError,
+    Ciphertext, DiscreteLogTable, LogEqualityProof, PreparedRange, PublicKey, RangeProof,
+    RingProof, RingProofBuilder, SecretKey, VerificationError, alloc::vec,
+    encryption::ExtendedCiphertext, group::Group,
 };
 
 impl<G: Group> PublicKey<G> {

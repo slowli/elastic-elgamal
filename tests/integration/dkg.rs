@@ -1,8 +1,7 @@
 //! Tests focused on distributed key generation.
 
-use rand_core::{CryptoRng, RngCore};
-
 use elastic_elgamal::{dkg::ParticipantCollectingCommitments, group::Group, sharing::Params};
+use rand_core::{CryptoRng, RngCore};
 
 fn complete_dkg<G: Group, R: RngCore + CryptoRng>(params: Params, rng: &mut R) {
     let participant_count = params.shares;
@@ -91,10 +90,10 @@ const PARAMS_CASES: [Params; 10] = [
 ];
 
 mod curve25519 {
+    use elastic_elgamal::group::Curve25519Subgroup;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Curve25519Subgroup;
 
     #[test_casing(10, PARAMS_CASES)]
     fn fuzz(params: Params) {
@@ -103,10 +102,10 @@ mod curve25519 {
 }
 
 mod ristretto {
+    use elastic_elgamal::group::Ristretto;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Ristretto;
 
     #[test_casing(10, PARAMS_CASES)]
     fn fuzz(params: Params) {
@@ -115,10 +114,10 @@ mod ristretto {
 }
 
 mod k256 {
+    use elastic_elgamal::group::Generic;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

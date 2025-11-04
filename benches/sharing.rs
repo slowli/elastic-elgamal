@@ -1,15 +1,14 @@
 use criterion::{
-    criterion_group, criterion_main, measurement::WallTime, BatchSize, Bencher, BenchmarkGroup,
-    BenchmarkId, Criterion, Throughput,
+    BatchSize, Bencher, BenchmarkGroup, BenchmarkId, Criterion, Throughput, criterion_group,
+    criterion_main, measurement::WallTime,
+};
+use elastic_elgamal::{
+    Keypair, ProofOfPossession,
+    group::{Curve25519Subgroup, Generic, Group, Ristretto},
 };
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
 use rand_core::SeedableRng;
-
-use elastic_elgamal::{
-    group::{Curve25519Subgroup, Generic, Group, Ristretto},
-    Keypair, ProofOfPossession,
-};
 
 type K256 = Generic<k256::Secp256k1>;
 

@@ -1,13 +1,13 @@
 //! Cryptographic keys for ElGamal encryption.
 
+use core::{fmt, ops};
+
 use base64ct::{Base64UrlUnpadded, Encoding};
 use rand_core::{CryptoRng, RngCore};
 use zeroize::Zeroize;
 
-use core::{fmt, ops};
-
 use crate::{
-    alloc::{vec, Vec},
+    alloc::{Vec, vec},
     group::Group,
 };
 

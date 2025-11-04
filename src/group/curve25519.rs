@@ -1,14 +1,16 @@
-use rand_core::{CryptoRng, RngCore};
-
 use core::convert::TryInto;
 
-use crate::curve25519::{
-    constants::{ED25519_BASEPOINT_POINT, ED25519_BASEPOINT_TABLE},
-    edwards::{CompressedEdwardsY, EdwardsPoint},
-    scalar::Scalar,
-    traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
+use rand_core::{CryptoRng, RngCore};
+
+use crate::{
+    curve25519::{
+        constants::{ED25519_BASEPOINT_POINT, ED25519_BASEPOINT_TABLE},
+        edwards::{CompressedEdwardsY, EdwardsPoint},
+        scalar::Scalar,
+        traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
+    },
+    group::{ElementOps, Group, RandomBytesProvider, ScalarOps},
 };
-use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 
 /// Prime-order subgroup of Curve25519 without any transforms performed for EC points.
 ///
@@ -163,8 +165,8 @@ impl Group for Curve25519Subgroup {
 mod tests {
     use super::*;
     use crate::{
-        curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
         PublicKeyConversionError,
+        curve25519::{constants::EIGHT_TORSION, scalar::Scalar, traits::Identity},
     };
 
     type PublicKey = crate::PublicKey<Curve25519Subgroup>;

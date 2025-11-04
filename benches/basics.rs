@@ -1,16 +1,15 @@
 use criterion::{
-    criterion_group, criterion_main, measurement::WallTime, BatchSize, Bencher, BenchmarkGroup,
-    BenchmarkId, Criterion, Throughput,
+    BatchSize, Bencher, BenchmarkGroup, BenchmarkId, Criterion, Throughput, criterion_group,
+    criterion_main, measurement::WallTime,
 };
-use merlin::Transcript;
-use rand::{seq::SliceRandom, Rng, SeedableRng};
-use rand_chacha::ChaChaRng;
-
 use elastic_elgamal::{
+    CiphertextWithValue, Keypair, RingProofBuilder, SumOfSquaresProof,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
-    CiphertextWithValue, Keypair, RingProofBuilder, SumOfSquaresProof,
 };
+use merlin::Transcript;
+use rand::{Rng, SeedableRng, seq::SliceRandom};
+use rand_chacha::ChaChaRng;
 
 type K256 = Generic<k256::Secp256k1>;
 

@@ -8,9 +8,9 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "serde")]
 use crate::serde::ScalarHelper;
 use crate::{
+    Ciphertext, CiphertextWithValue, PublicKey, SecretKey,
     group::Group,
     proofs::{TranscriptForGroup, VerificationError},
-    Ciphertext, CiphertextWithValue, PublicKey, SecretKey,
 };
 
 /// Zero-knowledge proof that an ElGamal ciphertext encrypts the same value as a Pedersen
@@ -240,13 +240,13 @@ impl<G: Group> CommitmentEquivalenceProof<G> {
 
 #[cfg(all(test, feature = "curve25519-dalek"))]
 mod tests {
+    use bulletproofs::PedersenGens;
+
     use super::*;
     use crate::{
-        group::{ElementOps, Ristretto},
         Keypair,
+        group::{ElementOps, Ristretto},
     };
-
-    use bulletproofs::PedersenGens;
 
     fn downgrade_scalar(x: curve25519_dalek::Scalar) -> bulletproofs_curve::Scalar {
         bulletproofs_curve::Scalar::from_bytes_mod_order(x.to_bytes())

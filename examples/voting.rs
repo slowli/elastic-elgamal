@@ -6,21 +6,20 @@
 //!
 //! [elections]: https://static.usenix.org/event/evt06/tech/full_papers/benaloh/benaloh.pdf
 
-use clap::{Parser, ValueEnum};
-use rand::{
-    seq::{IndexedMutRandom, IteratorRandom},
-    Rng,
-};
-use rand_core::{CryptoRng, RngCore};
-
 use std::{error::Error as StdError, str::FromStr};
 
+use clap::{Parser, ValueEnum};
 use elastic_elgamal::{
+    CandidateDecryption, Ciphertext, DiscreteLogTable,
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
-    CandidateDecryption, Ciphertext, DiscreteLogTable,
 };
+use rand::{
+    Rng,
+    seq::{IndexedMutRandom, IteratorRandom},
+};
+use rand_core::{CryptoRng, RngCore};
 
 type K256 = Generic<k256::Secp256k1>;
 

@@ -1,16 +1,15 @@
 //! Basic tests.
 
-use merlin::Transcript;
-use rand::Rng;
-
 use std::collections::HashMap;
 
 use elastic_elgamal::{
-    app::{ChoiceParams, EncryptedChoice},
-    group::Group,
     CandidateDecryption, Ciphertext, CiphertextWithValue, Keypair, LogEqualityProof, RingProof,
     SumOfSquaresProof, VerifiableDecryption, VerificationError,
+    app::{ChoiceParams, EncryptedChoice},
+    group::Group,
 };
+use merlin::Transcript;
+use rand::Rng;
 
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = rand::rng();
@@ -39,31 +38,41 @@ fn test_zero_encryption_works<G: Group>() {
 
     // ...or for another receiver key
     let other_keypair = Keypair::generate(&mut rng);
-    assert!(other_keypair
-        .public()
-        .verify_zero(ciphertext, &proof)
-        .is_err());
+    assert!(
+        other_keypair
+            .public()
+            .verify_zero(ciphertext, &proof)
+            .is_err()
+    );
 
     // ...or for another secret scalar used.
     let (other_zero_ciphertext, other_proof) = keypair.public().encrypt_zero(&mut rng);
-    assert!(keypair
-        .public()
-        .verify_zero(other_zero_ciphertext, &proof)
-        .is_err());
-    assert!(keypair
-        .public()
-        .verify_zero(zero_ciphertext, &other_proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_zero(other_zero_ciphertext, &proof)
+            .is_err()
+    );
+    assert!(
+        keypair
+            .public()
+            .verify_zero(zero_ciphertext, &other_proof)
+            .is_err()
+    );
 
     let combined_ciphertext = other_zero_ciphertext + zero_ciphertext;
-    assert!(keypair
-        .public()
-        .verify_zero(combined_ciphertext, &proof)
-        .is_err());
-    assert!(keypair
-        .public()
-        .verify_zero(combined_ciphertext, &other_proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_zero(combined_ciphertext, &proof)
+            .is_err()
+    );
+    assert!(
+        keypair
+            .public()
+            .verify_zero(combined_ciphertext, &other_proof)
+            .is_err()
+    );
 }
 
 fn test_zero_proof_serialization<G: Group>() {
@@ -105,14 +114,18 @@ fn test_bool_encryption_works<G: Group>() {
         .unwrap();
 
     // The proofs should not verify for another encryption.
-    assert!(keypair
-        .public()
-        .verify_bool(other_ciphertext, &proof)
-        .is_err());
-    assert!(keypair
-        .public()
-        .verify_bool(ciphertext, &other_proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_bool(other_ciphertext, &proof)
+            .is_err()
+    );
+    assert!(
+        keypair
+            .public()
+            .verify_bool(ciphertext, &other_proof)
+            .is_err()
+    );
 
     // ...even if the encryption is obtained from the "correct" value.
     let combined_ciphertext = ciphertext + other_ciphertext;
@@ -120,10 +133,12 @@ fn test_bool_encryption_works<G: Group>() {
         keypair.secret().decrypt_to_element(combined_ciphertext),
         G::generator(),
     );
-    assert!(keypair
-        .public()
-        .verify_bool(combined_ciphertext, &proof)
-        .is_err());
+    assert!(
+        keypair
+            .public()
+            .verify_bool(combined_ciphertext, &proof)
+            .is_err()
+    );
 }
 
 fn test_bool_proof_serialization<G: Group>() {
@@ -220,24 +235,28 @@ fn test_sum_of_squares_proof<G: Group>(squares_count: usize) {
         .unwrap();
 
     let (other_pk, _) = Keypair::<G>::generate(&mut rng).into_tuple();
-    assert!(proof
-        .verify(
-            numbers.iter(),
-            &sum_of_squares,
-            &other_pk,
-            &mut Transcript::new(b"test_sum_of_squares"),
-        )
-        .is_err());
+    assert!(
+        proof
+            .verify(
+                numbers.iter(),
+                &sum_of_squares,
+                &other_pk,
+                &mut Transcript::new(b"test_sum_of_squares"),
+            )
+            .is_err()
+    );
 
     sum_of_squares += -Ciphertext::non_blinded(1);
-    assert!(proof
-        .verify(
-            numbers.iter(),
-            &sum_of_squares,
-            &pk,
-            &mut Transcript::new(b"test_sum_of_squares"),
-        )
-        .is_err());
+    assert!(
+        proof
+            .verify(
+                numbers.iter(),
+                &sum_of_squares,
+                &pk,
+                &mut Transcript::new(b"test_sum_of_squares"),
+            )
+            .is_err()
+    );
 }
 
 fn test_verifiable_decryption<G: Group>() {
@@ -303,10 +322,10 @@ fn test_verifiable_decryption<G: Group>() {
 }
 
 mod curve25519 {
+    use elastic_elgamal::group::Curve25519Subgroup;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Curve25519Subgroup;
 
     #[test]
     fn encryption_roundtrip() {
@@ -355,10 +374,10 @@ mod curve25519 {
 }
 
 mod ristretto {
+    use elastic_elgamal::group::Ristretto;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Ristretto;
 
     #[test]
     fn encryption_roundtrip() {
@@ -407,10 +426,10 @@ mod ristretto {
 }
 
 mod k256 {
+    use elastic_elgamal::group::Generic;
     use test_casing::test_casing;
 
     use super::*;
-    use elastic_elgamal::group::Generic;
 
     type K256 = Generic<::k256::Secp256k1>;
 

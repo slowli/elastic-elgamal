@@ -165,10 +165,11 @@ mod alloc {
          to get a hash map implementation"
     );
 
-    #[cfg(feature = "hashbrown")]
-    pub use hashbrown::HashMap;
     #[cfg(not(feature = "hashbrown"))]
     pub use std::collections::HashMap;
+
+    #[cfg(feature = "hashbrown")]
+    pub use hashbrown::HashMap;
 }
 
 // Polyfill for Curve25519 types.

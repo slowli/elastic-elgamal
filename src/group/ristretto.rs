@@ -1,14 +1,16 @@
-use rand_core::{CryptoRng, RngCore};
-
 use core::convert::TryInto;
 
-use crate::curve25519::{
-    constants::{RISTRETTO_BASEPOINT_POINT, RISTRETTO_BASEPOINT_TABLE},
-    ristretto::{CompressedRistretto, RistrettoPoint},
-    scalar::Scalar,
-    traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
+use rand_core::{CryptoRng, RngCore};
+
+use crate::{
+    curve25519::{
+        constants::{RISTRETTO_BASEPOINT_POINT, RISTRETTO_BASEPOINT_TABLE},
+        ristretto::{CompressedRistretto, RistrettoPoint},
+        scalar::Scalar,
+        traits::{Identity, IsIdentity, MultiscalarMul, VartimeMultiscalarMul},
+    },
+    group::{ElementOps, Group, RandomBytesProvider, ScalarOps},
 };
-use crate::group::{ElementOps, Group, RandomBytesProvider, ScalarOps};
 
 /// [Ristretto](https://ristretto.group/) transform of Curve25519, also known as ristretto255.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -147,9 +149,9 @@ impl Group for Ristretto {
 mod tests {
     use super::*;
     use crate::{
+        DiscreteLogTable,
         app::{ChoiceParams, EncryptedChoice},
         group::Curve25519Subgroup,
-        DiscreteLogTable,
     };
 
     type SecretKey = crate::SecretKey<Ristretto>;
