@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["ChoiceVerificationError","QuadraticVotingError"],"struct":["ChoiceParams","EncryptedChoice","MultiChoice","QuadraticVotingBallot","QuadraticVotingParams","SingleChoice"],"trait":["ProveSum"]};

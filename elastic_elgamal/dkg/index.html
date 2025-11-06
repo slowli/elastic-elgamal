@@ -1,0 +1,83 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Committed Pedersen’s distributed key generation (DKG)."><title>elastic_elgamal::dkg - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2"href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-ca0dd0c4.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="elastic_elgamal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.93.0-nightly (bd3ac0330 2025-11-01)" data-channel="nightly" data-search-js="search-5c29b3b5.js" data-stringdex-js="stringdex-c3e638e9.js" data-settings-js="settings-c38705f0.js" ><script src="../../static.files/storage-e2aeef58.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../static.files/main-ce535bd0.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-263c88ec.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-eab170b8.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><rustdoc-topbar><h2><a href="#">Module dkg</a></h2></rustdoc-topbar><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../elastic_elgamal/index.html">elastic_<wbr>elgamal</a><span class="version">0.3.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module dkg</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#examples" title="Examples">Examples</a></li></ul><h3><a href="#structs">Module Items</a></h3><ul class="block"><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li></ul></section><div id="rustdoc-modnav"><h2 class="in-crate"><a href="../index.html">In crate elastic_<wbr>elgamal</a></h2></div></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><div class="width-limiter"><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../index.html">elastic_elgamal</a></div><h1>Module <span>dkg</span>&nbsp;<button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../src/elastic_elgamal/dkg.rs.html#1-679">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Committed Pedersen’s distributed key generation (DKG).</p>
+<p>DKG allows to securely generate shared secret without a need for a trusted
+dealer. Compare with Feldman’s verifiable secret sharing implemented in the <a href="../sharing/index.html" title="mod elastic_elgamal::sharing"><code>sharing</code></a> module
+which requires a trusted dealer.</p>
+<p>This implementation is based on <a href="https://link.springer.com/content/pdf/10.1007/3-540-46416-6_47.pdf">Pedersen’s DKG</a>, which was shown by <a href="https://link.springer.com/content/pdf/10.1007/3-540-48910-X_21.pdf">Gennaro et al.</a>
+to contain a flaw allowing an adversary to bias distribution of the shared public key.
+We try to prevent this kind of possible attacks by forcing the parties to
+commit to their public key shares before receiving public shares from other
+parties.</p>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<p>Decentralized key generation for 2-of-3 threshold encryption.</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span><span class="kw-2">mut </span>rng = rand::rng();
+<span class="kw">let </span>params = Params::new(<span class="number">3</span>, <span class="number">2</span>);
+
+<span class="comment">// Initialize participants.
+</span><span class="kw">let </span>participants = (<span class="number">0</span>..<span class="number">3</span>).map(|i| {
+    ParticipantCollectingCommitments::&lt;Ristretto&gt;::new(params, i, <span class="kw-2">&amp;mut </span>rng)
+});
+<span class="kw">let </span><span class="kw-2">mut </span>participants: Vec&lt;<span class="kw">_</span>&gt; = participants.collect();
+
+<span class="comment">// Publish commitments from all participants...
+</span><span class="kw">let </span>commitments: Vec&lt;<span class="kw">_</span>&gt; = participants
+    .iter()
+    .map(|participant| participant.commitment())
+    .collect();
+<span class="comment">// ...and consume them from each participant's perspective.
+</span><span class="kw">for </span>(i, participant) <span class="kw">in </span>participants.iter_mut().enumerate() {
+    <span class="kw">for </span>(j, <span class="kw-2">&amp;</span>commitment) <span class="kw">in </span>commitments.iter().enumerate() {
+        <span class="kw">if </span><span class="macro">i !</span>= j {
+            participant.insert_commitment(j, commitment);
+        }
+    }
+}
+
+<span class="comment">// Transition all participants to the next stage: exchanging polynomials.
+</span><span class="kw">let </span><span class="kw-2">mut </span>participants: Vec&lt;<span class="kw">_</span>&gt; = participants
+    .into_iter()
+    .map(|participant| participant.finish_commitment_phase())
+    .collect();
+<span class="comment">// Publish each participant's polynomial...
+</span><span class="kw">let </span>infos: Vec&lt;<span class="kw">_</span>&gt; = participants
+    .iter()
+    .map(|participant| participant.public_info().into_owned())
+    .collect();
+<span class="comment">// ...and consume them from each participant's perspective.
+</span><span class="kw">for </span>(i, participant) <span class="kw">in </span>participants.iter_mut().enumerate() {
+    <span class="kw">for </span>(j, info) <span class="kw">in </span>infos.iter().enumerate() {
+        <span class="kw">if </span><span class="macro">i !</span>= j {
+            participant.insert_public_polynomial(j, info.clone())<span class="question-mark">?</span>;
+        }
+    }
+}
+
+<span class="comment">// Transition all participants to the final phase: exchanging secrets.
+</span><span class="kw">let </span><span class="kw-2">mut </span>participants: Vec&lt;<span class="kw">_</span>&gt; = participants
+    .into_iter()
+    .map(|participant| participant.finish_polynomials_phase())
+    .collect();
+<span class="comment">// Exchange shares (this should happen over secure peer-to-peer channels).
+</span><span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
+    <span class="kw">for </span>j <span class="kw">in </span><span class="number">0</span>..<span class="number">3 </span>{
+        <span class="kw">if </span>i == j { <span class="kw">continue</span>; }
+        <span class="kw">let </span>share = participants[i].secret_share_for_participant(j);
+        participants[j].insert_secret_share(i, share)<span class="question-mark">?</span>;
+    }
+}
+
+<span class="comment">// Finalize all participants.
+</span><span class="kw">let </span>participants = participants
+    .into_iter()
+    .map(|participant| participant.complete())
+    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+<span class="comment">// Check that the shared key is the same for all participants.
+</span><span class="kw">let </span>expected_key = participants[<span class="number">0</span>].key_set().shared_key();
+<span class="kw">for </span>participant <span class="kw">in </span><span class="kw-2">&amp;</span>participants {
+    <span class="macro">assert_eq!</span>(participant.key_set().shared_key(), expected_key);
+}
+
+<span class="comment">// Participants can then jointly decrypt messages as showcased
+// in the example for the `sharing` module.</span></code></pre></div></div></details><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><dl class="item-table"><dt><a class="struct" href="struct.Opening.html" title="struct elastic_elgamal::dkg::Opening">Opening</a></dt><dd>Opening for a hash commitment used in Pedersen’s distributed key generation.</dd><dt><a class="struct" href="struct.ParticipantCollectingCommitments.html" title="struct elastic_elgamal::dkg::ParticipantCollectingCommitments">Participant<wbr>Collecting<wbr>Commitments</a></dt><dd>Participant state during the first stage of the committed Pedersen’s distributed key generation.</dd><dt><a class="struct" href="struct.ParticipantCollectingPolynomials.html" title="struct elastic_elgamal::dkg::ParticipantCollectingPolynomials">Participant<wbr>Collecting<wbr>Polynomials</a></dt><dd>Participant state during the second stage of the committed Pedersen’s distributed key generation.</dd><dt><a class="struct" href="struct.ParticipantExchangingSecrets.html" title="struct elastic_elgamal::dkg::ParticipantExchangingSecrets">Participant<wbr>Exchanging<wbr>Secrets</a></dt><dd>Participant state during the third and final stage of the committed Pedersen’s
+distributed key generation.</dd><dt><a class="struct" href="struct.PublicInfo.html" title="struct elastic_elgamal::dkg::PublicInfo">Public<wbr>Info</a></dt><dd>Public participant information in the distributed key generation protocol. Returned by
+<a href="struct.ParticipantCollectingPolynomials.html#method.public_info" title="method elastic_elgamal::dkg::ParticipantCollectingPolynomials::public_info"><code>ParticipantCollectingPolynomials::public_info()</code></a>.</dd></dl><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><dl class="item-table"><dt><a class="enum" href="enum.Error.html" title="enum elastic_elgamal::dkg::Error">Error</a></dt><dd>Errors that can occur during the distributed key generation.</dd></dl></section></div></main></body></html>
