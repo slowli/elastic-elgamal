@@ -31,7 +31,7 @@ fn upgrade_point(x: bulletproofs_curve::RistrettoPoint) -> curve25519_dalek::Ris
 #[derive(Debug)]
 struct CompatRng<R>(R);
 
-impl<R: rand_core::RngCore> bulletproofs_rand_core::RngCore for CompatRng<R> {
+impl<R: elliptic_curve::rand_core::RngCore> bulletproofs_rand_core::RngCore for CompatRng<R> {
     fn next_u32(&mut self) -> u32 {
         self.0.next_u32()
     }
@@ -50,7 +50,7 @@ impl<R: rand_core::RngCore> bulletproofs_rand_core::RngCore for CompatRng<R> {
     }
 }
 
-impl<R: rand_core::CryptoRng> bulletproofs_rand_core::CryptoRng for CompatRng<R> {}
+impl<R: elliptic_curve::rand_core::CryptoRng> bulletproofs_rand_core::CryptoRng for CompatRng<R> {}
 
 fn main() {
     let mut rng = rand::rng();

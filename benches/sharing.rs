@@ -6,9 +6,9 @@ use elastic_elgamal::{
     Keypair, ProofOfPossession,
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
 };
+use elliptic_curve::rand_core::SeedableRng;
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
-use rand_core::SeedableRng;
 
 type K256 = Generic<k256::Secp256k1>;
 

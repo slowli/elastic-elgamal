@@ -15,11 +15,11 @@ use elastic_elgamal::{
     group::{Generic, Group, Ristretto},
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
 };
+use elliptic_curve::rand_core::{CryptoRng, RngCore};
 use rand::{
     Rng,
     seq::{IndexedMutRandom, IteratorRandom},
 };
-use rand_core::{CryptoRng, RngCore};
 
 type K256 = Generic<k256::Secp256k1>;
 

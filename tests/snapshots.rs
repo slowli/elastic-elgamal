@@ -7,10 +7,10 @@ use elastic_elgamal::{
     app::{ChoiceParams, EncryptedChoice, QuadraticVotingBallot, QuadraticVotingParams},
     group::{Generic, Group, Ristretto},
 };
+use elliptic_curve::rand_core::{RngCore, SeedableRng};
 use insta::{assert_snapshot, assert_yaml_snapshot};
 use merlin::Transcript;
 use rand_chacha::ChaChaRng;
-use rand_core::{RngCore, SeedableRng};
 
 trait Named {
     const NAME: &'static str;

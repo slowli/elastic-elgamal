@@ -1,6 +1,6 @@
 use core::convert::TryInto;
 
-use rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::{CryptoRng, RngCore};
 
 use crate::{
     curve25519::{

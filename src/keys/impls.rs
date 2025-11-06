@@ -2,8 +2,8 @@
 
 use core::iter;
 
+use elliptic_curve::rand_core::{CryptoRng, RngCore};
 use merlin::Transcript;
-use rand_core::{CryptoRng, RngCore};
 
 use crate::{
     Ciphertext, DiscreteLogTable, LogEqualityProof, PreparedRange, PublicKey, RangeProof,
