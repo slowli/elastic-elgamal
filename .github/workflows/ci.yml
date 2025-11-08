@@ -11,6 +11,8 @@ env:
   msrv: 1.85.0
   # Nightly Rust toolchain for checking no-std support.
   nightly: nightly-2025-11-02
+  # Explicitly set the regression threshold for `yab` benchmarks
+  CACHEGRIND_REGRESSION_THRESHOLD: 5%
 
 jobs:
   build-msrv:
@@ -41,6 +43,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-suggests --no-install-recommends valgrind
+          valgrind --tool=cachegrind --version
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@master
@@ -86,6 +94,9 @@ jobs:
         run: cargo run -p elastic-elgamal --features serde --example range
       - name: Run equivalence
         run: cargo run -p elastic-elgamal --features serde --example equivalence
+
+      - name: Benchmark instructions
+        run: cargo bench --bench instructions -- --vs pub:main --verbose --breakdown
 
   build-nostd:
     runs-on: ubuntu-latest

@@ -1,6 +1,6 @@
 use elastic_elgamal::{
-    elliptic_curve::rand_core::SeedableRng,
     Keypair,
+    elliptic_curve::rand_core::SeedableRng,
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
 };
 use rand_chacha::ChaChaRng;
