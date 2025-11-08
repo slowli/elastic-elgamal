@@ -1,0 +1,116 @@
+{
+  "curve25519/decrypt": {
+    "summary": {
+      "instructions": {
+        "total": 317317,
+        "l1_misses": 13,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 81615,
+        "l1_misses": 1,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 41344,
+        "l1_misses": 0,
+        "l3_misses": 0
+      }
+    }
+  },
+  "ristretto/decrypt": {
+    "summary": {
+      "instructions": {
+        "total": 317441,
+        "l1_misses": 21,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 81653,
+        "l1_misses": 1,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 41375,
+        "l1_misses": 0,
+        "l3_misses": 0
+      }
+    }
+  },
+  "k256/encrypt": {
+    "summary": {
+      "instructions": {
+        "total": 1843259,
+        "l1_misses": 1074,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 378162,
+        "l1_misses": 0,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 214091,
+        "l1_misses": 0,
+        "l3_misses": 0
+      }
+    }
+  },
+  "k256/decrypt": {
+    "summary": {
+      "instructions": {
+        "total": 616682,
+        "l1_misses": 257,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 126569,
+        "l1_misses": 0,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 71617,
+        "l1_misses": 0,
+        "l3_misses": 0
+      }
+    }
+  },
+  "ristretto/encrypt": {
+    "summary": {
+      "instructions": {
+        "total": 666551,
+        "l1_misses": 140,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 173034,
+        "l1_misses": 962,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 115327,
+        "l1_misses": 85,
+        "l3_misses": 0
+      }
+    }
+  },
+  "curve25519/encrypt": {
+    "summary": {
+      "instructions": {
+        "total": 666427,
+        "l1_misses": 69,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 172996,
+        "l1_misses": 887,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 115296,
+        "l1_misses": 83,
+        "l3_misses": 0
+      }
+    }
+  }
+}
