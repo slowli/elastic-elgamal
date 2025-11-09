@@ -4,7 +4,7 @@ use elastic_elgamal::{
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
 };
 use rand_chacha::ChaChaRng;
-use yab::{captures, BenchmarkId};
+use yab::{BenchmarkId, captures};
 
 trait BenchmarkedGroup: Group {
     const NAME: &'static str;
