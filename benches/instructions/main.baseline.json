@@ -1,5 +1,5 @@
 {
-  "curve25519/zero_prove": {
+  "curve25519/zero/prove": {
     "summary": {
       "instructions": {
         "total": 1152065,
@@ -18,7 +18,7 @@
       }
     }
   },
-  "ristretto/bool_verify/false": {
+  "ristretto/bool/false/verify": {
     "summary": {
       "instructions": {
         "total": 1604159,
@@ -37,7 +37,7 @@
       }
     }
   },
-  "curve25519/bool_verify/false": {
+  "curve25519/bool/false/verify": {
     "summary": {
       "instructions": {
         "total": 1561364,
@@ -56,7 +56,7 @@
       }
     }
   },
-  "ristretto/zero_verify": {
+  "ristretto/zero/verify": {
     "summary": {
       "instructions": {
         "total": 836949,
@@ -75,7 +75,7 @@
       }
     }
   },
-  "ristretto/bool_verify/true": {
+  "ristretto/bool/true/verify": {
     "summary": {
       "instructions": {
         "total": 1592593,
@@ -113,7 +113,7 @@
       }
     }
   },
-  "curve25519/bool_verify/true": {
+  "curve25519/bool/true/verify": {
     "summary": {
       "instructions": {
         "total": 1549318,
@@ -151,7 +151,7 @@
       }
     }
   },
-  "ristretto/bool_prove/true": {
+  "ristretto/bool/true/prove": {
     "summary": {
       "instructions": {
         "total": 2208734,
@@ -170,7 +170,7 @@
       }
     }
   },
-  "k256/bool_prove/true": {
+  "k256/bool/true/prove": {
     "summary": {
       "instructions": {
         "total": 5321071,
@@ -189,7 +189,7 @@
       }
     }
   },
-  "k256/bool_verify/false": {
+  "k256/bool/false/verify": {
     "summary": {
       "instructions": {
         "total": 5329857,
@@ -227,7 +227,7 @@
       }
     }
   },
-  "k256/zero_prove": {
+  "k256/zero/prove": {
     "summary": {
       "instructions": {
         "total": 2710891,
@@ -265,7 +265,7 @@
       }
     }
   },
-  "ristretto/bool_prove/false": {
+  "ristretto/bool/false/prove": {
     "summary": {
       "instructions": {
         "total": 2208763,
@@ -284,7 +284,7 @@
       }
     }
   },
-  "ristretto/zero_prove": {
+  "ristretto/zero/prove": {
     "summary": {
       "instructions": {
         "total": 1180085,
@@ -303,7 +303,7 @@
       }
     }
   },
-  "k256/bool_verify/true": {
+  "k256/bool/true/verify": {
     "summary": {
       "instructions": {
         "total": 5329857,
@@ -322,7 +322,7 @@
       }
     }
   },
-  "k256/zero_verify": {
+  "k256/zero/verify": {
     "summary": {
       "instructions": {
         "total": 2720311,
@@ -341,7 +341,7 @@
       }
     }
   },
-  "curve25519/bool_prove/false": {
+  "curve25519/bool/false/prove": {
     "summary": {
       "instructions": {
         "total": 2166365,
@@ -379,7 +379,7 @@
       }
     }
   },
-  "curve25519/zero_verify": {
+  "curve25519/zero/verify": {
     "summary": {
       "instructions": {
         "total": 806395,
@@ -398,7 +398,7 @@
       }
     }
   },
-  "k256/bool_prove/false": {
+  "k256/bool/false/prove": {
     "summary": {
       "instructions": {
         "total": 5321218,
@@ -436,7 +436,7 @@
       }
     }
   },
-  "curve25519/bool_prove/true": {
+  "curve25519/bool/true/prove": {
     "summary": {
       "instructions": {
         "total": 2166339,
