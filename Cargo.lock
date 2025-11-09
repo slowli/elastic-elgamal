@@ -1874,7 +1874,7 @@ checksum = "1e9df38ee2d2c3c5948ea468a8406ff0db0b29ae1ffde1bcf20ef305bcc95c51"
 [[package]]
 name = "yab"
 version = "0.1.0"
-source = "git+https://github.com/slowli/yab.git?rev=83df3d9b4509c255f42300368c844f5ad3f03abb#83df3d9b4509c255f42300368c844f5ad3f03abb"
+source = "git+https://github.com/slowli/yab.git?rev=efaa2fd6088a6ad52911806e56609dd29106c225#efaa2fd6088a6ad52911806e56609dd29106c225"
 dependencies = [
  "anes 0.2.1",
  "clap",
