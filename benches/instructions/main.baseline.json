@@ -1,43 +1,24 @@
 {
-  "curve25519/zero_prove": {
+  "curve25519/bool/false/prove": {
     "summary": {
       "instructions": {
-        "total": 1152065,
-        "l1_misses": 541,
-        "l3_misses": 0
+        "total": 2166365,
+        "l1_misses": 1254,
+        "l3_misses": 18
       },
       "data_reads": {
-        "total": 275769,
-        "l1_misses": 1251,
+        "total": 532234,
+        "l1_misses": 2059,
         "l3_misses": 0
       },
       "data_writes": {
-        "total": 175510,
-        "l1_misses": 171,
-        "l3_misses": 0
+        "total": 324551,
+        "l1_misses": 412,
+        "l3_misses": 42
       }
     }
   },
-  "ristretto/bool_verify/false": {
-    "summary": {
-      "instructions": {
-        "total": 1604159,
-        "l1_misses": 1216,
-        "l3_misses": 1
-      },
-      "data_reads": {
-        "total": 376732,
-        "l1_misses": 158,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 199373,
-        "l1_misses": 93,
-        "l3_misses": 0
-      }
-    }
-  },
-  "curve25519/bool_verify/false": {
+  "curve25519/bool/false/verify": {
     "summary": {
       "instructions": {
         "total": 1561364,
@@ -56,41 +37,193 @@
       }
     }
   },
-  "ristretto/zero_verify": {
+  "curve25519/bool/true/prove": {
     "summary": {
       "instructions": {
-        "total": 836949,
-        "l1_misses": 578,
-        "l3_misses": 11
+        "total": 2166339,
+        "l1_misses": 1257,
+        "l3_misses": 18
       },
       "data_reads": {
-        "total": 191744,
-        "l1_misses": 87,
+        "total": 532230,
+        "l1_misses": 2105,
         "l3_misses": 0
       },
       "data_writes": {
-        "total": 103564,
-        "l1_misses": 130,
+        "total": 324547,
+        "l1_misses": 422,
         "l3_misses": 42
       }
     }
   },
-  "ristretto/bool_verify/true": {
+  "curve25519/bool/true/verify": {
     "summary": {
       "instructions": {
-        "total": 1592593,
-        "l1_misses": 1215,
+        "total": 1549318,
+        "l1_misses": 864,
         "l3_misses": 1
       },
       "data_reads": {
-        "total": 373038,
-        "l1_misses": 156,
+        "total": 361551,
+        "l1_misses": 147,
         "l3_misses": 0
       },
       "data_writes": {
-        "total": 197670,
-        "l1_misses": 100,
+        "total": 188485,
+        "l1_misses": 96,
         "l3_misses": 0
+      }
+    }
+  },
+  "curve25519/decrypt": {
+    "summary": {
+      "instructions": {
+        "total": 317317,
+        "l1_misses": 16,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 81615,
+        "l1_misses": 2,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 41344,
+        "l1_misses": 2,
+        "l3_misses": 0
+      }
+    }
+  },
+  "curve25519/encrypt": {
+    "summary": {
+      "instructions": {
+        "total": 666448,
+        "l1_misses": 104,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 173005,
+        "l1_misses": 1041,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 115304,
+        "l1_misses": 101,
+        "l3_misses": 0
+      }
+    }
+  },
+  "curve25519/zero/prove": {
+    "summary": {
+      "instructions": {
+        "total": 1152065,
+        "l1_misses": 541,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 275769,
+        "l1_misses": 1251,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 175510,
+        "l1_misses": 171,
+        "l3_misses": 0
+      }
+    }
+  },
+  "curve25519/zero/verify": {
+    "summary": {
+      "instructions": {
+        "total": 806395,
+        "l1_misses": 445,
+        "l3_misses": 11
+      },
+      "data_reads": {
+        "total": 183449,
+        "l1_misses": 84,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 97176,
+        "l1_misses": 131,
+        "l3_misses": 42
+      }
+    }
+  },
+  "k256/bool/false/prove": {
+    "summary": {
+      "instructions": {
+        "total": 5321218,
+        "l1_misses": 4658,
+        "l3_misses": 3
+      },
+      "data_reads": {
+        "total": 1065135,
+        "l1_misses": 0,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 616455,
+        "l1_misses": 2,
+        "l3_misses": 2
+      }
+    }
+  },
+  "k256/bool/false/verify": {
+    "summary": {
+      "instructions": {
+        "total": 5329857,
+        "l1_misses": 4093,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 1067004,
+        "l1_misses": 0,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 617383,
+        "l1_misses": 2,
+        "l3_misses": 1
+      }
+    }
+  },
+  "k256/bool/true/prove": {
+    "summary": {
+      "instructions": {
+        "total": 5321071,
+        "l1_misses": 4630,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 1065100,
+        "l1_misses": 0,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 616413,
+        "l1_misses": 1,
+        "l3_misses": 1
+      }
+    }
+  },
+  "k256/bool/true/verify": {
+    "summary": {
+      "instructions": {
+        "total": 5329857,
+        "l1_misses": 4061,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 1067004,
+        "l1_misses": 0,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 617383,
+        "l1_misses": 2,
+        "l3_misses": 1
       }
     }
   },
@@ -113,21 +246,135 @@
       }
     }
   },
-  "curve25519/bool_verify/true": {
+  "k256/encrypt": {
     "summary": {
       "instructions": {
-        "total": 1549318,
-        "l1_misses": 864,
-        "l3_misses": 1
+        "total": 1843258,
+        "l1_misses": 1113,
+        "l3_misses": 0
       },
       "data_reads": {
-        "total": 361551,
-        "l1_misses": 147,
+        "total": 378163,
+        "l1_misses": 0,
         "l3_misses": 0
       },
       "data_writes": {
-        "total": 188485,
-        "l1_misses": 96,
+        "total": 214090,
+        "l1_misses": 0,
+        "l3_misses": 0
+      }
+    }
+  },
+  "k256/zero/prove": {
+    "summary": {
+      "instructions": {
+        "total": 2710891,
+        "l1_misses": 3462,
+        "l3_misses": 3
+      },
+      "data_reads": {
+        "total": 538212,
+        "l1_misses": 1,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 313484,
+        "l1_misses": 1,
+        "l3_misses": 1
+      }
+    }
+  },
+  "k256/zero/verify": {
+    "summary": {
+      "instructions": {
+        "total": 2720311,
+        "l1_misses": 1881,
+        "l3_misses": 0
+      },
+      "data_reads": {
+        "total": 540395,
+        "l1_misses": 0,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 314488,
+        "l1_misses": 0,
+        "l3_misses": 0
+      }
+    }
+  },
+  "ristretto/bool/false/prove": {
+    "summary": {
+      "instructions": {
+        "total": 2208763,
+        "l1_misses": 1538,
+        "l3_misses": 18
+      },
+      "data_reads": {
+        "total": 543651,
+        "l1_misses": 2065,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 333720,
+        "l1_misses": 423,
+        "l3_misses": 42
+      }
+    }
+  },
+  "ristretto/bool/false/verify": {
+    "summary": {
+      "instructions": {
+        "total": 1604159,
+        "l1_misses": 1216,
+        "l3_misses": 1
+      },
+      "data_reads": {
+        "total": 376732,
+        "l1_misses": 158,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 199373,
+        "l1_misses": 93,
+        "l3_misses": 0
+      }
+    }
+  },
+  "ristretto/bool/true/prove": {
+    "summary": {
+      "instructions": {
+        "total": 2208734,
+        "l1_misses": 1555,
+        "l3_misses": 18
+      },
+      "data_reads": {
+        "total": 543645,
+        "l1_misses": 2127,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 333715,
+        "l1_misses": 430,
+        "l3_misses": 42
+      }
+    }
+  },
+  "ristretto/bool/true/verify": {
+    "summary": {
+      "instructions": {
+        "total": 1592593,
+        "l1_misses": 1215,
+        "l3_misses": 1
+      },
+      "data_reads": {
+        "total": 373038,
+        "l1_misses": 156,
+        "l3_misses": 0
+      },
+      "data_writes": {
+        "total": 197670,
+        "l1_misses": 100,
         "l3_misses": 0
       }
     }
@@ -151,101 +398,6 @@
       }
     }
   },
-  "ristretto/bool_prove/true": {
-    "summary": {
-      "instructions": {
-        "total": 2208734,
-        "l1_misses": 1555,
-        "l3_misses": 18
-      },
-      "data_reads": {
-        "total": 543645,
-        "l1_misses": 2127,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 333715,
-        "l1_misses": 430,
-        "l3_misses": 42
-      }
-    }
-  },
-  "k256/bool_prove/true": {
-    "summary": {
-      "instructions": {
-        "total": 5321071,
-        "l1_misses": 4630,
-        "l3_misses": 0
-      },
-      "data_reads": {
-        "total": 1065100,
-        "l1_misses": 0,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 616413,
-        "l1_misses": 1,
-        "l3_misses": 1
-      }
-    }
-  },
-  "k256/bool_verify/false": {
-    "summary": {
-      "instructions": {
-        "total": 5329857,
-        "l1_misses": 4093,
-        "l3_misses": 0
-      },
-      "data_reads": {
-        "total": 1067004,
-        "l1_misses": 0,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 617383,
-        "l1_misses": 2,
-        "l3_misses": 1
-      }
-    }
-  },
-  "curve25519/decrypt": {
-    "summary": {
-      "instructions": {
-        "total": 317317,
-        "l1_misses": 16,
-        "l3_misses": 0
-      },
-      "data_reads": {
-        "total": 81615,
-        "l1_misses": 2,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 41344,
-        "l1_misses": 2,
-        "l3_misses": 0
-      }
-    }
-  },
-  "k256/zero_prove": {
-    "summary": {
-      "instructions": {
-        "total": 2710891,
-        "l1_misses": 3462,
-        "l3_misses": 3
-      },
-      "data_reads": {
-        "total": 538212,
-        "l1_misses": 1,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 313484,
-        "l1_misses": 1,
-        "l3_misses": 1
-      }
-    }
-  },
   "ristretto/encrypt": {
     "summary": {
       "instructions": {
@@ -265,26 +417,7 @@
       }
     }
   },
-  "ristretto/bool_prove/false": {
-    "summary": {
-      "instructions": {
-        "total": 2208763,
-        "l1_misses": 1538,
-        "l3_misses": 18
-      },
-      "data_reads": {
-        "total": 543651,
-        "l1_misses": 2065,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 333720,
-        "l1_misses": 423,
-        "l3_misses": 42
-      }
-    }
-  },
-  "ristretto/zero_prove": {
+  "ristretto/zero/prove": {
     "summary": {
       "instructions": {
         "total": 1180085,
@@ -303,154 +436,21 @@
       }
     }
   },
-  "k256/bool_verify/true": {
+  "ristretto/zero/verify": {
     "summary": {
       "instructions": {
-        "total": 5329857,
-        "l1_misses": 4061,
-        "l3_misses": 0
-      },
-      "data_reads": {
-        "total": 1067004,
-        "l1_misses": 0,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 617383,
-        "l1_misses": 2,
-        "l3_misses": 1
-      }
-    }
-  },
-  "k256/zero_verify": {
-    "summary": {
-      "instructions": {
-        "total": 2720311,
-        "l1_misses": 1881,
-        "l3_misses": 0
-      },
-      "data_reads": {
-        "total": 540395,
-        "l1_misses": 0,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 314488,
-        "l1_misses": 0,
-        "l3_misses": 0
-      }
-    }
-  },
-  "curve25519/bool_prove/false": {
-    "summary": {
-      "instructions": {
-        "total": 2166365,
-        "l1_misses": 1254,
-        "l3_misses": 18
-      },
-      "data_reads": {
-        "total": 532234,
-        "l1_misses": 2059,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 324551,
-        "l1_misses": 412,
-        "l3_misses": 42
-      }
-    }
-  },
-  "curve25519/encrypt": {
-    "summary": {
-      "instructions": {
-        "total": 666448,
-        "l1_misses": 104,
-        "l3_misses": 0
-      },
-      "data_reads": {
-        "total": 173005,
-        "l1_misses": 1041,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 115304,
-        "l1_misses": 101,
-        "l3_misses": 0
-      }
-    }
-  },
-  "curve25519/zero_verify": {
-    "summary": {
-      "instructions": {
-        "total": 806395,
-        "l1_misses": 445,
+        "total": 836949,
+        "l1_misses": 578,
         "l3_misses": 11
       },
       "data_reads": {
-        "total": 183449,
-        "l1_misses": 84,
+        "total": 191744,
+        "l1_misses": 87,
         "l3_misses": 0
       },
       "data_writes": {
-        "total": 97176,
-        "l1_misses": 131,
-        "l3_misses": 42
-      }
-    }
-  },
-  "k256/bool_prove/false": {
-    "summary": {
-      "instructions": {
-        "total": 5321218,
-        "l1_misses": 4658,
-        "l3_misses": 3
-      },
-      "data_reads": {
-        "total": 1065135,
-        "l1_misses": 0,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 616455,
-        "l1_misses": 2,
-        "l3_misses": 2
-      }
-    }
-  },
-  "k256/encrypt": {
-    "summary": {
-      "instructions": {
-        "total": 1843258,
-        "l1_misses": 1113,
-        "l3_misses": 0
-      },
-      "data_reads": {
-        "total": 378163,
-        "l1_misses": 0,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 214090,
-        "l1_misses": 0,
-        "l3_misses": 0
-      }
-    }
-  },
-  "curve25519/bool_prove/true": {
-    "summary": {
-      "instructions": {
-        "total": 2166339,
-        "l1_misses": 1257,
-        "l3_misses": 18
-      },
-      "data_reads": {
-        "total": 532230,
-        "l1_misses": 2105,
-        "l3_misses": 0
-      },
-      "data_writes": {
-        "total": 324547,
-        "l1_misses": 422,
+        "total": 103564,
+        "l1_misses": 130,
         "l3_misses": 42
       }
     }
