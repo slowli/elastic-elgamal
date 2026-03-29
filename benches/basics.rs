@@ -8,7 +8,7 @@ use elastic_elgamal::{
     group::{Curve25519Subgroup, Generic, Group, Ristretto},
 };
 use merlin::Transcript;
-use rand::{Rng, SeedableRng, seq::SliceRandom};
+use rand::{RngExt, SeedableRng, seq::SliceRandom};
 use rand_chacha::ChaChaRng;
 
 type K256 = Generic<k256::Secp256k1>;

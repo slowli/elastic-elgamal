@@ -5,7 +5,7 @@
 
 use core::iter;
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -32,7 +32,7 @@ pub struct Dealer<G: Group> {
 
 impl<G: Group> Dealer<G> {
     /// Instantiates a dealer.
-    pub fn new<R: CryptoRng + RngCore>(params: Params, rng: &mut R) -> Self {
+    pub fn new<R: CryptoRng>(params: Params, rng: &mut R) -> Self {
         let polynomial: Vec<_> = (0..params.threshold)
             .map(|_| Keypair::<G>::generate(rng))
             .collect();
@@ -146,7 +146,7 @@ impl<G: Group> ActiveParticipant<G> {
 
     /// Generates a [`ProofOfPossession`] of the participant's
     /// [`secret_share`](Self::secret_share()).
-    pub fn proof_of_possession<R: CryptoRng + RngCore>(&self, rng: &mut R) -> ProofOfPossession<G> {
+    pub fn proof_of_possession<R: CryptoRng>(&self, rng: &mut R) -> ProofOfPossession<G> {
         let mut transcript = Transcript::new(b"elgamal_participant_pop");
         self.key_set.commit(&mut transcript);
         transcript.append_u64(b"i", self.index as u64);
@@ -166,7 +166,7 @@ impl<G: Group> ActiveParticipant<G> {
         rng: &mut R,
     ) -> (VerifiableDecryption<G>, LogEqualityProof<G>)
     where
-        R: CryptoRng + RngCore,
+        R: CryptoRng,
     {
         let dh_element = ciphertext.random_element * self.secret_share.expose_scalar();
         let our_public_key = self.public_key_share().as_element();

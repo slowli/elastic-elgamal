@@ -4,8 +4,8 @@ use elliptic_curve::{
     CurveArithmetic, Field, FieldBytesSize, Group as _, ProjectivePoint, Scalar,
     array::{Array, typenum::Unsigned},
     ff::PrimeField,
-    rand_core::{CryptoRng, RngCore},
-    sec1::{EncodedPoint, FromEncodedPoint, ModulusSize, ToEncodedPoint},
+    rand_core::CryptoRng,
+    sec1::{FromSec1Point, ModulusSize, Sec1Point, ToSec1Point},
     zeroize::Zeroize,
 };
 
@@ -40,7 +40,7 @@ where
 
     const SCALAR_SIZE: usize = <FieldBytesSize<C> as Unsigned>::USIZE;
 
-    fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar {
+    fn generate_scalar<R: CryptoRng>(rng: &mut R) -> Self::Scalar {
         Scalar::<C>::random(rng)
     }
 
@@ -63,7 +63,7 @@ where
     C: CurveArithmetic,
     Scalar<C>: Zeroize,
     FieldBytesSize<C>: ModulusSize,
-    ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
+    ProjectivePoint<C>: ToSec1Point<C> + FromSec1Point<C>,
 {
     type Element = ProjectivePoint<C>;
 
@@ -85,13 +85,13 @@ where
     }
 
     fn serialize_element(element: &Self::Element, buffer: &mut [u8]) {
-        let encoded_point = element.to_encoded_point(true);
-        buffer.copy_from_slice(encoded_point.as_bytes());
+        let sec1_point = element.to_sec1_point(true);
+        buffer.copy_from_slice(sec1_point.as_bytes());
     }
 
     fn deserialize_element(input: &[u8]) -> Option<Self::Element> {
-        let encoded_point = EncodedPoint::<C>::from_bytes(input).ok()?;
-        ProjectivePoint::<C>::from_encoded_point(&encoded_point).into()
+        let sec1_point = Sec1Point::<C>::from_bytes(input).ok()?;
+        ProjectivePoint::<C>::from_sec1_point(&sec1_point).into()
     }
 }
 
@@ -100,7 +100,7 @@ where
     C: CurveArithmetic + 'static,
     Scalar<C>: Zeroize,
     FieldBytesSize<C>: ModulusSize,
-    ProjectivePoint<C>: ToEncodedPoint<C> + FromEncodedPoint<C>,
+    ProjectivePoint<C>: ToSec1Point<C> + FromSec1Point<C>,
 {
     // Default implementations are fine.
 }

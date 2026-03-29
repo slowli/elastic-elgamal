@@ -9,7 +9,7 @@ use elastic_elgamal::{
     group::Group,
 };
 use merlin::Transcript;
-use rand::Rng;
+use rand::RngExt;
 
 fn test_encryption_roundtrip<G: Group>() {
     let mut rng = rand::rng();

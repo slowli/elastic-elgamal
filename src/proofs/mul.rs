@@ -2,10 +2,7 @@
 
 use core::iter;
 
-use elliptic_curve::{
-    rand_core::{CryptoRng, RngCore},
-    zeroize::Zeroizing,
-};
+use elliptic_curve::{rand_core::CryptoRng, zeroize::Zeroizing};
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -107,7 +104,7 @@ impl<G: Group> SumOfSquaresProof<G> {
     /// All provided ciphertexts must be encrypted for `receiver`; otherwise, the created proof
     /// will not verify.
     #[allow(clippy::needless_collect)] // false positive
-    pub fn new<'a, R: RngCore + CryptoRng>(
+    pub fn new<'a, R: CryptoRng>(
         ciphertexts: impl Iterator<Item = &'a CiphertextWithValue<G>>,
         sum_of_squares_ciphertext: &CiphertextWithValue<G>,
         receiver: &PublicKey<G>,

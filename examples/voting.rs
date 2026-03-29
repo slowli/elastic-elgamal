@@ -15,9 +15,9 @@ use elastic_elgamal::{
     group::{Generic, Group, Ristretto},
     sharing::{ActiveParticipant, Dealer, Params, PublicKeySet},
 };
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use rand::{
-    Rng,
+    RngExt,
     seq::{IndexedMutRandom, IteratorRandom},
 };
 
@@ -102,7 +102,7 @@ impl Args {
         }
     }
 
-    fn initialize_talliers<G: Group, R: CryptoRng + RngCore>(
+    fn initialize_talliers<G: Group, R: CryptoRng>(
         &self,
         rng: &mut R,
     ) -> (PublicKeySet<G>, Vec<ActiveParticipant<G>>) {
@@ -142,7 +142,7 @@ impl Args {
             let decryption_shares: Vec<_> = talliers
                 .iter()
                 .enumerate()
-                .choose_multiple(&mut rng, key_set.params().threshold)
+                .sample(&mut rng, key_set.params().threshold)
                 .into_iter()
                 .map(|(j, tallier)| (j, tallier.decrypt_share(option_totals, &mut rng)))
                 .map(|(j, (share, proof))| {

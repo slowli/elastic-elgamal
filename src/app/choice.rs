@@ -2,10 +2,7 @@
 
 use core::{fmt, iter, ops};
 
-use elliptic_curve::{
-    rand_core::{CryptoRng, RngCore},
-    zeroize::Zeroizing,
-};
+use elliptic_curve::{rand_core::CryptoRng, zeroize::Zeroizing};
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -30,7 +27,7 @@ pub trait ProveSum<G: Group>: Clone + crate::sealed::Sealed {
     type Proof: Sized + Serialize + DeserializeOwned;
 
     #[doc(hidden)]
-    fn prove<R: CryptoRng + RngCore>(
+    fn prove<R: CryptoRng>(
         &self,
         ciphertext: &CiphertextWithValue<G, u64>,
         receiver: &PublicKey<G>,
@@ -59,7 +56,7 @@ impl crate::sealed::Sealed for SingleChoice {}
 impl<G: Group> ProveSum<G> for SingleChoice {
     type Proof = LogEqualityProof<G>;
 
-    fn prove<R: CryptoRng + RngCore>(
+    fn prove<R: CryptoRng>(
         &self,
         ciphertext: &CiphertextWithValue<G, u64>,
         receiver: &PublicKey<G>,
@@ -111,7 +108,7 @@ impl crate::sealed::Sealed for MultiChoice {}
 impl<G: Group> ProveSum<G> for MultiChoice {
     type Proof = ();
 
-    fn prove<R: CryptoRng + RngCore>(
+    fn prove<R: CryptoRng>(
         &self,
         _ciphertext: &CiphertextWithValue<G, u64>,
         _receiver: &PublicKey<G>,
@@ -288,7 +285,7 @@ impl<G: Group> EncryptedChoice<G, SingleChoice> {
     /// # Panics
     ///
     /// Panics if `choice` exceeds the maximum index allowed by `params`.
-    pub fn single<R: CryptoRng + RngCore>(
+    pub fn single<R: CryptoRng>(
         params: &ChoiceParams<G, SingleChoice>,
         choice: usize,
         rng: &mut R,
@@ -313,11 +310,7 @@ impl<G: Group, S: ProveSum<G>> EncryptedChoice<G, S> {
     /// # Panics
     ///
     /// Panics if the length of `choices` differs from the number of options specified in `params`.
-    pub fn new<R: CryptoRng + RngCore>(
-        params: &ChoiceParams<G, S>,
-        choices: &[bool],
-        rng: &mut R,
-    ) -> Self {
+    pub fn new<R: CryptoRng>(params: &ChoiceParams<G, S>, choices: &[bool], rng: &mut R) -> Self {
         assert!(!choices.is_empty(), "No choices provided");
         assert_eq!(
             choices.len(),

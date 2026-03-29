@@ -1,6 +1,6 @@
 //! [`LogEqualityProof`] and related logic.
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -111,7 +111,7 @@ impl<G: Group> LogEqualityProof<G> {
     /// - `powers` are `[r]G` and `[r]K`, respectively. It is **not** checked whether `r`
     ///   is a discrete log of these powers; if this is not the case, the constructed proof
     ///   will not [`verify`](Self::verify()).
-    pub fn new<R: CryptoRng + RngCore>(
+    pub fn new<R: CryptoRng>(
         log_base: &PublicKey<G>,
         secret: &SecretKey<G>,
         powers: (G::Element, G::Element),

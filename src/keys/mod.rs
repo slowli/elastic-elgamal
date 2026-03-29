@@ -3,10 +3,7 @@
 use core::{fmt, ops};
 
 use base64ct::{Base64UrlUnpadded, Encoding};
-use elliptic_curve::{
-    rand_core::{CryptoRng, RngCore},
-    zeroize::Zeroize,
-};
+use elliptic_curve::{rand_core::CryptoRng, zeroize::Zeroize};
 
 use crate::{
     alloc::{Vec, vec},
@@ -52,7 +49,7 @@ impl<G: Group> SecretKey<G> {
     }
 
     /// Generates a random secret key.
-    pub fn generate<R: CryptoRng + RngCore>(rng: &mut R) -> Self {
+    pub fn generate<R: CryptoRng>(rng: &mut R) -> Self {
         SecretKey(G::generate_scalar(rng))
     }
 
@@ -285,7 +282,7 @@ impl<G: Group> Clone for Keypair<G> {
 
 impl<G: Group> Keypair<G> {
     /// Generates a random keypair.
-    pub fn generate<R: RngCore + CryptoRng>(rng: &mut R) -> Self {
+    pub fn generate<R: CryptoRng>(rng: &mut R) -> Self {
         let secret = SecretKey::generate(rng);
         Keypair {
             public: PublicKey::from(&secret),

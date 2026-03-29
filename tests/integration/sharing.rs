@@ -8,7 +8,7 @@ use elastic_elgamal::{
 };
 use elliptic_curve::rand_core::CryptoRng;
 use rand::{
-    Rng,
+    Rng, RngExt,
     seq::{IndexedMutRandom, IteratorRandom},
 };
 
@@ -61,10 +61,7 @@ impl<G: Group> Rig<G> {
             // Now, each counter produces a decryption share. We take 8 shares randomly
             // (slightly more than the necessary 7).
             let decryption_shares = self.decryption_shares(option_totals, rng);
-            let decryption_shares = decryption_shares
-                .into_iter()
-                .enumerate()
-                .choose_multiple(rng, 8);
+            let decryption_shares = decryption_shares.into_iter().enumerate().sample(rng, 8);
 
             let combined_decryption = params.combine_shares(decryption_shares).unwrap();
             let option_totals = combined_decryption
@@ -95,7 +92,7 @@ fn tiny_fuzz<G: Group>(params: Params) {
                 .iter()
                 .copied()
                 .enumerate()
-                .choose_multiple(&mut rng, params.threshold);
+                .sample(&mut rng, params.threshold);
             let combined = params.combine_shares(chosen_shares).unwrap();
             let decrypted = combined.decrypt_to_element(encrypted);
 
@@ -197,7 +194,7 @@ mod curve25519 {
 
     use super::*;
 
-    #[test_casing(2, PARAMS_CASES)]
+    #[test_casing(13, PARAMS_CASES)]
     fn group_info_can_be_restored_from_participants(params: Params) {
         test_group_info_can_be_restored_from_participants::<Curve25519Subgroup>(params);
     }
@@ -224,7 +221,7 @@ mod ristretto {
 
     use super::*;
 
-    #[test_casing(2, PARAMS_CASES)]
+    #[test_casing(13, PARAMS_CASES)]
     fn group_info_can_be_restored_from_participants(params: Params) {
         test_group_info_can_be_restored_from_participants::<Ristretto>(params);
     }
@@ -253,7 +250,7 @@ mod k256 {
 
     type K256 = Generic<::k256::Secp256k1>;
 
-    #[test_casing(2, PARAMS_CASES)]
+    #[test_casing(13, PARAMS_CASES)]
     fn group_info_can_be_restored_from_participants(params: Params) {
         test_group_info_can_be_restored_from_participants::<K256>(params);
     }

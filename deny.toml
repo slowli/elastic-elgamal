@@ -24,6 +24,8 @@ wildcards = "deny"
 skip-tree = [
   # `curve25519-dalek-ng` is not actively maintained
   { name = "curve25519-dalek-ng", version = "^4" },
+  # `bulletproofs` are not actively maintained
+  { name = "bulletproofs", version = "^5" },
 ]
 
 [sources]

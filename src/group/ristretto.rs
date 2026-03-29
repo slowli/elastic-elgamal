@@ -1,6 +1,6 @@
 use core::convert::TryInto;
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 
 use crate::{
     curve25519::{
@@ -25,7 +25,7 @@ impl ScalarOps for Ristretto {
 
     const SCALAR_SIZE: usize = 32;
 
-    fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar {
+    fn generate_scalar<R: CryptoRng>(rng: &mut R) -> Self::Scalar {
         let mut scalar_bytes = [0_u8; 64];
         rng.fill_bytes(&mut scalar_bytes[..]);
         Scalar::from_bytes_mod_order_wide(&scalar_bytes)

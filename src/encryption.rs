@@ -3,7 +3,7 @@
 use core::{fmt, marker::PhantomData, ops};
 
 use elliptic_curve::{
-    rand_core::{CryptoRng, RngCore},
+    rand_core::CryptoRng,
     zeroize::{Zeroize, Zeroizing},
 };
 #[cfg(feature = "serde")]
@@ -307,7 +307,7 @@ pub struct ExtendedCiphertext<G: Group> {
 
 impl<G: Group> ExtendedCiphertext<G> {
     /// Creates a ciphertext of `value` for the specified `receiver`.
-    pub(crate) fn new<R: CryptoRng + RngCore>(
+    pub(crate) fn new<R: CryptoRng>(
         value: G::Element,
         receiver: &PublicKey<G>,
         rng: &mut R,
@@ -400,7 +400,7 @@ where
     ///
     /// This is a lower-level operation compared to [`PublicKey::encrypt()`] and should be used
     /// if the resulting ciphertext is necessary to produce proofs.
-    pub fn new<R: CryptoRng + RngCore>(value: V, receiver: &PublicKey<G>, rng: &mut R) -> Self {
+    pub fn new<R: CryptoRng>(value: V, receiver: &PublicKey<G>, rng: &mut R) -> Self {
         let scalar = Zeroizing::new(G::Scalar::from(value));
         let element = G::mul_generator(&scalar);
         ExtendedCiphertext::new(element, receiver, rng).with_value(value)
@@ -440,7 +440,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
 
     use super::*;
     use crate::{Keypair, curve25519::scalar::Scalar as Curve25519Scalar, group::Ristretto};
