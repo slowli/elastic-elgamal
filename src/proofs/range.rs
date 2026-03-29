@@ -2,10 +2,7 @@
 
 use core::{convert::TryFrom, fmt};
 
-use elliptic_curve::{
-    rand_core::{CryptoRng, RngCore},
-    zeroize::Zeroizing,
-};
+use elliptic_curve::{rand_core::CryptoRng, zeroize::Zeroizing};
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -462,7 +459,7 @@ impl<G: Group> RangeProof<G> {
     /// # Panics
     ///
     /// Panics if `value` is outside the range specified by `range`.
-    pub fn new<R: RngCore + CryptoRng>(
+    pub fn new<R: CryptoRng>(
         receiver: &PublicKey<G>,
         range: &PreparedRange<G>,
         value: u64,
@@ -482,7 +479,7 @@ impl<G: Group> RangeProof<G> {
     /// # Panics
     ///
     /// Panics if `value` is outside the range specified by `range`.
-    pub fn from_ciphertext<R: RngCore + CryptoRng>(
+    pub fn from_ciphertext<R: CryptoRng>(
         receiver: &PublicKey<G>,
         range: &PreparedRange<G>,
         ciphertext: &CiphertextWithValue<G, u64>,
@@ -582,7 +579,7 @@ impl<G: Group> RangeProof<G> {
 
 #[cfg(test)]
 mod tests {
-    use rand::Rng;
+    use rand::RngExt;
     use test_casing::test_casing;
 
     use super::*;

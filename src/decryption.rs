@@ -1,6 +1,6 @@
 //! Verifiable decryption.
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -86,7 +86,7 @@ impl<G: Group> VerifiableDecryption<G> {
     /// a zero-knowledge proof of validity.
     ///
     /// See [`CandidateDecryption::verify()`] for the verification counterpart.
-    pub fn new<R: CryptoRng + RngCore>(
+    pub fn new<R: CryptoRng>(
         ciphertext: Ciphertext<G>,
         keys: &Keypair<G>,
         transcript: &mut Transcript,

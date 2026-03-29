@@ -1,6 +1,6 @@
 //! [`ProofOfPossession`] and related logic.
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -77,7 +77,7 @@ pub struct ProofOfPossession<G: Group> {
 
 impl<G: Group> ProofOfPossession<G> {
     /// Creates a proof of possession with the specified `keypairs`.
-    pub fn new<R: CryptoRng + RngCore>(
+    pub fn new<R: CryptoRng>(
         keypairs: &[Keypair<G>],
         transcript: &mut Transcript,
         rng: &mut R,
@@ -90,7 +90,7 @@ impl<G: Group> ProofOfPossession<G> {
         )
     }
 
-    pub(crate) fn from_keys<'a, R: CryptoRng + RngCore>(
+    pub(crate) fn from_keys<'a, R: CryptoRng>(
         secrets: impl Iterator<Item = &'a SecretKey<G>>,
         public_keys: impl Iterator<Item = &'a PublicKey<G>>,
         transcript: &mut Transcript,

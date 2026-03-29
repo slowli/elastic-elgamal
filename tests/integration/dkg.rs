@@ -1,9 +1,9 @@
 //! Tests focused on distributed key generation.
 
 use elastic_elgamal::{dkg::ParticipantCollectingCommitments, group::Group, sharing::Params};
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 
-fn complete_dkg<G: Group, R: RngCore + CryptoRng>(params: Params, rng: &mut R) {
+fn complete_dkg<G: Group, R: CryptoRng>(params: Params, rng: &mut R) {
     let participant_count = params.shares;
     let participants =
         (0..participant_count).map(|i| ParticipantCollectingCommitments::<G>::new(params, i, rng));

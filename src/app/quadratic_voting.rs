@@ -2,7 +2,7 @@
 
 use core::fmt;
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -231,7 +231,7 @@ impl<G: Group> QuadraticVotingBallot<G> {
     /// # Panics
     ///
     /// Panics if the length of `votes` differs from the number of options in `params`.
-    pub fn new<R: CryptoRng + RngCore>(
+    pub fn new<R: CryptoRng>(
         params: &QuadraticVotingParams<G>,
         votes: &[u64],
         rng: &mut R,

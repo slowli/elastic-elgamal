@@ -2,7 +2,7 @@
 
 use core::iter;
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 
 use crate::{
@@ -13,7 +13,7 @@ use crate::{
 
 impl<G: Group> PublicKey<G> {
     /// Encrypts a value for this key.
-    pub fn encrypt<T, R: CryptoRng + RngCore>(&self, value: T, rng: &mut R) -> Ciphertext<G>
+    pub fn encrypt<T, R: CryptoRng>(&self, value: T, rng: &mut R) -> Ciphertext<G>
     where
         G::Scalar: From<T>,
     {
@@ -23,18 +23,14 @@ impl<G: Group> PublicKey<G> {
     }
 
     /// Encrypts a group element.
-    pub fn encrypt_element<R: CryptoRng + RngCore>(
-        &self,
-        value: G::Element,
-        rng: &mut R,
-    ) -> Ciphertext<G> {
+    pub fn encrypt_element<R: CryptoRng>(&self, value: G::Element, rng: &mut R) -> Ciphertext<G> {
         ExtendedCiphertext::new(value, self, rng).inner
     }
 
     /// Encrypts zero value and provides a zero-knowledge proof of encryption correctness.
     pub fn encrypt_zero<R>(&self, rng: &mut R) -> (Ciphertext<G>, LogEqualityProof<G>)
     where
-        R: CryptoRng + RngCore,
+        R: CryptoRng,
     {
         let random_scalar = SecretKey::<G>::generate(rng);
         let random_element = G::mul_generator(&random_scalar.0);
@@ -78,7 +74,7 @@ impl<G: Group> PublicKey<G> {
     /// # Examples
     ///
     /// See [`Ciphertext`] docs for an example of usage.
-    pub fn encrypt_bool<R: CryptoRng + RngCore>(
+    pub fn encrypt_bool<R: CryptoRng>(
         &self,
         value: bool,
         rng: &mut R,
@@ -125,7 +121,7 @@ impl<G: Group> PublicKey<G> {
     /// # Examples
     ///
     /// See [`Ciphertext`] docs for an example of usage.
-    pub fn encrypt_range<R: CryptoRng + RngCore>(
+    pub fn encrypt_range<R: CryptoRng>(
         &self,
         range: &PreparedRange<G>,
         value: u64,

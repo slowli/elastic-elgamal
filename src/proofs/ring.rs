@@ -2,7 +2,7 @@
 
 use core::{fmt, mem};
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -51,7 +51,7 @@ impl<G: Group> fmt::Debug for Ring<'_, G> {
 
 impl<'a, G: Group> Ring<'a, G> {
     #[allow(clippy::too_many_arguments)] // fine for a private function
-    fn new<R: CryptoRng + RngCore>(
+    fn new<R: CryptoRng>(
         index: usize,
         log_base: G::Element,
         ciphertext: ExtendedCiphertext<G>,
@@ -135,7 +135,7 @@ impl<'a, G: Group> Ring<'a, G> {
     /// # Return value
     ///
     /// Returns the common challenge.
-    fn aggregate<R: CryptoRng + RngCore>(
+    fn aggregate<R: CryptoRng>(
         rings: Vec<Self>,
         log_base: G::Element,
         transcript: &mut Transcript,
@@ -159,7 +159,7 @@ impl<'a, G: Group> Ring<'a, G> {
         common_challenge
     }
 
-    fn finalize<R: CryptoRng + RngCore>(
+    fn finalize<R: CryptoRng>(
         self,
         log_base: G::Element,
         common_challenge: G::Scalar,
@@ -437,7 +437,7 @@ impl<G: Group, R: fmt::Debug> fmt::Debug for RingProofBuilder<'_, G, R> {
     }
 }
 
-impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
+impl<'a, G: Group, R: CryptoRng> RingProofBuilder<'a, G, R> {
     /// Starts building a [`RingProof`].
     pub fn new(
         receiver: &'a PublicKey<G>,
@@ -510,7 +510,7 @@ impl<'a, G: Group, R: RngCore + CryptoRng> RingProofBuilder<'a, G, R> {
 mod tests {
     use core::iter;
 
-    use rand::Rng;
+    use rand::RngExt;
     use test_casing::test_casing;
 
     use super::*;

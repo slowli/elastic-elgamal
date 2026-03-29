@@ -1,6 +1,6 @@
 //! Zero-knowledge proof of ElGamal encryption and Pedersen commitment equivalence.
 
-use elliptic_curve::rand_core::{CryptoRng, RngCore};
+use elliptic_curve::rand_core::CryptoRng;
 use merlin::Transcript;
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
@@ -131,7 +131,7 @@ impl<G: Group> CommitmentEquivalenceProof<G> {
     /// # Return value
     ///
     /// Returns a proof together with the Pedersen commitment.
-    pub fn new<R: RngCore + CryptoRng>(
+    pub fn new<R: CryptoRng>(
         ciphertext: &CiphertextWithValue<G>,
         receiver: &PublicKey<G>,
         commitment_blinding: &SecretKey<G>,

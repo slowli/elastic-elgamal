@@ -15,7 +15,7 @@
 use core::{fmt, ops, str};
 
 use elliptic_curve::{
-    rand_core::{CryptoRng, RngCore, SeedableRng},
+    rand_core::{CryptoRng, SeedableRng},
     zeroize::Zeroize,
 };
 use merlin::Transcript;
@@ -84,7 +84,7 @@ pub trait ScalarOps {
 
     /// Generates a random scalar based on the provided CSPRNG. This operation
     /// must be constant-time.
-    fn generate_scalar<R: CryptoRng + RngCore>(rng: &mut R) -> Self::Scalar;
+    fn generate_scalar<R: CryptoRng>(rng: &mut R) -> Self::Scalar;
 
     /// Generates a scalar from a `source` of random bytes. This operation must be constant-time.
     /// The `source` is guaranteed to return any necessary number of bytes.

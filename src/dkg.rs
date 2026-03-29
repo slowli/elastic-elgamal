@@ -98,10 +98,7 @@
 
 use core::fmt;
 
-use elliptic_curve::{
-    rand_core::{CryptoRng, RngCore},
-    zeroize::Zeroizing,
-};
+use elliptic_curve::{rand_core::CryptoRng, zeroize::Zeroizing};
 #[cfg(feature = "serde")]
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
@@ -204,7 +201,7 @@ impl<G: Group> ParticipantCollectingCommitments<G> {
     /// # Panics
     ///
     /// Panics if `index` is greater or equal to the number of shares.
-    pub fn new<R: CryptoRng + RngCore>(params: Params, index: usize, rng: &mut R) -> Self {
+    pub fn new<R: CryptoRng>(params: Params, index: usize, rng: &mut R) -> Self {
         assert!(index < params.shares);
 
         let dealer = Dealer::new(params, rng);
