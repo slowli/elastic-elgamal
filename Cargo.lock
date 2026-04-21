@@ -148,7 +148,7 @@ dependencies = [
  "digest 0.10.7",
  "group",
  "merlin",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rand_core 0.6.4",
  "serde",
  "serde_derive",
@@ -576,7 +576,7 @@ dependencies = [
  "curve25519-dalek-ng",
  "doc-comment",
  "elliptic-curve",
- "hashbrown 0.16.1",
+ "hashbrown 0.17.0",
  "insta",
  "k256",
  "merlin",
@@ -759,6 +759,12 @@ name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
+
+[[package]]
+name = "hashbrown"
+version = "0.17.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
 dependencies = [
  "allocator-api2",
  "equivalent",
@@ -1175,9 +1181,9 @@ checksum = "f8dcc9c7d52a811697d2151c701e0d08956f92b0e24136cf4cf27b57a6a0d9bf"
 
 [[package]]
 name = "rand"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
