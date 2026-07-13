@@ -54,7 +54,7 @@ where
 
     fn deserialize_scalar(buffer: &[u8]) -> Option<Self::Scalar> {
         // For most curves, cloning will be resolved as a copy.
-        Scalar::<C>::from_repr(Array::try_from(buffer).unwrap().clone()).into()
+        Scalar::<C>::from_repr(Array::try_from(buffer).unwrap()).into()
     }
 }
 
