@@ -553,7 +553,7 @@ checksum = "91622ff5e7162018101f2fea40d6ebf4a78bbe5a49736a2020649edf9693679e"
 
 [[package]]
 name = "elastic-elgamal"
-version = "0.3.1"
+version = "0.4.0-beta.1"
 dependencies = [
  "base64ct",
  "bulletproofs",

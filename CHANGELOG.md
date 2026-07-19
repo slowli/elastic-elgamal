@@ -5,6 +5,8 @@ The project adheres to [Semantic Versioning](http://semver.org/spec/v2.0.0.html)
 
 ## [Unreleased]
 
+## 0.4.0-beta.1 - 2026-07-19
+
 ### Changed
 
 - Update crypto dependencies.
