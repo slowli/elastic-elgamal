@@ -58,7 +58,7 @@ use crate::{
 ///
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Ciphertext, Keypair};
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// // Generate a keypair for the ciphertext receiver.
 /// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);
@@ -74,7 +74,7 @@ use crate::{
 ///
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Keypair, RangeDecomposition};
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// // Generate the ciphertext receiver.
 /// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);

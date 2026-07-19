@@ -226,7 +226,7 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # use elastic_elgamal::{
 /// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
 /// # };
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let choice_params = ChoiceParams::single(pk, 5);
@@ -254,7 +254,7 @@ impl<G: Group> ChoiceParams<G, MultiChoice> {
 /// # use elastic_elgamal::{
 /// #     app::{ChoiceParams, EncryptedChoice}, group::Ristretto, DiscreteLogTable, Keypair,
 /// # };
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let choice_params = ChoiceParams::multi(pk, 5);
@@ -431,9 +431,8 @@ impl fmt::Display for ChoiceVerificationError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for ChoiceVerificationError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for ChoiceVerificationError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::Sum(err) | Self::Range(err) => Some(err),
             _ => None,

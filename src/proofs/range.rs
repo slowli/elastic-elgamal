@@ -410,7 +410,7 @@ impl<G: Group> PreparedRange<G> {
 /// #     group::Ristretto, DiscreteLogTable, Keypair, RangeDecomposition, RangeProof, Ciphertext,
 /// # };
 /// # use merlin::Transcript;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// // Generate the ciphertext receiver.
 /// let mut rng = rand::rng();
 /// let receiver = Keypair::<Ristretto>::generate(&mut rng);

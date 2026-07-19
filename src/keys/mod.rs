@@ -226,8 +226,7 @@ impl fmt::Display for PublicKeyConversionError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for PublicKeyConversionError {}
+impl core::error::Error for PublicKeyConversionError {}
 
 impl<G: Group> ops::Add<Self> for PublicKey<G> {
     type Output = Self;

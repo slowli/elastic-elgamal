@@ -32,7 +32,7 @@ use crate::{
 /// ```
 /// # use elastic_elgamal::{group::Ristretto, Keypair, ProofOfPossession};
 /// # use merlin::Transcript;
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// let mut rng = rand::rng();
 /// let keypairs: Vec<_> =
 ///     (0..5).map(|_| Keypair::<Ristretto>::generate(&mut rng)).collect();

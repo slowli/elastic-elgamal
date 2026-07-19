@@ -76,7 +76,7 @@ use crate::{
 /// #     141, 116, 95, 148, 160, 140, 219, 127, 68, 203, 205, 123, 70,
 /// #     243, 64, 72, 135, 17, 52,
 /// # ];
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// let blinding_base = // Blinding base for Pedersen commitments
 ///                     // (e.g., from Bulletproofs)
 /// #    Ristretto::deserialize_element(BLINDING_BASE).unwrap();
