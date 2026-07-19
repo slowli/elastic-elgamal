@@ -178,7 +178,7 @@ fn isqrt(mut x: u64) -> u64 {
 /// #     app::{QuadraticVotingParams, QuadraticVotingBallot}, group::Ristretto, Keypair,
 /// #     DiscreteLogTable,
 /// # };
-/// # fn main() -> Result<(), Box<dyn std::error::Error>> {
+/// # fn main() -> Result<(), Box<dyn core::error::Error>> {
 /// let mut rng = rand::rng();
 /// let (pk, sk) = Keypair::<Ristretto>::generate(&mut rng).into_tuple();
 /// let params = QuadraticVotingParams::new(pk, 5, 20);
@@ -375,9 +375,8 @@ impl fmt::Display for QuadraticVotingError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for QuadraticVotingError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for QuadraticVotingError {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::Variant { error, .. }
             | Self::CreditRange(error)

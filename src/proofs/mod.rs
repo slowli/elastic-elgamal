@@ -117,5 +117,4 @@ impl fmt::Display for VerificationError {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for VerificationError {}
+impl core::error::Error for VerificationError {}

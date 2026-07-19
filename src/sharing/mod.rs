@@ -68,7 +68,7 @@
 //! # use elastic_elgamal::{
 //! #     group::Ristretto, sharing::*, CandidateDecryption, Ciphertext, DiscreteLogTable,
 //! # };
-//! # use std::error::Error as StdError;
+//! # use core::error::Error as StdError;
 //! # fn main() -> Result<(), Box<dyn StdError>> {
 //! let mut rng = rand::rng();
 //! let params = Params::new(3, 2);
@@ -259,9 +259,8 @@ impl fmt::Display for Error {
     }
 }
 
-#[cfg(feature = "std")]
-impl std::error::Error for Error {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl core::error::Error for Error {
+    fn source(&self) -> Option<&(dyn core::error::Error + 'static)> {
         match self {
             Self::InvalidDealerProof(err) => Some(err),
             _ => None,

@@ -47,7 +47,7 @@ Add this to your `Crate.toml`:
 
 ```toml
 [dependencies]
-elastic-elgamal = "0.3.1"
+elastic-elgamal = "0.4.0-beta.1"
 ```
 
 ### Single-choice polling
